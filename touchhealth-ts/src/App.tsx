@@ -1,0 +1,109 @@
+// ════════════════════════════════════════════════════════════
+// TOUCH HEALTH · src/App.tsx
+// Root component — auth gate, page routing, store init
+// ════════════════════════════════════════════════════════════
+
+import { useEffect } from 'react';
+import { useAuthStore } from './store/useAuthStore';
+import { usePatientStore } from './store/usePatientStore';
+import { useUIStore } from './store/useUIStore';
+import Topbar from './components/layout/Topbar';
+import NavTabs from './components/layout/NavTabs';
+import SyncBar from './components/ui/SyncBar';
+import AuthPage from './pages/AuthPage';
+import PatientsPage from './pages/PatientsPage';
+import LTFUPage from './pages/LTFUPage';
+import ClinicPage from './pages/ClinicPage';
+import ReportsPage from './pages/ReportsPage';
+import AdminPage from './pages/AdminPage';
+import VisitModal from './components/visit/VisitModal';
+import MedModal from './components/visit/MedModal';
+import type { PageId } from './types';
+
+function isDoctorPage(p: PageId) {
+  return p === 'patients' || p === 'ltfu' || p === 'clinic' || p === 'reports';
+}
+
+function isAdminPage(p: PageId) {
+  return p === 'overview' || p === 'trends' || p === 'doctors' || p === 'settings';
+}
+
+export default function App() {
+  const { init, currentUser, isLoading } = useAuthStore();
+  const loadFromStorage = usePatientStore((s) => s.loadFromStorage);
+  const activePage = useUIStore((s) => s.activePage);
+  const navigateTo = useUIStore((s) => s.navigateTo);
+
+  useEffect(() => {
+    init();
+    loadFromStorage();
+  }, [init, loadFromStorage]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (currentUser.role === 'doctor' && !isDoctorPage(activePage)) {
+      navigateTo('patients');
+    }
+    if (currentUser.role === 'admin' && !isAdminPage(activePage)) {
+      navigateTo('overview');
+    }
+  }, [currentUser, activePage, navigateTo]);
+
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(135deg,#0c1e2a 0%,#0d6e87 60%,#1a8fa8 100%)',
+        }}
+      >
+        <div style={{ textAlign: 'center', color: '#fff' }}>
+          <div
+            style={{
+              fontFamily: 'Syne,sans-serif',
+              fontSize: 24,
+              fontWeight: 800,
+              marginBottom: 8,
+            }}
+          >
+            Touch Health
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.5 }}>Loading…</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) return <AuthPage />;
+
+  const role = currentUser.role;
+
+  return (
+    <div className="min-h-screen bg-[var(--cream)]">
+      <Topbar />
+      <SyncBar />
+      <NavTabs />
+
+      <main className="min-h-[calc(100vh-94px)]">
+        {role === 'doctor' ? (
+          <>
+            {activePage === 'patients' ? <PatientsPage /> : null}
+            {activePage === 'ltfu' ? <LTFUPage /> : null}
+            {activePage === 'clinic' ? <ClinicPage /> : null}
+            {activePage === 'reports' ? <ReportsPage /> : null}
+          </>
+        ) : (
+          <AdminPage />
+        )}
+      </main>
+
+      {/* Slide-in panels (driven by Zustand) */}
+      <VisitModal />
+      <MedModal />
+    </div>
+  );
+}

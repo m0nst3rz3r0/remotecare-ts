@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink:#0f1f26;--ink2:#2a4a58;--ink3:#4a7a8a;
+  --teal:#0d6e87;--teal2:#1a8fa8;--teal3:#2ab5d4;
+  --teal-pale:#e4f6fb;--teal-ultra:#f0fafc;
+  --cream:#fafaf8;
+  --emerald:#16a34a;--emerald-pale:#dcfce7;
+  --rose:#dc2626;--rose-pale:#fee2e2;
+  --amber:#d97706;--amber-pale:#fef3c7;
+  --violet:#7c3aed;--violet-pale:#ede9fe;
+  --slate:#64748b;--border:#d4e9ef;
+  --shadow:0 1px 12px rgba(13,110,135,.08);
+  --r:10px;--r-sm:6px;
+}
+
+body { font-family:'Karla',sans-serif; background:var(--cream); color:var(--ink); font-size:14px; line-height:1.5; }
+h1,h2,h3,h4 { font-family:'Syne',sans-serif; }
+.mono { font-family:'JetBrains Mono',monospace; }
+
+.chip { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap; }
+.chip-normal   { background:var(--emerald-pale); color:var(--emerald); }
+.chip-elevated { background:var(--amber-pale);   color:var(--amber); }
+.chip-high     { background:var(--rose-pale);    color:var(--rose); }
+.chip-crisis   { background:#7f1d1d;             color:#fef2f2; font-weight:800; }
+.chip-low      { background:#dbeafe;             color:#1d4ed8; }
+.chip-blue     { background:var(--teal-pale);    color:var(--teal); }
+.chip-gray     { background:#f1f5f9;             color:var(--slate); }
+
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--teal3); }

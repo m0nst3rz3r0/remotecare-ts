@@ -1,0 +1,69 @@
+import PageWrapper from '../components/layout/PageWrapper';
+import PatientSidebar from '../components/patient/PatientSidebar';
+import PatientDetail from '../components/patient/PatientDetail';
+import { useAuthStore } from '../store/useAuthStore';
+import { usePatientStore, selectSelectedPatient } from '../store/usePatientStore';
+
+export default function PatientsPage() {
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const selectedId = usePatientStore((s) => s.selectedId);
+  const selectPatient = usePatientStore((s) => s.selectPatient);
+  const selectedPatient = usePatientStore((s) =>
+    selectSelectedPatient(s.patients, s.selectedId),
+  );
+
+  const showMobileDetail = !!selectedId;
+  const title = currentUser?.role === 'doctor' ? 'Patients' : 'Patients';
+
+  const mobileBack = (
+    <div className="p-3 border-b border-[var(--border)] bg-white flex items-center gap-2">
+      <button
+        type="button"
+        className="px-3 py-2 rounded-[var(--r-sm)] border border-[var(--border)] font-extrabold text-[12px] uppercase tracking-[0.5px]"
+        onClick={() => selectPatient(null)}
+      >
+        ← Back
+      </button>
+      <div className="font-syne font-extrabold text-[14px] text-[var(--ink)]">
+        {selectedPatient?.code ?? 'Patient'}
+      </div>
+    </div>
+  );
+
+  // Desktop: sidebar + detail
+  if (showMobileDetail) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="lg:hidden">{mobileBack}</div>
+        <div className="flex-1 lg:flex hidden">
+          <div className="hidden lg:block w-[300px] border-r border-[var(--border)]">
+            <PatientSidebar />
+          </div>
+          <div className="flex-1">
+            <PatientDetail />
+          </div>
+        </div>
+        <div className="lg:hidden flex-1">
+          <PatientDetail />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <PageWrapper title={title}>
+      <div className="flex flex-col lg:flex-row gap-0">
+        <aside className="w-full lg:w-[300px] lg:flex-shrink-0 lg:border-r border-[var(--border)]">
+          <div className="lg:block">{/* desktop */}</div>
+          <div className="lg:hidden">{/* mobile sidebar */}</div>
+          <PatientSidebar />
+        </aside>
+
+        <section className="hidden lg:block flex-1 overflow-hidden">
+          <PatientDetail />
+        </section>
+      </div>
+    </PageWrapper>
+  );
+}
+
