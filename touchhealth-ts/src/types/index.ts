@@ -67,6 +67,11 @@ export interface SessionUser {
   sessionHospital: string;
   sessionRegion: string;
   sessionDistrict: string;
+  // ── NEW: carry superadmin flag into session ──────────────
+  isSuperAdmin: boolean;
+  // ── NEW: carry admin's assigned region/district ──────────
+  adminRegion: string;
+  adminDistrict: string;
 }
 
 // ── MEDICATIONS ───────────────────────────────────────────────
