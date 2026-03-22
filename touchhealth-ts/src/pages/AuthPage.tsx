@@ -3,7 +3,6 @@ import { useAuthStore } from '../store/useAuthStore';
 import {
   getHospitalsByRegionDistrict,
   loadUsers,
-  clearAndReseed,
 } from '../services/auth';
 
 export default function AuthPage() {
@@ -23,7 +22,7 @@ export default function AuthPage() {
   const detectedRole = useMemo(() => {
     if (!username.trim()) return null;
     const users = loadUsers();
-    const matchedUser = users.find(u => 
+    const matchedUser = users.find(u =>
       u.username.toLowerCase() === username.toLowerCase()
     );
     return matchedUser?.role || null;
@@ -44,43 +43,27 @@ export default function AuthPage() {
     return getHospitalsByRegionDistrict(region, district);
   }, [region, district]);
 
-  const canSubmit = !!(username.trim() && 
-                        password.trim() && 
+  const canSubmit = !!(username.trim() &&
+                        password.trim() &&
                         (detectedRole === 'admin' || (detectedRole === 'doctor' && region && district && hospital)));
 
-  // Debug logging
-  console.log('Auth Debug:', {
-    username: username.trim(),
-    password: password.trim(),
-    detectedRole,
-    region,
-    district,
-    hospital,
-    canSubmit
-  });
-
   const onSubmit = () => {
-    console.log('submitting', username.trim());
-    alert('Button clicked! Username: ' + username.trim());
-    
-    const res = signIn({
+    if (!canSubmit) return;
+    signIn({
       username: username.trim(),
       password,
       role: detectedRole || 'admin',
       ...(detectedRole === 'doctor' && { region, district, hospital }),
     });
-    
-    console.log('Login result:', res);
-    void res;
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f4f7f7 0%, #e8eef0 100%)' }}>
-      <div 
-        className="overflow-hidden" 
-        style={{ 
-          width: '100%', 
-          maxWidth: '920px', 
+      <div
+        className="overflow-hidden"
+        style={{
+          width: '100%',
+          maxWidth: '920px',
           minHeight: '640px',
           borderRadius: '14px',
           boxShadow: '0 32px 80px rgba(15,31,38,.14)',
@@ -88,9 +71,9 @@ export default function AuthPage() {
           flexDirection: 'row'
         }}
       >
-        {/* Left Panel - Fixed width 380px */}
-        <div 
-          style={{ 
+        {/* Left Panel */}
+        <div
+          style={{
             width: '380px',
             background: '#f4f7f7',
             borderRight: '1px solid rgba(191,200,205,.2)',
@@ -100,7 +83,6 @@ export default function AuthPage() {
             justifyContent: 'space-between'
           }}
         >
-          {/* Top Section */}
           <div>
             <div className="flex items-center gap-4 mb-8">
               <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: '#005469' }}>
@@ -114,17 +96,16 @@ export default function AuthPage() {
                 </div>
               </div>
             </div>
-            
+
             <h1 className="font-syne text-3xl font-extrabold mb-4" style={{ color: '#005469' }}>
               RemoteCare Research Organisation
             </h1>
-            
+
             <p className="text-lg mb-6" style={{ color: '#2a4a58', lineHeight: 1.6 }}>
               Advanced Sentinel System for Non-Communicable Disease Management.
             </p>
           </div>
 
-          {/* Bottom Section */}
           <div>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border" style={{ borderColor: 'rgba(13,110,135,.2)', background: 'rgba(13,110,135,.05)' }}>
               <div className="w-2 h-2 rounded-full" style={{ background: '#16a34a' }}></div>
@@ -135,9 +116,9 @@ export default function AuthPage() {
           </div>
         </div>
 
-        {/* Right Panel - Flex: 1 */}
-        <div 
-          style={{ 
+        {/* Right Panel */}
+        <div
+          style={{
             flex: 1,
             background: '#ffffff',
             padding: '48px 52px',
@@ -146,7 +127,6 @@ export default function AuthPage() {
             justifyContent: 'center'
           }}
         >
-          {/* Header */}
           <div className="mb-8">
             <div className="font-mono text-xs font-bold mb-2" style={{ color: '#516169', letterSpacing: '1px', textTransform: 'uppercase' }}>
               SECURE ACCESS PORTAL
@@ -159,13 +139,12 @@ export default function AuthPage() {
             </p>
           </div>
 
-          {/* Error Message */}
           {loginError && (
-            <div 
-              className="mb-6 rounded-lg border px-4 py-3" 
-              style={{ 
-                background: 'rgba(220,38,38,.1)', 
-                borderColor: 'rgba(220,38,38,.2)', 
+            <div
+              className="mb-6 rounded-lg border px-4 py-3"
+              style={{
+                background: 'rgba(220,38,38,.1)',
+                borderColor: 'rgba(220,38,38,.2)',
                 color: '#7f1d1d',
                 fontWeight: 700,
                 fontSize: '12px'
@@ -175,7 +154,6 @@ export default function AuthPage() {
             </div>
           )}
 
-          {/* Form Fields */}
           <div className="space-y-4">
             {/* Staff Identifier */}
             <div>
@@ -184,9 +162,9 @@ export default function AuthPage() {
               </label>
               <div style={{ position: 'relative' }}>
                 <div style={{
-                  position: 'absolute', 
-                  left: '12px', 
-                  top: '50%', 
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
                   transform: 'translateY(-50%)',
                   color: '#516169',
                   fontSize: '16px'
@@ -199,8 +177,8 @@ export default function AuthPage() {
                   type="text"
                   placeholder="Enter your staff identifier"
                   className="w-full rounded-lg border px-4 py-3 outline-none transition-colors"
-                  style={{ 
-                    borderColor: 'rgba(191,200,205,.55)', 
+                  style={{
+                    borderColor: 'rgba(191,200,205,.55)',
                     fontFamily: 'Karla, sans-serif',
                     fontSize: '14px',
                     paddingLeft: '44px'
@@ -226,9 +204,9 @@ export default function AuthPage() {
               </label>
               <div style={{ position: 'relative' }}>
                 <div style={{
-                  position: 'absolute', 
-                  left: '12px', 
-                  top: '50%', 
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
                   transform: 'translateY(-50%)',
                   color: '#516169',
                   fontSize: '16px'
@@ -241,8 +219,8 @@ export default function AuthPage() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your security key"
                   className="w-full rounded-lg border px-4 py-3 outline-none transition-colors"
-                  style={{ 
-                    borderColor: 'rgba(191,200,205,.55)', 
+                  style={{
+                    borderColor: 'rgba(191,200,205,.55)',
                     fontFamily: 'Karla, sans-serif',
                     fontSize: '14px',
                     paddingLeft: '44px',
@@ -287,21 +265,21 @@ export default function AuthPage() {
                       setHospital('');
                     }}
                     className="w-full rounded-lg border px-4 py-3 outline-none transition-colors"
-                    style={{ 
-                      borderColor: 'rgba(191,200,205,.55)', 
+                    style={{
+                      borderColor: 'rgba(191,200,205,.55)',
                       fontFamily: 'Karla, sans-serif',
                       fontSize: '14px'
                     }}
                     onFocus={(e) => {
-                    const target = e.target as HTMLSelectElement;
-                    target.style.borderColor = '#0d6e87';
-                    target.style.boxShadow = '0 0 0 3px rgba(13,110,135,.1)';
-                  }}
-                  onBlur={(e) => {
-                    const target = e.target as HTMLSelectElement;
-                    target.style.borderColor = 'rgba(191,200,205,.55)';
-                    target.style.boxShadow = 'none';
-                  }}
+                      const target = e.target as HTMLSelectElement;
+                      target.style.borderColor = '#0d6e87';
+                      target.style.boxShadow = '0 0 0 3px rgba(13,110,135,.1)';
+                    }}
+                    onBlur={(e) => {
+                      const target = e.target as HTMLSelectElement;
+                      target.style.borderColor = 'rgba(191,200,205,.55)';
+                      target.style.boxShadow = 'none';
+                    }}
                   >
                     <option value="">Select Region</option>
                     <option value="Kagera">Kagera</option>
@@ -309,7 +287,7 @@ export default function AuthPage() {
                     <option value="Dar es Salaam">Dar es Salaam</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block font-syne text-xs font-bold mb-2" style={{ color: '#005469', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     District
@@ -322,21 +300,21 @@ export default function AuthPage() {
                     }}
                     disabled={!region}
                     className="w-full rounded-lg border px-4 py-3 outline-none transition-colors"
-                    style={{ 
-                      borderColor: 'rgba(191,200,205,.55)', 
+                    style={{
+                      borderColor: 'rgba(191,200,205,.55)',
                       fontFamily: 'Karla, sans-serif',
                       fontSize: '14px'
                     }}
                     onFocus={(e) => {
-                    const target = e.target as HTMLSelectElement;
-                    target.style.borderColor = '#0d6e87';
-                    target.style.boxShadow = '0 0 0 3px rgba(13,110,135,.1)';
-                  }}
-                  onBlur={(e) => {
-                    const target = e.target as HTMLSelectElement;
-                    target.style.borderColor = 'rgba(191,200,205,.55)';
-                    target.style.boxShadow = 'none';
-                  }}
+                      const target = e.target as HTMLSelectElement;
+                      target.style.borderColor = '#0d6e87';
+                      target.style.boxShadow = '0 0 0 3px rgba(13,110,135,.1)';
+                    }}
+                    onBlur={(e) => {
+                      const target = e.target as HTMLSelectElement;
+                      target.style.borderColor = 'rgba(191,200,205,.55)';
+                      target.style.boxShadow = 'none';
+                    }}
                   >
                     <option value="">Select District</option>
                     {region === 'Kagera' && (
@@ -361,7 +339,7 @@ export default function AuthPage() {
                     )}
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block font-syne text-xs font-bold mb-2" style={{ color: '#005469', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Hospital Facility
@@ -371,21 +349,21 @@ export default function AuthPage() {
                     onChange={(e) => setHospital(e.target.value)}
                     disabled={!region || !district}
                     className="w-full rounded-lg border px-4 py-3 outline-none transition-colors"
-                    style={{ 
-                      borderColor: 'rgba(191,200,205,.55)', 
+                    style={{
+                      borderColor: 'rgba(191,200,205,.55)',
                       fontFamily: 'Karla, sans-serif',
                       fontSize: '14px'
                     }}
                     onFocus={(e) => {
-                    const target = e.target as HTMLSelectElement;
-                    target.style.borderColor = '#0d6e87';
-                    target.style.boxShadow = '0 0 0 3px rgba(13,110,135,.1)';
-                  }}
-                  onBlur={(e) => {
-                    const target = e.target as HTMLSelectElement;
-                    target.style.borderColor = 'rgba(191,200,205,.55)';
-                    target.style.boxShadow = 'none';
-                  }}
+                      const target = e.target as HTMLSelectElement;
+                      target.style.borderColor = '#0d6e87';
+                      target.style.boxShadow = '0 0 0 3px rgba(13,110,135,.1)';
+                    }}
+                    onBlur={(e) => {
+                      const target = e.target as HTMLSelectElement;
+                      target.style.borderColor = 'rgba(191,200,205,.55)';
+                      target.style.boxShadow = 'none';
+                    }}
                   >
                     <option value="">Select Hospital</option>
                     {hospitalOptions.map((h) => (
@@ -398,68 +376,28 @@ export default function AuthPage() {
               </div>
             )}
 
-            {/* Debug Button */}
-            <button
-              type="button"
-              onClick={() => {
-                clearAndReseed();
-                alert('Data cleared and reseeded! Check console for details.');
-              }}
-              className="w-full rounded-lg py-2 mb-2 font-syne font-bold text-white transition-all"
-              style={{ 
-                background: '#dc2626',
-                fontSize: '12px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                cursor: 'pointer'
-              }}
-            >
-              CLEAR & RESEED DATA (Debug)
-            </button>
-
-            {/* Test Button */}
-            <button
-              type="button"
-              onClick={() => alert('Test button works!')}
-              className="w-full rounded-lg py-2 mb-2 font-syne font-bold text-white transition-all"
-              style={{ 
-                background: '#dc2626',
-                fontSize: '12px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                cursor: 'pointer'
-              }}
-            >
-              TEST CLICK (Red Button)
-            </button>
-
             {/* Submit Button */}
             <button
               type="button"
-              onClick={() => {
-                console.log('Button clicked!');
-                alert('Main button clicked!');
-                onSubmit();
-              }}
+              onClick={onSubmit}
+              disabled={!canSubmit}
               className="w-full rounded-lg py-3 font-syne font-bold text-white transition-all"
-              style={{ 
-                background: '#005469',
+              style={{
+                background: canSubmit ? '#005469' : '#9bb3bb',
                 fontSize: '14px',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(0,84,105,.25)'
+                cursor: canSubmit ? 'pointer' : 'not-allowed',
+                boxShadow: canSubmit ? '0 4px 12px rgba(0,84,105,.25)' : 'none'
               }}
               onMouseEnter={(e) => {
                 if (canSubmit) {
-                  const target = e.target as HTMLButtonElement;
-                  target.style.background = '#004252';
+                  (e.target as HTMLButtonElement).style.background = '#004252';
                 }
               }}
               onMouseLeave={(e) => {
                 if (canSubmit) {
-                  const target = e.target as HTMLButtonElement;
-                  target.style.background = '#005469';
+                  (e.target as HTMLButtonElement).style.background = '#005469';
                 }
               }}
             >
@@ -468,21 +406,18 @@ export default function AuthPage() {
           </div>
 
           {/* Onboarding Hint */}
-          <div className="mt-6 p-3 rounded-lg border" style={{ 
-            borderColor: 'rgba(13,110,135,.2)', 
-            background: 'rgba(13,110,135,.05)' 
+          <div className="mt-6 p-3 rounded-lg border" style={{
+            borderColor: 'rgba(13,110,135,.2)',
+            background: 'rgba(13,110,135,.05)'
           }}>
             <div className="flex items-center gap-2">
-              <span style={{ fontSize: '16px', color: '#005469' }}>
-                💡
-              </span>
+              <span style={{ fontSize: '16px', color: '#005469' }}>💡</span>
               <div className="text-xs" style={{ color: '#005469', fontFamily: 'JetBrains Mono, monospace' }}>
                 First login: superadmin / super123
               </div>
             </div>
           </div>
 
-          {/* Footer */}
           <div className="mt-8 text-center">
             <div className="font-mono text-xs" style={{ color: '#516169', letterSpacing: '0.5px' }}>
               SECURE TERMINAL © 2025 REMOTECARE PRECISION MEDICINE SUITE
@@ -493,4 +428,3 @@ export default function AuthPage() {
     </div>
   );
 }
-                
