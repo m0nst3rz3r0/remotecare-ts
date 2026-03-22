@@ -35,8 +35,8 @@ const DEFAULT_USERS: User[] = [
     role: 'admin',
     displayName: 'System Admin',
     hospital: '',
-    region: '',
-    district: '',
+    region: 'Kagera',
+    district: 'Bukoba Municipal',
     createdAt: new Date().toISOString(),
   },
   {
@@ -89,31 +89,16 @@ export function saveHospitals(hospitals: Hospital[]): void {
 // ── SEED DEFAULTS ─────────────────────────────────────────────
 
 export function seedDefaults(): void {
-  const existingUsers = loadUsers();
-  console.log('Existing users before seeding:', existingUsers.length);
-  
-  if (!loadUsers().length) {
-    console.log('Seeding default users:', DEFAULT_USERS.map(u => ({ username: u.username, password: u.password, role: u.role })));
-    saveUsers(DEFAULT_USERS);
-  }
-  
-  const existingHospitals = loadHospitals();
-  console.log('Existing hospitals before seeding:', existingHospitals.length);
-  
-  if (!loadHospitals().length) {
-    console.log('Seeding default hospitals');
-    saveHospitals(DEFAULT_HOSPITALS);
-  }
+  if (!loadUsers().length)     saveUsers(DEFAULT_USERS);
+  if (!loadHospitals().length) saveHospitals(DEFAULT_HOSPITALS);
 }
 
 export function clearAndReseed(): void {
-  console.log('Clearing all data and re-seeding...');
   localStorage.removeItem(KEYS.USERS);
   localStorage.removeItem(KEYS.HOSPITALS);
   localStorage.removeItem(KEYS.SESSION);
   saveUsers(DEFAULT_USERS);
   saveHospitals(DEFAULT_HOSPITALS);
-  console.log('Re-seeded with users:', DEFAULT_USERS.map(u => ({ username: u.username, password: u.password, role: u.role })));
 }
 
 // ── SESSION ───────────────────────────────────────────────────
@@ -139,7 +124,7 @@ export function validateSession(): SessionUser | null {
   const session = getSession();
   if (!session) return null;
   const stillExists = loadUsers().find(
-    (u) => u.id === session.id && u.role === session.role
+    (u) => u.id === session.id && u.role === session.role,
   );
   if (!stillExists) { clearSession(); return null; }
   return session;
@@ -161,22 +146,14 @@ export function login(params: {
 }): LoginResult {
   const { username, password, role, hospital = '', region = '', district = '' } = params;
 
-  console.log('Login attempt:', { username, password, role, hospital, region, district });
-
   if (!username || !password) {
     return { success: false, error: 'Please enter your username and password.' };
   }
 
   const users = loadUsers();
-  console.log('Loaded users:', users.map(u => ({ username: u.username, password: u.password, role: u.role })));
-
   const anyMatch = users.find(
-    (u) =>
-      u.username.toLowerCase() === username.toLowerCase() &&
-      u.password === password
+    (u) => u.username.toLowerCase() === username.toLowerCase() && u.password === password,
   );
-
-  console.log('Found match:', anyMatch);
 
   if (!anyMatch) {
     return { success: false, error: 'Incorrect username or password. Please try again.' };
@@ -209,14 +186,17 @@ export function login(params: {
       role:            anyMatch.role,
       hospital:        anyMatch.hospital,
       sessionHospital: resolvedHospital,
-      sessionRegion:   region,
-      sessionDistrict: district,
+      sessionRegion:   region || anyMatch.region,
+      sessionDistrict: district || anyMatch.district,
+      isSuperAdmin:    false,
+      adminRegion:     '',
+      adminDistrict:   '',
     };
     saveSession(sessionUser);
     return { success: true, user: sessionUser };
   }
 
-  // Admin login
+  // Admin login — carry region/district and superadmin flag
   const sessionUser: SessionUser = {
     id:              anyMatch.id,
     username:        anyMatch.username,
@@ -224,8 +204,11 @@ export function login(params: {
     role:            anyMatch.role,
     hospital:        anyMatch.hospital,
     sessionHospital: 'RemoteCare',
-    sessionRegion:   '',
-    sessionDistrict: '',
+    sessionRegion:   anyMatch.region   ?? '',
+    sessionDistrict: anyMatch.district ?? '',
+    isSuperAdmin:    anyMatch.isSuperAdmin === true,
+    adminRegion:     anyMatch.region   ?? '',
+    adminDistrict:   anyMatch.district ?? '',
   };
   saveSession(sessionUser);
   return { success: true, user: sessionUser };
@@ -251,14 +234,35 @@ export function addUser(params: {
   hospital?: string;
   region?: string;
   district?: string;
+  isSuperAdmin?: boolean;
+  createdBy?: SessionUser | null;  // who is creating this user
 }): MutationResult {
-  const { displayName, username, password, role, hospital = '', region = '', district = '' } = params;
+  const {
+    displayName, username, password, role,
+    hospital = '', region = '', district = '',
+    isSuperAdmin: newUserIsSuperAdmin = false,
+    createdBy = null,
+  } = params;
 
   if (!displayName || !username || !password) {
     return { success: false, error: 'Name, username and password are required.' };
   }
   if (password.length < 6) {
     return { success: false, error: 'Password must be at least 6 characters.' };
+  }
+
+  // ── Permission checks ──────────────────────────────────────
+  if (role === 'admin') {
+    // Only superadmin can create admins
+    if (!createdBy?.isSuperAdmin) {
+      return { success: false, error: 'Only superadmin can create admin accounts.' };
+    }
+  }
+  if (role === 'doctor') {
+    // Only admin (or superadmin) can create doctors
+    if (createdBy && createdBy.role !== 'admin') {
+      return { success: false, error: 'Only admins can create doctor accounts.' };
+    }
   }
 
   const users = loadUsers();
@@ -270,15 +274,16 @@ export function addUser(params: {
   }
 
   const newUser: User = {
-    id:        'u' + Date.now(),
+    id:           'u' + Date.now(),
     displayName,
-    username:  username.toLowerCase(),
+    username:     username.toLowerCase(),
     password,
     role,
     hospital,
     region,
     district,
-    createdAt: new Date().toISOString(),
+    isSuperAdmin: newUserIsSuperAdmin,
+    createdAt:    new Date().toISOString(),
   };
 
   saveUsers([...users, newUser]);
@@ -289,13 +294,40 @@ export function deleteUser(id: string): void {
   saveUsers(loadUsers().filter((u) => u.id !== id));
 }
 
-export function updateUserPassword(id: string, newPassword: string): MutationResult {
+// ── PASSWORD RESET ────────────────────────────────────────────
+
+export function updateUserPassword(
+  targetId: string,
+  newPassword: string,
+  requestedBy: SessionUser | null,
+): MutationResult {
+  if (!requestedBy) {
+    return { success: false, error: 'You must be signed in to reset passwords.' };
+  }
   if (newPassword.length < 6) {
     return { success: false, error: 'Password must be at least 6 characters.' };
   }
-  saveUsers(
-    loadUsers().map((u) => (u.id === id ? { ...u, password: newPassword } : u))
-  );
+
+  const users = loadUsers();
+  const target = users.find((u) => u.id === targetId);
+  if (!target) {
+    return { success: false, error: 'User not found.' };
+  }
+
+  // Superadmin can reset any admin password
+  // Admin can reset any doctor password
+  // Nobody can reset a superadmin password (except themselves via profile — future feature)
+  if (target.isSuperAdmin) {
+    return { success: false, error: 'Superadmin password cannot be reset here.' };
+  }
+  if (target.role === 'admin' && !requestedBy.isSuperAdmin) {
+    return { success: false, error: 'Only superadmin can reset admin passwords.' };
+  }
+  if (target.role === 'doctor' && requestedBy.role !== 'admin') {
+    return { success: false, error: 'Only admins can reset doctor passwords.' };
+  }
+
+  saveUsers(users.map((u) => (u.id === targetId ? { ...u, password: newPassword } : u)));
   return { success: true };
 }
 
@@ -314,10 +346,7 @@ export function addHospital(params: {
   if (hospitals.find((h) => h.name.toLowerCase() === name.toLowerCase())) {
     return { success: false, error: 'A hospital with this name already exists.' };
   }
-  saveHospitals([
-    ...hospitals,
-    { id: 'h' + Date.now(), name, region, district },
-  ]);
+  saveHospitals([...hospitals, { id: 'h' + Date.now(), name, region, district }]);
   return { success: true };
 }
 
@@ -325,21 +354,18 @@ export function deleteHospital(id: string): void {
   saveHospitals(loadHospitals().filter((h) => h.id !== id));
 }
 
-export function getHospitalsByRegionDistrict(
-  region: string,
-  district: string
-): Hospital[] {
+export function getHospitalsByRegionDistrict(region: string, district: string): Hospital[] {
   return loadHospitals().filter(
     (h) =>
       (!region   || h.region   === region) &&
-      (!district || h.district === district)
+      (!district || h.district === district),
   );
 }
 
 // ── PERMISSION HELPERS ────────────────────────────────────────
 
 export function isSuperAdmin(user: SessionUser | null): boolean {
-  return user?.username === 'alexalpha360';
+  return user?.isSuperAdmin === true;
 }
 
 export function isAdmin(user: SessionUser | null): boolean {
@@ -350,13 +376,11 @@ export function isDoctor(user: SessionUser | null): boolean {
   return user?.role === 'doctor';
 }
 
-/** Returns the hospital filter for the session. null = admin sees all. */
 export function getHospitalScope(user: SessionUser | null): string | null {
   if (!user || user.role === 'admin') return null;
   return user.sessionHospital || user.hospital || null;
 }
 
-/** Get 2-char uppercase initials for avatar display */
 export function getUserInitials(displayName: string): string {
   return displayName
     .split(' ')
