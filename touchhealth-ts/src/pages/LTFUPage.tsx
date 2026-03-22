@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePatientStore, selectVisiblePatients, selectSelectedPatient } from '../store/usePatientStore';
-import { isDue, getLastVisit } from '../services/clinical';
+import { isDue } from '../services/clinical';
 import {
-  getPatientNextDate, daysUntilAppointment,
+  daysUntilAppointment,
   sendSMS as sendSMSService,
 } from '../services/sms';
 import { loadSMSConfig, saveSMSConfig, loadSMSLog, saveSMSLog } from '../services/storage';
@@ -71,10 +71,6 @@ export default function LTFUPage() {
   // ── Computed patient lists ────────────────────────────────
   const ltfuPatients = useMemo(() =>
     visiblePatients.filter((p) => p.status === 'ltfu' && p.phone),
-  [visiblePatients]);
-
-  const overduePatients = useMemo(() =>
-    visiblePatients.filter((p) => p.status === 'active' && isDue(p) && p.phone),
   [visiblePatients]);
 
   // Reminder = due within next 2 days (1 day before clinic)
