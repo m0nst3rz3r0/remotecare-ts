@@ -66,9 +66,10 @@ export default function RegisterForm() {
   const currentUser     = useAuthStore((s) => s.currentUser);
 
   const isDoctor       = currentUser?.role === 'doctor';
-  const doctorRegion   = isDoctor ? (currentUser?.region   ?? '') : '';
-  const doctorDistrict = isDoctor ? (currentUser?.district ?? '') : '';
-  const doctorHospital = isDoctor ? (currentUser?.hospital ?? '') : '';
+  // SessionUser stores location as sessionRegion / sessionDistrict / hospital
+  const doctorRegion   = isDoctor ? (currentUser?.sessionRegion   ?? '') : '';
+  const doctorDistrict = isDoctor ? (currentUser?.sessionDistrict ?? '') : '';
+  const doctorHospital = isDoctor ? (currentUser?.hospital        ?? '') : '';
 
   const [region,   setRegion]   = useState(doctorRegion);
   const [district, setDistrict] = useState(doctorDistrict);
