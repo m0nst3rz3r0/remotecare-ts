@@ -314,9 +314,10 @@ function SettingsView() {
       username:    uUser.trim(),
       password:    uPass,
       role,
+      // superadmin assigns region+district to admin; admin assigns region+district+hospital to doctor
       hospital:    role === 'doctor' ? dHospital : '',
-      region:      role === 'doctor' ? dRegion   : '',
-      district:    role === 'doctor' ? dDistrict : '',
+      region:      dRegion,
+      district:    dDistrict,
       createdBy:   currentUser,
     });
     if (!res.success) { setUErr(res.error); return; }
@@ -421,27 +422,47 @@ function SettingsView() {
           </div>
         </div>
 
-        {/* Doctor-only: assign hospital */}
+        {/* Superadmin creating admin: assign region + district */}
+        {superAdmin && (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <div className={labelCls}>Assign Region</div>
+              <select value={dRegion} onChange={(e) => { setDRegion(e.target.value); setDDistrict(''); setDHospital(''); }} className={inputCls}>
+                <option value="">-- Select Region --</option>
+                {regions.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <div className={labelCls}>Assign District</div>
+              <select value={dDistrict} onChange={(e) => setDDistrict(e.target.value)} disabled={!dRegion} className={`${inputCls} disabled:opacity-50`}>
+                <option value="">-- Select District --</option>
+                {docDistrictOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Admin creating doctor: assign region + district + hospital */}
         {!superAdmin && (
           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <div className={labelCls}>Region</div>
               <select value={dRegion} onChange={(e) => { setDRegion(e.target.value); setDDistrict(''); setDHospital(''); }} className={inputCls}>
-                <option value="">— Select —</option>
+                <option value="">-- Select --</option>
                 {regions.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             <div>
               <div className={labelCls}>District</div>
               <select value={dDistrict} onChange={(e) => { setDDistrict(e.target.value); setDHospital(''); }} disabled={!dRegion} className={`${inputCls} disabled:opacity-50`}>
-                <option value="">— Select —</option>
+                <option value="">-- Select --</option>
                 {docDistrictOptions.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
             <div>
               <div className={labelCls}>Hospital</div>
               <select value={dHospital} onChange={(e) => setDHospital(e.target.value)} disabled={!dRegion || !dDistrict} className={`${inputCls} disabled:opacity-50`}>
-                <option value="">— Select —</option>
+                <option value="">-- Select --</option>
                 {docHospitalOptions.map((h) => <option key={h.id} value={h.name}>{h.name}</option>)}
               </select>
             </div>
