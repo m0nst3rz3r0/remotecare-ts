@@ -35,10 +35,9 @@ function patientStatusLabel(status: Patient['status']) {
 }
 
 function statusGradient(status: Patient['status']) {
-  if (status === 'ltfu') return 'linear-gradient(135deg,var(--ink2),var(--rose))';
-  if (status === 'completed')
-    return 'linear-gradient(135deg,var(--ink2),var(--ink3))';
-  return 'linear-gradient(135deg,var(--ink2),var(--teal2))';
+  if (status === 'ltfu')      return 'linear-gradient(135deg,#0f1f26 0%,#7f1d1d 100%)';
+  if (status === 'completed') return 'linear-gradient(135deg,#0f1f26 0%,#005469 100%)';
+  return 'linear-gradient(135deg,#0f1f26 0%,#005469 100%)';
 }
 
 export default function PatientDetail() {
