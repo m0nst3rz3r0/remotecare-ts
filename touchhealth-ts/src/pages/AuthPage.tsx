@@ -1,236 +1,393 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
-import type { UserRole } from '../types';
-import { TZ_GEO } from '../utils/geo';
 import {
   getHospitalsByRegionDistrict,
+  loadUsers,
+  clearAndReseed,
 } from '../services/auth';
-import Button from '../components/ui/Button';
 
 export default function AuthPage() {
   const signIn = useAuthStore((s) => s.signIn);
   const loginError = useAuthStore((s) => s.loginError);
   const clearError = useAuthStore((s) => s.clearError);
 
-  const [roleTab, setRoleTab] = useState<UserRole>('admin');
-
-  // Admin
-  const [adminUser, setAdminUser] = useState('');
-  const [adminPass, setAdminPass] = useState('');
-
-  // Doctor
+  // Form state
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [region, setRegion] = useState('');
   const [district, setDistrict] = useState('');
   const [hospital, setHospital] = useState('');
-  const [docUser, setDocUser] = useState('');
-  const [docPass, setDocPass] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-  const regions = useMemo(() => Object.keys(TZ_GEO).sort(), []);
-  const districts = useMemo(() => {
-    if (!region) return [];
-    return TZ_GEO[region] ?? [];
-  }, [region]);
+  // Detect role from username
+  const detectedRole = useMemo(() => {
+    if (!username.trim()) return null;
+    const users = loadUsers();
+    const matchedUser = users.find(u => 
+      u.username.toLowerCase() === username.toLowerCase()
+    );
+    return matchedUser?.role || null;
+  }, [username]);
+
+  // Reset dependent fields when username changes
+  useEffect(() => {
+    clearError();
+    if (!username.trim()) {
+      setRegion('');
+      setDistrict('');
+      setHospital('');
+    }
+  }, [username, clearError]);
 
   const hospitalOptions = useMemo(() => {
     if (!region || !district) return [];
     return getHospitalsByRegionDistrict(region, district);
   }, [region, district]);
 
-  useEffect(() => {
-    clearError();
-  }, [roleTab, clearError]);
+  const canSubmit = !!(username.trim() && 
+                        password.trim() && 
+                        (detectedRole === 'admin' || (detectedRole === 'doctor' && region && district && hospital)));
 
-  const canSubmit =
-    roleTab === 'admin'
-      ? !!adminUser.trim() && !!adminPass.trim()
-      : !!region && !!district && !!hospital && !!docUser.trim() && !!docPass.trim();
+  // Debug logging
+  console.log('Auth Debug:', {
+    username: username.trim(),
+    password: password.trim(),
+    detectedRole,
+    region,
+    district,
+    hospital,
+    canSubmit
+  });
 
   const onSubmit = () => {
-    const res = signIn(
-      roleTab === 'admin'
-        ? {
-            username: adminUser.trim(),
-            password: adminPass,
-            role: 'admin',
-          }
-        : {
-            username: docUser.trim(),
-            password: docPass,
-            role: 'doctor',
-            region,
-            district,
-            hospital,
-          },
-    );
-
-    // Store already sets loginError; no extra handling needed.
+    console.log('submitting', username.trim());
+    alert('Button clicked! Username: ' + username.trim());
+    
+    const res = signIn({
+      username: username.trim(),
+      password,
+      role: detectedRole || 'admin',
+      ...(detectedRole === 'doctor' && { region, district, hospital }),
+    });
+    
+    console.log('Login result:', res);
     void res;
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center p-3"
-      style={{
-        background:
-          'linear-gradient(135deg,var(--teal) 0%,var(--ink) 55%,var(--teal2) 140%)',
-      }}
-    >
-      <div className="w-full max-w-[980px] rounded-[var(--r)] overflow-hidden border border-[rgba(255,255,255,.12)] bg-[rgba(255,255,255,.06)]">
-        <div className="grid grid-cols-1 md:grid-cols-2">
-          <div className="p-6 md:p-8">
-            <div className="h-full flex flex-col justify-center">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center font-extrabold text-white"
-                  style={{ background: 'var(--teal2)' }}
-                >
-                  TH
-                </div>
-                <div>
-                  <div className="font-syne text-white text-[18px] font-extrabold">
-                    Touch Health
-                  </div>
-                  <div className="text-white/80 text-[12px] uppercase font-bold tracking-[0.5px]">
-                    Tanzania NCD Management
-                  </div>
-                </div>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f4f7f7 0%, #e8eef0 100%)' }}>
+      <div 
+        className="overflow-hidden" 
+        style={{ 
+          width: '100%', 
+          maxWidth: '920px', 
+          minHeight: '640px',
+          borderRadius: '14px',
+          boxShadow: '0 32px 80px rgba(15,31,38,.14)',
+          display: 'flex',
+          flexDirection: 'row'
+        }}
+      >
+        {/* Left Panel - Fixed width 380px */}
+        <div 
+          style={{ 
+            width: '380px',
+            background: '#f4f7f7',
+            borderRight: '1px solid rgba(191,200,205,.2)',
+            padding: '48px 40px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between'
+          }}
+        >
+          {/* Top Section */}
+          <div>
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: '#005469' }}>
+                <span className="text-white" style={{ fontSize: '24px', fontWeight: 'bold' }}>
+                  RC
+                </span>
               </div>
-              <div className="mt-5 text-white/80 text-[13px] leading-relaxed">
-                Offline-first clinical workflow for rural Tanzania.
-              </div>
-
-              <div className="mt-6 text-white/90 text-[12px] font-bold">
-                First login hint: <span className="font-mono">admin / admin123</span>
+              <div>
+                <div className="font-syne text-2xl font-extrabold" style={{ color: '#005469' }}>
+                  RemoteCare
+                </div>
               </div>
             </div>
+            
+            <h1 className="font-syne text-3xl font-extrabold mb-4" style={{ color: '#005469' }}>
+              RemoteCare Research Organisation
+            </h1>
+            
+            <p className="text-lg mb-6" style={{ color: '#2a4a58', lineHeight: 1.6 }}>
+              Advanced Sentinel System for Non-Communicable Disease Management.
+            </p>
           </div>
 
-          <div className="p-6 md:p-8 bg-[rgba(250,250,248,.92)]">
-            <div className="flex gap-2 mb-4">
-              <button
-                className="flex-1 rounded-[var(--r-sm)] py-2 font-extrabold uppercase tracking-[0.5px] text-[12px] border"
-                style={{
-                  background: roleTab === 'admin' ? 'var(--teal-ultra)' : 'transparent',
-                  borderColor: roleTab === 'admin' ? 'var(--teal)' : 'var(--border)',
-                  color: roleTab === 'admin' ? 'var(--teal)' : 'var(--ink)',
-                }}
-                onClick={() => setRoleTab('admin')}
-              >
-                Admin
-              </button>
-              <button
-                className="flex-1 rounded-[var(--r-sm)] py-2 font-extrabold uppercase tracking-[0.5px] text-[12px] border"
-                style={{
-                  background: roleTab === 'doctor' ? 'var(--teal-ultra)' : 'transparent',
-                  borderColor: roleTab === 'doctor' ? 'var(--teal)' : 'var(--border)',
-                  color: roleTab === 'doctor' ? 'var(--teal)' : 'var(--ink)',
-                }}
-                onClick={() => setRoleTab('doctor')}
-              >
-                Doctor
-              </button>
+          {/* Bottom Section */}
+          <div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border" style={{ borderColor: 'rgba(13,110,135,.2)', background: 'rgba(13,110,135,.05)' }}>
+              <div className="w-2 h-2 rounded-full" style={{ background: '#16a34a' }}></div>
+              <span className="font-mono text-sm font-bold" style={{ color: '#005469' }}>
+                Encrypted Clinical Node · Active
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Panel - Flex: 1 */}
+        <div 
+          style={{ 
+            flex: 1,
+            background: '#ffffff',
+            padding: '48px 52px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center'
+          }}
+        >
+          {/* Header */}
+          <div className="mb-8">
+            <div className="font-mono text-xs font-bold mb-2" style={{ color: '#516169', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              SECURE ACCESS PORTAL
+            </div>
+            <h2 className="font-syne text-2xl font-extrabold mb-2" style={{ color: '#005469' }}>
+              Portal Access
+            </h2>
+            <p className="text-sm" style={{ color: '#516169', lineHeight: 1.5 }}>
+              Enter your authorized credentials to access the sentinel dashboard.
+            </p>
+          </div>
+
+          {/* Error Message */}
+          {loginError && (
+            <div 
+              className="mb-6 rounded-lg border px-4 py-3" 
+              style={{ 
+                background: 'rgba(220,38,38,.1)', 
+                borderColor: 'rgba(220,38,38,.2)', 
+                color: '#7f1d1d',
+                fontWeight: 700,
+                fontSize: '12px'
+              }}
+            >
+              {loginError}
+            </div>
+          )}
+
+          {/* Form Fields */}
+          <div className="space-y-4">
+            {/* Staff Identifier */}
+            <div>
+              <label className="block font-syne text-xs font-bold mb-2" style={{ color: '#005469', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Staff Identifier
+              </label>
+              <div style={{ position: 'relative' }}>
+                <div style={{
+                  position: 'absolute', 
+                  left: '12px', 
+                  top: '50%', 
+                  transform: 'translateY(-50%)',
+                  color: '#516169',
+                  fontSize: '16px'
+                }}>
+                  ●
+                </div>
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  type="text"
+                  placeholder="Enter your staff identifier"
+                  className="w-full rounded-lg border px-4 py-3 outline-none transition-colors"
+                  style={{ 
+                    borderColor: 'rgba(191,200,205,.55)', 
+                    fontFamily: 'Karla, sans-serif',
+                    fontSize: '14px',
+                    paddingLeft: '44px'
+                  }}
+                  onFocus={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    target.style.borderColor = '#0d6e87';
+                    target.style.boxShadow = '0 0 0 3px rgba(13,110,135,.1)';
+                  }}
+                  onBlur={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    target.style.borderColor = 'rgba(191,200,205,.55)';
+                    target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
             </div>
 
-            {loginError ? (
-              <div
-                className="mb-4 rounded-[var(--r)] border px-4 py-3"
-                style={{
-                  background: 'var(--rose-pale)',
-                  borderColor: 'var(--rose)',
-                  color: 'var(--rose)',
-                  fontWeight: 800,
-                }}
-              >
-                {loginError}
+            {/* Security Key */}
+            <div>
+              <label className="block font-syne text-xs font-bold mb-2" style={{ color: '#005469', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Security Key
+              </label>
+              <div style={{ position: 'relative' }}>
+                <div style={{
+                  position: 'absolute', 
+                  left: '12px', 
+                  top: '50%', 
+                  transform: 'translateY(-50%)',
+                  color: '#516169',
+                  fontSize: '16px'
+                }}>
+                  🔒
+                </div>
+                <input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your security key"
+                  className="w-full rounded-lg border px-4 py-3 outline-none transition-colors"
+                  style={{ 
+                    borderColor: 'rgba(191,200,205,.55)', 
+                    fontFamily: 'Karla, sans-serif',
+                    fontSize: '14px',
+                    paddingLeft: '44px',
+                    paddingRight: '44px'
+                  }}
+                  onFocus={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    target.style.borderColor = '#0d6e87';
+                    target.style.boxShadow = '0 0 0 3px rgba(13,110,135,.1)';
+                  }}
+                  onBlur={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    target.style.borderColor = 'rgba(191,200,205,.55)';
+                    target.style.boxShadow = 'none';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded hover:bg-gray-100 transition-colors"
+                  style={{ color: '#516169' }}
+                >
+                  <span style={{ fontSize: '16px' }}>
+                    {showPassword ? '👁️' : '👁'}
+                  </span>
+                </button>
               </div>
-            ) : null}
+            </div>
 
-            {roleTab === 'admin' ? (
-              <div className="flex flex-col gap-3">
+            {/* Hospital Selector (only for doctors) */}
+            {detectedRole === 'doctor' && (
+              <div className="space-y-3">
                 <div>
-                  <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                    Username
-                  </div>
-                  <input
-                    value={adminUser}
-                    onChange={(e) => setAdminUser(e.target.value)}
-                    className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-                    placeholder="admin"
-                    autoComplete="username"
-                  />
+                  <label className="block font-syne text-xs font-bold mb-2" style={{ color: '#005469', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Region
+                  </label>
+                  <select
+                    value={region}
+                    onChange={(e) => {
+                      setRegion(e.target.value);
+                      setDistrict('');
+                      setHospital('');
+                    }}
+                    className="w-full rounded-lg border px-4 py-3 outline-none transition-colors"
+                    style={{ 
+                      borderColor: 'rgba(191,200,205,.55)', 
+                      fontFamily: 'Karla, sans-serif',
+                      fontSize: '14px'
+                    }}
+                    onFocus={(e) => {
+                    const target = e.target as HTMLSelectElement;
+                    target.style.borderColor = '#0d6e87';
+                    target.style.boxShadow = '0 0 0 3px rgba(13,110,135,.1)';
+                  }}
+                  onBlur={(e) => {
+                    const target = e.target as HTMLSelectElement;
+                    target.style.borderColor = 'rgba(191,200,205,.55)';
+                    target.style.boxShadow = 'none';
+                  }}
+                  >
+                    <option value="">Select Region</option>
+                    <option value="Kagera">Kagera</option>
+                    <option value="Arusha">Arusha</option>
+                    <option value="Dar es Salaam">Dar es Salaam</option>
+                  </select>
                 </div>
+                
                 <div>
-                  <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                    Password
-                  </div>
-                  <input
-                    value={adminPass}
-                    onChange={(e) => setAdminPass(e.target.value)}
-                    type="password"
-                    className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-                    placeholder="admin123"
-                    autoComplete="current-password"
-                  />
+                  <label className="block font-syne text-xs font-bold mb-2" style={{ color: '#005469', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    District
+                  </label>
+                  <select
+                    value={district}
+                    onChange={(e) => {
+                      setDistrict(e.target.value);
+                      setHospital('');
+                    }}
+                    disabled={!region}
+                    className="w-full rounded-lg border px-4 py-3 outline-none transition-colors"
+                    style={{ 
+                      borderColor: 'rgba(191,200,205,.55)', 
+                      fontFamily: 'Karla, sans-serif',
+                      fontSize: '14px'
+                    }}
+                    onFocus={(e) => {
+                    const target = e.target as HTMLSelectElement;
+                    target.style.borderColor = '#0d6e87';
+                    target.style.boxShadow = '0 0 0 3px rgba(13,110,135,.1)';
+                  }}
+                  onBlur={(e) => {
+                    const target = e.target as HTMLSelectElement;
+                    target.style.borderColor = 'rgba(191,200,205,.55)';
+                    target.style.boxShadow = 'none';
+                  }}
+                  >
+                    <option value="">Select District</option>
+                    {region === 'Kagera' && (
+                      <>
+                        <option value="Bukoba Municipal">Bukoba Municipal</option>
+                        <option value="Muleba">Muleba</option>
+                        <option value="Karagwe">Karagwe</option>
+                      </>
+                    )}
+                    {region === 'Arusha' && (
+                      <>
+                        <option value="Arusha Urban">Arusha Urban</option>
+                        <option value="Meru">Meru</option>
+                      </>
+                    )}
+                    {region === 'Dar es Salaam' && (
+                      <>
+                        <option value="Ilala">Ilala</option>
+                        <option value="Kinondoni">Kinondoni</option>
+                        <option value="Temeke">Temeke</option>
+                      </>
+                    )}
+                  </select>
                 </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                      Region
-                    </div>
-                    <select
-                      value={region}
-                      onChange={(e) => {
-                        setRegion(e.target.value);
-                        setDistrict('');
-                        setHospital('');
-                      }}
-                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-                    >
-                      <option value="">— Select —</option>
-                      {regions.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                      District
-                    </div>
-                    <select
-                      value={district}
-                      onChange={(e) => {
-                        setDistrict(e.target.value);
-                        setHospital('');
-                      }}
-                      disabled={!region}
-                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white disabled:opacity-50"
-                    >
-                      <option value="">— Select —</option>
-                      {districts.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
+                
                 <div>
-                  <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                    Hospital
-                  </div>
+                  <label className="block font-syne text-xs font-bold mb-2" style={{ color: '#005469', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Hospital Facility
+                  </label>
                   <select
                     value={hospital}
                     onChange={(e) => setHospital(e.target.value)}
                     disabled={!region || !district}
-                    className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white disabled:opacity-50"
+                    className="w-full rounded-lg border px-4 py-3 outline-none transition-colors"
+                    style={{ 
+                      borderColor: 'rgba(191,200,205,.55)', 
+                      fontFamily: 'Karla, sans-serif',
+                      fontSize: '14px'
+                    }}
+                    onFocus={(e) => {
+                    const target = e.target as HTMLSelectElement;
+                    target.style.borderColor = '#0d6e87';
+                    target.style.boxShadow = '0 0 0 3px rgba(13,110,135,.1)';
+                  }}
+                  onBlur={(e) => {
+                    const target = e.target as HTMLSelectElement;
+                    target.style.borderColor = 'rgba(191,200,205,.55)';
+                    target.style.boxShadow = 'none';
+                  }}
                   >
-                    <option value="">— Select —</option>
+                    <option value="">Select Hospital</option>
                     {hospitalOptions.map((h) => (
                       <option key={h.id} value={h.name}>
                         {h.name}
@@ -238,49 +395,97 @@ export default function AuthPage() {
                     ))}
                   </select>
                 </div>
-
-                <div>
-                  <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                    Username
-                  </div>
-                  <input
-                    value={docUser}
-                    onChange={(e) => setDocUser(e.target.value)}
-                    className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-                    placeholder="doctor_username"
-                    autoComplete="username"
-                  />
-                </div>
-
-                <div>
-                  <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                    Password
-                  </div>
-                  <input
-                    value={docPass}
-                    onChange={(e) => setDocPass(e.target.value)}
-                    type="password"
-                    className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-                    placeholder="••••••"
-                    autoComplete="current-password"
-                  />
-                </div>
               </div>
             )}
 
-            <div className="mt-4">
-              <Button
-                size="md"
-                variant="primary"
-                label="Sign In →"
-                className="w-full justify-center"
-                disabled={!canSubmit}
-                onClick={onSubmit}
-              />
-            </div>
+            {/* Debug Button */}
+            <button
+              type="button"
+              onClick={() => {
+                clearAndReseed();
+                alert('Data cleared and reseeded! Check console for details.');
+              }}
+              className="w-full rounded-lg py-2 mb-2 font-syne font-bold text-white transition-all"
+              style={{ 
+                background: '#dc2626',
+                fontSize: '12px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                cursor: 'pointer'
+              }}
+            >
+              CLEAR & RESEED DATA (Debug)
+            </button>
 
-            <div className="mt-3 text-[11px] text-[var(--slate)] font-bold">
-              Works offline. Clinical logic runs locally; sync happens only when online.
+            {/* Test Button */}
+            <button
+              type="button"
+              onClick={() => alert('Test button works!')}
+              className="w-full rounded-lg py-2 mb-2 font-syne font-bold text-white transition-all"
+              style={{ 
+                background: '#dc2626',
+                fontSize: '12px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                cursor: 'pointer'
+              }}
+            >
+              TEST CLICK (Red Button)
+            </button>
+
+            {/* Submit Button */}
+            <button
+              type="button"
+              onClick={() => {
+                console.log('Button clicked!');
+                alert('Main button clicked!');
+                onSubmit();
+              }}
+              className="w-full rounded-lg py-3 font-syne font-bold text-white transition-all"
+              style={{ 
+                background: '#005469',
+                fontSize: '14px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0,84,105,.25)'
+              }}
+              onMouseEnter={(e) => {
+                if (canSubmit) {
+                  const target = e.target as HTMLButtonElement;
+                  target.style.background = '#004252';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (canSubmit) {
+                  const target = e.target as HTMLButtonElement;
+                  target.style.background = '#005469';
+                }
+              }}
+            >
+              Authenticate Identity →
+            </button>
+          </div>
+
+          {/* Onboarding Hint */}
+          <div className="mt-6 p-3 rounded-lg border" style={{ 
+            borderColor: 'rgba(13,110,135,.2)', 
+            background: 'rgba(13,110,135,.05)' 
+          }}>
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: '16px', color: '#005469' }}>
+                💡
+              </span>
+              <div className="text-xs" style={{ color: '#005469', fontFamily: 'JetBrains Mono, monospace' }}>
+                First login: superadmin / super123
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 text-center">
+            <div className="font-mono text-xs" style={{ color: '#516169', letterSpacing: '0.5px' }}>
+              SECURE TERMINAL © 2025 REMOTECARE PRECISION MEDICINE SUITE
             </div>
           </div>
         </div>
@@ -288,4 +493,4 @@ export default function AuthPage() {
     </div>
   );
 }
-
+                

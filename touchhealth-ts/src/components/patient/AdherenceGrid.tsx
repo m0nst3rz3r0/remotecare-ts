@@ -11,46 +11,76 @@ export default function AdherenceGrid({ patient }: { patient: Patient }) {
     byMonth.set(v.month, { att: !!v.att });
   }
 
+  // Calculate adherence score
+  const attendedCount = Array.from(byMonth.values()).filter(v => v.att).length;
+  const adherenceScore = Math.round((attendedCount / 12) * 100);
+
   return (
-    <div className="mt-3">
-      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-2">
-        12-month adherence (Jan–Dec)
+    <div style={{ background: '#f4f4f2', padding: '16px', borderRadius: '10px' }}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-[10px] uppercase font-extrabold tracking-[0.5px]" style={{ color: '#516169' }}>
+          12-month adherence (Jan–Dec)
+        </div>
+        <div className="font-mono text-sm font-bold" style={{ color: '#0d6e87' }}>
+          {adherenceScore}%
+        </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-6 gap-2">
         {Array.from({ length: 12 }).map((_, i) => {
           const month = i + 1;
           const monthLabel = MONTHS_FULL[i].slice(0, 3);
           const rec = byMonth.get(month);
 
           const state = rec ? (rec.att ? 'attended' : 'missed') : 'pending';
-          const bg =
-            state === 'attended'
-              ? 'var(--emerald-pale)'
-              : state === 'missed'
-                ? 'var(--rose-pale)'
-                : 'var(--cream)';
-          const fg =
-            state === 'attended'
-              ? 'var(--emerald)'
-              : state === 'missed'
-                ? 'var(--rose)'
-                : 'var(--slate)';
-          const symbol = state === 'attended' ? '✓' : state === 'missed' ? '✕' : '•';
+          const isFuture = month > new Date().getMonth() + 1;
+          
+          let bg, fg, icon = '';
+          
+          if (isFuture) {
+            bg = '#ffffff';
+            fg = '#bfc8cd';
+            icon = '';
+          } else if (state === 'attended') {
+            bg = '#dcfce7';
+            fg = '#16a34a';
+            icon = 'check';
+          } else if (state === 'missed') {
+            bg = '#fee2e2';
+            fg = '#dc2626';
+            icon = 'close';
+          } else {
+            bg = '#e8e8e6';
+            fg = '#516169';
+            icon = 'schedule';
+          }
+
+          const opacity = isFuture ? 0.3 : 1;
 
           return (
             <div
               key={month}
-              className="rounded-[var(--r-sm)] border border-[var(--border)] px-2 py-2 flex flex-col items-center"
-              style={{ background: bg }}
+              className="rounded border flex flex-col items-center justify-center p-2"
+              style={{ 
+                background: bg, 
+                opacity,
+                height: '48px',
+                borderColor: 'rgba(191,200,205,.2)'
+              }}
             >
-              <div
-                className="font-extrabold text-[14px] leading-none"
-                style={{ color: fg }}
-              >
-                {symbol}
-              </div>
-              <div className="text-[10px] font-extrabold mt-1" style={{ color: fg }}>
+              {icon && (
+                <span 
+                  className="material-symbols-outlined" 
+                  style={{ 
+                    fontSize: 16, 
+                    color: fg,
+                    marginBottom: '2px'
+                  }}
+                >
+                  {icon}
+                </span>
+              )}
+              <div className="font-mono text-[8px] font-bold" style={{ color: fg }}>
                 {monthLabel}
               </div>
             </div>

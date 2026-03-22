@@ -106,7 +106,7 @@ export interface HbA1cClassification {
 export interface Visit {
   id: string;
   month: number;
-  year?: number;
+  year: number;
   date: string;
   att: boolean;
   sbp: number | null;
@@ -118,6 +118,42 @@ export interface Visit {
   bmi: number | null;
   notes: string;
   meds: Medication[];
+  presentingComplaint?: string;
+  physicalExam?: {
+    generalAppearance?: string;
+    pulseRate?: number;
+    respiratoryRate?: number;
+    temperature?: number;
+    oxygenSaturation?: number;
+    oedema?: 'none' | 'mild' | 'moderate' | 'severe';
+    fundoscopy?: string;
+    footExamination?: 'normal' | 'abnormal' | 'ulcer' | 'amputation';
+    otherFindings?: string;
+  };
+}
+
+// ── DIAGNOSIS ────────────────────────────────────────────────
+
+export interface Diagnosis {
+  id: string;
+  code: string;
+  description: string;
+  isPrimary?: boolean;
+}
+
+// ── INVESTIGATION RESULT ─────────────────────────────────────
+
+export interface InvestigationResult {
+  id: string;
+  name: string;
+  value: string;
+  unit: string;
+  reference: string;
+  interpretation?: {
+    level: 'normal' | 'low' | 'high' | 'critical';
+    text: string;
+    color?: string;
+  };
 }
 
 // ── SCHEDULED APPOINTMENT ────────────────────────────────────

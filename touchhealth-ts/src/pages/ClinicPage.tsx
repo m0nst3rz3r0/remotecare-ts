@@ -1,308 +1,208 @@
-import { useMemo, useState } from 'react';
-import PageWrapper from '../components/layout/PageWrapper';
+import { useMemo } from 'react';
+import { usePatientStore } from '../store/usePatientStore';
 import { useAuthStore } from '../store/useAuthStore';
-import {
-  usePatientStore,
-  selectVisiblePatients,
-} from '../store/usePatientStore';
 import { useUIStore } from '../store/useUIStore';
-import { formatDateLong, getLastVisit, nextVisitDate, bpClass, sgClass } from '../services/clinical';
-import Chip from '../components/ui/Chip';
-import Button from '../components/ui/Button';
+import {
+  getLastVisit, nextVisitDate, bpClass, formatDate
+} from '../services/clinical';
+import { selectVisiblePatients } from '../store/usePatientStore';
 
-function toISODate(d: Date) {
-  return d.toISOString().split('T')[0];
-}
-
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function daysUntil(dateStr: string) {
-  const nd = new Date(dateStr);
-  const today = startOfToday();
-  return Math.round((nd.getTime() - today.getTime()) / 86_400_000);
-}
-
-function dayIndexToLabel(day: number) {
-  const map = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  return map[day] ?? '';
-}
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 export default function ClinicPage() {
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const patients = usePatientStore((s) => s.patients);
-  const visiblePatients = useMemo(
+  const currentUser   = useAuthStore((s) => s.currentUser);
+  const patients      = usePatientStore((s) => s.patients);
+  const openVisitModal = useUIStore((s) => s.openVisitModal);
+  const clinicSettings = useUIStore((s) => s.clinicSettings);
+  const toggleClinicDay = useUIStore((s) => s.toggleClinicDay);
+
+  const visible = useMemo(
     () => selectVisiblePatients(patients, currentUser),
-    [patients, currentUser],
+    [patients, currentUser]
   );
 
-  const { clinicSettings, toggleClinicDay } = useUIStore((s) => ({
-    clinicSettings: s.clinicSettings,
-    toggleClinicDay: s.toggleClinicDay,
-  }));
-
-  const openVisitModal = useUIStore((s) => s.openVisitModal);
-
-  const scheduleNext = usePatientStore((s) => s.scheduleNext);
-  const clearSchedule = usePatientStore((s) => s.clearSchedule);
-  const confirmAllPredicted = usePatientStore((s) => s.confirmAllPredicted);
-
-  const [filter, setFilter] = useState<'all' | 'due7' | 'overdue'>('all');
+  const active = visible.filter((p) => p.status === 'active');
 
   const rows = useMemo(() => {
-    const active = visiblePatients.filter((p) => p.status === 'active');
-    const result = active.map((p) => {
+    return active.map((p) => {
       const lv = getLastVisit(p);
-      const from = lv?.date ? new Date(lv.date) : new Date(p.enrol);
-
-      // Predicted appointment based on last visit/enrol and 30-day snapping.
-      const predictedDate = nextVisitDate(from, 30, clinicSettings.days);
-      const predictedISO = toISODate(predictedDate);
-      const hard = new Date(from);
-      hard.setDate(hard.getDate() + 30);
-
-      const confirmedISO = p.scheduledNext?.date ?? null;
-      const nextISO = confirmedISO ?? predictedISO;
-      const dueIn = daysUntil(nextISO);
-
-      const isOverdue = dueIn < 0;
-      const isToday = dueIn === 0;
-      const dueIn7 = dueIn >= 0 && dueIn <= 7;
-
-      return {
-        p,
-        lastVisit: lv,
-        hardISO: toISODate(hard),
-        predictedISO,
-        nextISO,
-        dueIn,
-        isOverdue,
-        isToday,
-        dueIn7,
-        confirmed: !!confirmedISO,
-      };
-    });
-
-    if (filter === 'overdue') return result.filter((r) => r.isOverdue);
-    if (filter === 'due7') return result.filter((r) => r.dueIn7 || r.isToday);
-    return result;
-  }, [visiblePatients, clinicSettings.days, filter]);
-
-  const hasClinicDays = clinicSettings.days.length > 0;
-
-  const confirmAll = () => {
-    if (!currentUser) return;
-    confirmAllPredicted(clinicSettings, currentUser.displayName);
-  };
+      const fromDate = lv ? new Date(lv.date) : new Date(p.enrol);
+      const nextDate = nextVisitDate(fromDate, 30, clinicSettings.days);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      nextDate.setHours(0,0,0,0);
+      const diffDays = Math.round((nextDate.getTime() - today.getTime()) / 86400000);
+      const isOverdue = diffDays < 0;
+      const isToday   = diffDays === 0;
+      const bpCls = lv?.sbp && lv?.dbp ? bpClass(lv.sbp, lv.dbp) : null;
+      return { p, lv, nextDate, diffDays, isOverdue, isToday, bpCls };
+    }).sort((a,b) => a.diffDays - b.diffDays);
+  }, [active, clinicSettings]);
 
   return (
-    <PageWrapper title="Clinic Schedule">
-      <div className="space-y-3">
-        <div className="rounded-[var(--r)] border border-[var(--border)] bg-white p-3">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)]">
-              Clinic days setup
-            </div>
-            <Button
-              size="xs"
-              variant="primary"
-              label="Confirm All Predicted"
-              onClick={confirmAll}
-              disabled={!hasClinicDays}
-            />
-          </div>
+    <div style={{ padding: 32, background: '#f9f9f7', minHeight: '100vh' }}>
 
-          <div className="mt-2 flex flex-wrap gap-2">
-            {[1, 2, 3, 4, 5, 6, 0].map((day) => {
-              const active = clinicSettings.days.includes(day as any);
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => toggleClinicDay(day as any)}
-                  className={[
-                    'px-3 py-2 rounded-full border text-[11px] uppercase font-extrabold tracking-[0.5px]',
-                    active
-                      ? 'bg-[var(--teal-ultra)] border-[var(--teal)] text-[var(--teal)]'
-                      : 'bg-white border-[var(--border)] text-[var(--ink)]',
-                  ].join(' ')}
-                >
-                  {dayIndexToLabel(day)}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-2 text-[12px] font-bold text-[var(--slate)]">
-            Appointments always ≤ 30 days to prevent medication gaps.
-          </div>
+      {/* Page header */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.6px', color: '#6f797d', marginBottom: 4 }}>
+          Registry › Schedule Management
         </div>
+        <h1 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 32, color: '#0f1f26', margin: 0 }}>
+          Clinic Schedule
+        </h1>
+        <p style={{ color: '#516169', margin: '4px 0 0', fontSize: 13 }}>
+          NCD Management Program · {currentUser?.sessionDistrict || 'All Districts'}
+        </p>
+      </div>
 
-        <div className="flex flex-wrap gap-2">
-          {[
-            { id: 'all', label: 'All active' },
-            { id: 'due7', label: 'Due in 7 days' },
-            { id: 'overdue', label: 'Overdue' },
-          ].map((x) => (
-            <button
-              key={x.id}
-              type="button"
-              onClick={() => setFilter(x.id as any)}
-              className={[
-                'px-3 py-2 rounded-full border text-[11px] uppercase font-extrabold tracking-[0.5px]',
-                filter === x.id
-                  ? 'bg-[var(--amber-pale)] border-[var(--amber)] text-[var(--amber)]'
-                  : 'bg-white border-[var(--border)] text-[var(--ink)]',
-              ].join(' ')}
-            >
-              {x.label}
-            </button>
-          ))}
+      {/* Clinic days setup */}
+      <div style={{ background: '#fff', borderRadius: 10, border: '1px solid rgba(191,200,205,.2)', padding: 20, marginBottom: 24, boxShadow: '0 2px 8px rgba(15,31,38,.06)' }}>
+        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.6px', color: '#0f1f26', marginBottom: 12 }}>
+          Clinic Days
         </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: '#6f797d', textTransform: 'uppercase', letterSpacing: '.5px', marginRight: 4 }}>
+            Select Days:
+          </span>
+          {[1,2,3,4,5,6,0].map((d) => {
+            const active = clinicSettings.days.includes(d as any);
+            return (
+              <button
+                key={d}
+                onClick={() => toggleClinicDay(d as any)}
+                style={{
+                  padding: '6px 16px', borderRadius: 9999,
+                  fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', transition: 'all .12s',
+                  border: active ? '2px solid #0d6e87' : '1px solid rgba(191,200,205,.4)',
+                  background: active ? 'rgba(13,110,135,.08)' : '#fff',
+                  color: active ? '#0d6e87' : '#516169',
+                }}
+              >
+                {DAYS[d]}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: 10, fontSize: 11, color: '#6f797d' }}>
+          ℹ️ Appointments snap to nearest clinic day · max 30 days from last visit
+        </div>
+      </div>
 
-        <div className="rounded-[var(--r)] border border-[var(--border)] bg-white overflow-hidden">
-          <div className="px-3 py-2 border-b border-[var(--border)] bg-white">
-            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)]">
-              {rows.length} patients
-            </div>
-          </div>
+      {/* Schedule table */}
+      <div style={{ background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(15,31,38,.06)', border: '1px solid rgba(191,200,205,.18)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: '#0f1f26' }}>
+              {['Clinical Code','Patient','Condition','Last Visit','Last BP','Last Glucose','Next Appointment','Days Until','Status','Action'].map((h) => (
+                <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontFamily: 'Syne, sans-serif', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.6px', color: '#fff', whiteSpace: 'nowrap' }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={10} style={{ padding: 32, textAlign: 'center', color: '#6f797d', fontFamily: 'Karla, sans-serif' }}>
+                  No active patients found.
+                </td>
+              </tr>
+            )}
+            {rows.map(({ p, lv, nextDate, diffDays, isOverdue, isToday, bpCls }) => (
+              <tr key={p.id} style={{ background: isOverdue ? 'rgba(220,38,38,.04)' : isToday ? 'rgba(217,119,6,.04)' : '#fff' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(13,110,135,.04)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = isOverdue ? 'rgba(220,38,38,.04)' : isToday ? 'rgba(217,119,6,.04)' : '#fff'}
+              >
+                <td style={{ padding: '12px 14px' }}>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 11, color: isOverdue ? '#dc2626' : '#0d6e87', background: isOverdue ? 'rgba(220,38,38,.08)' : 'rgba(13,110,135,.08)', padding: '2px 8px', borderRadius: 4 }}>
+                    {p.code}
+                  </span>
+                </td>
+                <td style={{ padding: '12px 14px' }}>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 12, color: '#0f1f26' }}>{p.age}y</div>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#516169' }}>{p.age}y · {p.sex}</div>
+                </td>
+                <td style={{ padding: '12px 14px' }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 9999, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', background: p.cond === 'DM+HTN' ? 'rgba(217,119,6,.12)' : p.cond === 'DM' ? 'rgba(13,110,135,.12)' : 'rgba(220,38,38,.12)', color: p.cond === 'DM+HTN' ? '#d97706' : p.cond === 'DM' ? '#0d6e87' : '#dc2626' }}>
+                    {p.cond}
+                  </span>
+                </td>
+                <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#516169' }}>
+                  {lv ? formatDate(lv.date) : '—'}
+                </td>
+                <td style={{ padding: '12px 14px' }}>
+                  {lv?.sbp && lv?.dbp ? (
+                    <div>
+                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 12, color: bpCls?.cls === 'chip-crisis' || bpCls?.cls === 'chip-high' ? '#dc2626' : '#16a34a' }}>
+                        {lv.sbp}/{lv.dbp}
+                      </div>
+                      <div style={{ fontSize: 9, color: '#6f797d' }}>{bpCls?.lbl}</div>
+                    </div>
+                  ) : <span style={{ color: '#bfc8cd' }}>—</span>}
+                </td>
+                <td style={{ padding: '12px 14px' }}>
+                  {lv?.sugar ? (
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#516169' }}>
+                      {lv.sugar} mmol/L
+                    </div>
+                  ) : <span style={{ color: '#bfc8cd' }}>—</span>}
+                </td>
+                <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 11, color: '#0f1f26' }}>
+                  {nextDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </td>
+                <td style={{ padding: '12px 14px' }}>
+                  {isOverdue ? (
+                    <span style={{ fontSize: 9, fontWeight: 800, fontFamily: 'Syne, sans-serif', color: '#dc2626', background: 'rgba(220,38,38,.1)', padding: '3px 8px', borderRadius: 4, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                      {Math.abs(diffDays)}d overdue
+                    </span>
+                  ) : isToday ? (
+                    <span style={{ fontSize: 9, fontWeight: 800, fontFamily: 'Syne, sans-serif', color: '#d97706', background: 'rgba(217,119,6,.1)', padding: '3px 8px', borderRadius: 4, textTransform: 'uppercase' }}>
+                      Today
+                    </span>
+                  ) : (
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#16a34a', fontWeight: 700 }}>
+                      {diffDays}d
+                    </span>
+                  )}
+                </td>
+                <td style={{ padding: '12px 14px' }}>
+                  {p.scheduledNext ? (
+                    <span style={{ fontSize: 9, fontWeight: 800, background: 'rgba(13,110,135,.1)', color: '#0d6e87', padding: '3px 8px', borderRadius: 9999, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                      Confirmed
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 9, fontWeight: 800, background: '#e8e8e6', color: '#516169', padding: '3px 8px', borderRadius: 9999, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                      Predicted
+                    </span>
+                  )}
+                </td>
+                <td style={{ padding: '12px 14px' }}>
+                  <button
+                    onClick={() => openVisitModal(p.id)}
+                    style={{ padding: '5px 12px', background: '#005469', color: '#fff', border: 'none', borderRadius: 4, fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '.4px' }}
+                  >
+                    + Visit
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-          <div className="overflow-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-[0.5px] font-extrabold text-[var(--slate)]">
-                  <th className="px-3 py-2">Code</th>
-                  <th className="px-3 py-2">Patient</th>
-                  <th className="px-3 py-2">Condition</th>
-                  <th className="px-3 py-2">Last Visit</th>
-                  <th className="px-3 py-2">Last BP</th>
-                  <th className="px-3 py-2">Last Glucose</th>
-                  <th className="px-3 py-2">Next Appointment</th>
-                  <th className="px-3 py-2 text-center">Days Until</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => {
-                  const lv = r.lastVisit;
-                  const bp = lv?.sbp && lv?.dbp ? bpClass(lv.sbp, lv.dbp) : null;
-                  const sg = lv?.sugar && lv?.sugarType ? sgClass(lv.sugar, lv.sugarType as any) : null;
-
-                  const rowBg = r.isOverdue
-                    ? 'var(--rose-pale)'
-                    : r.isToday
-                      ? 'var(--amber-pale)'
-                      : 'transparent';
-
-                  const daysColor =
-                    r.isOverdue ? 'var(--rose)' : r.dueIn7 || r.isToday ? 'var(--amber)' : 'var(--emerald)';
-
-                  return (
-                    <tr key={r.p.id} style={{ background: rowBg }}>
-                      <td className="px-3 py-2">
-                        <div className="mono font-extrabold text-[12px] text-[var(--ink)]">
-                          {r.p.code}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-[12px] text-[var(--slate)]">
-                        {r.p.age}y · {r.p.sex}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Chip
-                          cls={
-                            r.p.cond === 'DM'
-                              ? 'chip-blue'
-                              : r.p.cond === 'DM+HTN'
-                                ? 'chip-elevated'
-                                : 'chip-high'
-                          }
-                        >
-                          {r.p.cond}
-                        </Chip>
-                      </td>
-                      <td className="px-3 py-2 text-[12px] text-[var(--slate)]">
-                        {lv?.date ? formatDateLong(lv.date) : '—'}
-                      </td>
-                      <td className="px-3 py-2">
-                        {bp && lv?.sbp && lv?.dbp ? (
-                          <Chip cls={bp.cls}>
-                            {lv.sbp}/{lv.dbp}
-                          </Chip>
-                        ) : (
-                          <Chip cls="chip-gray">—</Chip>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {sg && lv?.sugar && lv?.sugarType ? (
-                          <Chip cls={sg.cls}>
-                            {lv.sugar} {lv.sugarType}
-                          </Chip>
-                        ) : (
-                          <Chip cls="chip-gray">—</Chip>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="font-extrabold text-[13px] text-[var(--ink)]">
-                          {formatDateLong(r.nextISO)}
-                        </div>
-                        <div className="text-[10px] font-bold text-[var(--slate)] mt-1">
-                          {formatDateLong(r.p.enrol && lv?.date ? lv.date : r.hardISO).slice(0, 3)}
-                          {' + 30d = '}
-                          {formatDateLong(r.hardISO)}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-center font-extrabold" style={{ color: daysColor }}>
-                        {r.dueIn}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Chip cls={r.confirmed ? 'chip-blue' : 'chip-gray'}>
-                          {r.confirmed ? 'CONFIRMED' : 'PREDICTED'}
-                        </Chip>
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex items-center justify-end gap-2 flex-wrap">
-                          {!r.confirmed ? (
-                            <Button
-                              size="xs"
-                              variant="primary"
-                              label="Schedule"
-                              onClick={() => {
-                                if (!currentUser) return;
-                                scheduleNext(r.p.id, r.predictedISO, '', currentUser.displayName);
-                              }}
-                            />
-                          ) : null}
-                          <Button size="xs" variant="ghost" label="+ Visit" onClick={() => openVisitModal(r.p.id)} />
-                          {r.confirmed ? (
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              label="✕ Clear"
-                              onClick={() => clearSchedule(r.p.id)}
-                            />
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {!rows.length ? (
-                  <tr>
-                    <td colSpan={10} className="px-3 py-4 text-center text-[var(--slate)]">
-                      No patients match this filter.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+        {/* Table footer */}
+        <div style={{ background: '#f4f4f2', padding: '10px 16px', borderTop: '1px solid rgba(191,200,205,.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: '#6f797d', textTransform: 'uppercase' }}>
+            Showing {rows.length} active patients
+          </span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 700 }}>● {rows.filter(r => !r.isOverdue && !r.isToday).length} upcoming</span>
+            <span style={{ fontSize: 10, color: '#d97706', fontWeight: 700 }}>● {rows.filter(r => r.isToday).length} today</span>
+            <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 700 }}>● {rows.filter(r => r.isOverdue).length} overdue</span>
           </div>
         </div>
       </div>
-    </PageWrapper>
+    </div>
   );
 }
 

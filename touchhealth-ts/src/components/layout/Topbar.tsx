@@ -1,80 +1,125 @@
 import { useAuthStore } from '../../store/useAuthStore';
 import { usePatientStore, selectTopbarCounts } from '../../store/usePatientStore';
-import Button from '../ui/Button';
-
 import { getUserInitials } from '../../services/auth';
 
 export default function Topbar() {
   const currentUser = useAuthStore((s) => s.currentUser);
-  const signOut = useAuthStore((s) => s.signOut);
-
-  const patients = usePatientStore((s) => s.patients);
-  const counts = selectTopbarCounts(patients);
-
+  const signOut     = useAuthStore((s) => s.signOut);
+  const patients    = usePatientStore((s) => s.patients);
+  const counts      = selectTopbarCounts(patients);
   if (!currentUser) return null;
-
   const initials = getUserInitials(currentUser.displayName);
+  const role = currentUser.role;
+  const isSuperAdmin = currentUser.username === 'alexalpha360';
 
   return (
-    <header
-      className="h-[52px] px-3 flex items-center gap-3"
-      style={{ background: 'linear-gradient(135deg,var(--ink) 0%,var(--ink2) 70%,var(--teal2) 140%)' }}
-    >
-      <div className="text-white font-extrabold font-syne" style={{ lineHeight: 1 }}>
-        Touch Health
-      </div>
+    <header style={{
+      position: 'sticky', top: 0, zIndex: 200,
+      height: '52px', padding: '0 24px',
+      display: 'flex', alignItems: 'center', gap: '10px',
+      background: 'linear-gradient(90deg, #0f1f26 0%, #152b36 100%)',
+      boxShadow: '0 2px 20px rgba(0,0,0,.3)',
+    }}>
+      <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 16, color: '#fff', letterSpacing: '-.3px', whiteSpace: 'nowrap' }}>
+        RemoteCare
+      </span>
+      <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.7px', color: 'rgba(255,255,255,.3)', paddingLeft: 8, borderLeft: '1px solid rgba(255,255,255,.1)', whiteSpace: 'nowrap' }}>
+        Research Organisation
+      </span>
 
-      <div className="hidden sm:flex items-center gap-2 ml-1">
-        {currentUser.role === 'doctor' ? (
-          <>
-            <div
-              className="px-2 py-1 rounded-[var(--r-sm)] text-[10px] uppercase font-bold"
-              style={{ background: 'rgba(255,255,255,.14)', color: 'rgba(255,255,255,.92)' }}
-            >
-              Due: {counts.due}
+      {role === 'doctor' && (
+        <div style={{ display: 'flex', gap: 6, marginLeft: 8 }}>
+          {[
+            { label: 'Total', val: counts.total, warn: false },
+            { label: 'Due',   val: counts.due,   warn: counts.due > 0 },
+            { label: 'LTFU',  val: counts.ltfu,  warn: counts.ltfu > 0 },
+            { label: 'Ctrl',  val: counts.controlled, warn: false },
+          ].map(({ label, val, warn }) => (
+            <div key={label} style={{
+              padding: '6px 12px',
+              background: warn ? 'rgba(220,38,38,.15)' : 'rgba(255,255,255,.1)',
+              border: '1px solid rgba(255,255,255,.15)',
+              borderRadius: 9999,
+              fontSize: 10, fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: '.5px',
+              color: warn ? '#fca5a5' : 'rgba(255,255,255,.9)',
+              whiteSpace: 'nowrap',
+            }}>
+              {label} {val}
             </div>
-            <div
-              className="px-2 py-1 rounded-[var(--r-sm)] text-[10px] uppercase font-bold"
-              style={{ background: 'rgba(255,255,255,.14)', color: 'rgba(255,255,255,.92)' }}
-            >
-              LTFU: {counts.ltfu}
-            </div>
-            <div
-              className="px-2 py-1 rounded-[var(--r-sm)] text-[10px] uppercase font-bold"
-              style={{ background: 'rgba(255,255,255,.14)', color: 'rgba(255,255,255,.92)' }}
-            >
-              Controlled: {counts.controlled}
-            </div>
-          </>
-        ) : (
-          <div
-            className="px-3 py-1 rounded-[var(--r-sm)] text-[10px] uppercase font-bold"
-            style={{ background: 'rgba(255,255,255,.14)', color: 'rgba(255,255,255,.92)' }}
-          >
-            Admin View
+          ))}
+        </div>
+      )}
+
+      {role === 'admin' && (
+        <div style={{ marginLeft: 8 }}>
+          <div style={{
+            padding: '6px 12px',
+            background: 'rgba(255,255,255,.1)',
+            border: '1px solid rgba(255,255,255,.15)',
+            borderRadius: 9999,
+            fontSize: 10, fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '.5px',
+            color: 'rgba(255,255,255,.9)',
+            whiteSpace: 'nowrap',
+          }}>
+            {isSuperAdmin ? '🌐 All Regions' : `📍 ${currentUser.sessionDistrict || 'District'}, ${currentUser.sessionRegion || ''}`}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="flex-1" />
+      <div style={{ flex: 1 }} />
 
-      <div className="flex items-center gap-2">
-        <div
-          className="w-[34px] h-[34px] rounded-full flex items-center justify-center font-bold text-white"
-          style={{ background: 'rgba(255,255,255,.14)' }}
-          title={currentUser.displayName}
-        >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%',
+          background: 'rgba(255,255,255,.15)',
+          border: '2px solid rgba(255,255,255,.12)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 11, color: '#fff',
+        }}>
           {initials}
         </div>
-        <div className="hidden md:block">
-          <div className="text-white font-bold text-[13px] leading-tight">{currentUser.displayName}</div>
-          <div className="text-white/80 text-[10px] uppercase font-bold leading-tight">
-            {currentUser.role}
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 12, color: '#fff', lineHeight: 1.2 }}>
+            {currentUser.displayName}
+          </span>
+          <span style={{
+            fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.5px',
+            padding: '2px 8px', borderRadius: 9999, marginTop: 2, display: 'inline-block',
+            background: isSuperAdmin ? 'rgba(220,38,38,.25)' : role === 'admin' ? 'rgba(13,110,135,.25)' : 'rgba(22,163,74,.25)',
+            color: isSuperAdmin ? '#fca5a5' : role === 'admin' ? '#7dd3fc' : '#86efac',
+          }}>
+            {isSuperAdmin ? 'Super Admin' : role === 'admin' ? 'Admin' : 'Doctor'}
+          </span>
         </div>
-        <Button size="xs" variant="ghost" label="Sign out" onClick={signOut} />
+        <button
+          onClick={signOut}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '6px 12px',
+            background: 'transparent',
+            color: 'rgba(255,255,255,.7)',
+            border: '1.5px solid rgba(255,255,255,.3)',
+            borderRadius: 9999,
+            fontSize: 10, fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '.5px',
+            cursor: 'pointer',
+            transition: 'all .15s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,.1)';
+            e.currentTarget.style.color = '#fff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.color = 'rgba(255,255,255,.7)';
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>logout</span>
+          Sign out
+        </button>
       </div>
     </header>
   );
 }
-

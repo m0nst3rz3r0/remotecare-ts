@@ -1,6 +1,5 @@
 import type { Patient } from '../../types';
 import { getLastVisit, bpClass, sgClass } from '../../services/clinical';
-import Chip from '../ui/Chip';
 
 function conditionChipCls(cond: Patient['cond']): string {
   if (cond === 'DM') return 'chip-blue';
@@ -36,46 +35,70 @@ export default function PatientCard({
       type="button"
       onClick={onSelect}
       className={[
-        'w-full text-left rounded-[var(--r)] border px-3 py-2 transition',
+        'w-full text-left rounded-lg transition p-3',
         selected
-          ? 'border-[var(--teal)] bg-[var(--teal-ultra)]'
-          : 'border-[var(--border)] bg-white hover:bg-[var(--teal-ultra)]/50',
+          ? 'bg-[rgba(13,110,135,.08)]'
+          : 'bg-white hover:bg-[rgba(13,110,135,.04)]',
       ].join(' ')}
+      style={{ 
+        border: 'none',
+        borderLeft: selected ? '3px solid #0d6e87' : '3px solid transparent',
+        boxShadow: selected ? '0 2px 8px rgba(13,110,135,.1)' : '0 1px 3px rgba(15,31,38,.06)'
+      }}
     >
-      <div className="flex items-start gap-2">
-        <div className="mono text-[12px] font-extrabold text-[var(--ink)]">
+      <div className="flex items-start gap-3">
+        <div className="pt-tag">
           {patient.code}
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Chip cls={conditionChipCls(patient.cond)}>
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <span className={[
+              'px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-[0.5px]',
+              conditionChipCls(patient.cond)
+            ].join(' ')}>
               {patient.cond}
-            </Chip>
-            <Chip cls={statusChipCls(patient.status)}>
+            </span>
+            <span className={[
+              'px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-[0.5px]',
+              statusChipCls(patient.status)
+            ].join(' ')}>
               {patient.status === 'ltfu' ? 'LTFU' : patient.status.toUpperCase()}
-            </Chip>
+            </span>
           </div>
 
-          <div className="mt-1 text-[12px] text-[var(--slate)] flex items-center gap-2 flex-wrap">
-            <span>
+          <div className="flex items-center justify-between text-xs" style={{ color: '#516169' }}>
+            <span style={{ fontFamily: 'Karla, sans-serif' }}>
               {patient.age}y · {patient.sex}
             </span>
-            <span>·</span>
-            <span>{lv?.date ? new Date(lv.date).toLocaleDateString('en-GB') : '—'}</span>
+            <span style={{ fontFamily: 'Karla, sans-serif' }}>
+              {lv?.date ? new Date(lv.date).toLocaleDateString('en-GB') : '—'}
+            </span>
           </div>
 
           {(bpCls || sgCls) && (
             <div className="mt-2 flex items-center gap-2 flex-wrap">
               {bpCls && (
-                <Chip cls={bpCls.cls}>
+                <span className={[
+                  'px-2 py-1 rounded text-[9px] font-bold',
+                  bpCls.cls === 'chip-crisis' ? 'bg-[#ba1a1a] text-white' :
+                  bpCls.cls === 'chip-high' ? 'bg-[#fee2e2] text-[#7f1d1d]' :
+                  bpCls.cls === 'chip-elevated' ? 'bg-[#fef3c7] text-[#78350f]' :
+                  'bg-[#dcfce7] text-[#14532d]'
+                ].join(' ')}>
                   {lv!.sbp}/{lv!.dbp}
-                </Chip>
+                </span>
               )}
               {sgCls && (
-                <Chip cls={sgCls.cls}>
+                <span className={[
+                  'px-2 py-1 rounded text-[9px] font-bold',
+                  sgCls.cls === 'chip-crisis' ? 'bg-[#ba1a1a] text-white' :
+                  sgCls.cls === 'chip-high' ? 'bg-[#fee2e2] text-[#7f1d1d]' :
+                  sgCls.cls === 'chip-elevated' ? 'bg-[#fef3c7] text-[#78350f]' :
+                  'bg-[#dcfce7] text-[#14532d]'
+                ].join(' ')}>
                   {lv!.sugar} {lv!.sugarType}
-                </Chip>
+                </span>
               )}
             </div>
           )}

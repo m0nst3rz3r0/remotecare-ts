@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { useAuthStore } from './store/useAuthStore';
 import { usePatientStore } from './store/usePatientStore';
 import { useUIStore } from './store/useUIStore';
+import { seedPatients } from './services/patients';
 import Topbar from './components/layout/Topbar';
 import NavTabs from './components/layout/NavTabs';
 import SyncBar from './components/ui/SyncBar';
@@ -37,6 +38,7 @@ export default function App() {
   useEffect(() => {
     init();
     loadFromStorage();
+    seedPatients();
   }, [init, loadFromStorage]);
 
   useEffect(() => {
@@ -70,7 +72,7 @@ export default function App() {
               marginBottom: 8,
             }}
           >
-            Touch Health
+            RemoteCare
           </div>
           <div style={{ fontSize: 12, opacity: 0.5 }}>Loading…</div>
         </div>

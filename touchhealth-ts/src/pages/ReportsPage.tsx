@@ -90,7 +90,7 @@ export default function ReportsPage() {
     const printHtml = `
       <div>
         <h2 style="margin:0 0 8px;font-family:Syne,sans-serif;">Monthly Report — ${monthName} ${year}</h2>
-        <div style="margin-bottom:14px;color:#64748b;">${currentUser?.sessionHospital ?? 'Touch Health'} · Generated ${new Date().toLocaleDateString('en-GB')}</div>
+        <div style="margin-bottom:14px;color:#64748b;">${currentUser?.sessionHospital ?? 'RemoteCare'} · Generated ${new Date().toLocaleDateString('en-GB')}</div>
       </div>
       ${
         visitRows.length
@@ -175,7 +175,7 @@ export default function ReportsPage() {
             Monthly Report — {monthName} {year}
           </div>
           <div className="mt-1 text-[12px]" style={{ opacity: 0.7 }}>
-            {currentUser?.sessionHospital ?? 'Touch Health'} · Generated{' '}
+            {currentUser?.sessionHospital ?? 'RemoteCare'} · Generated{' '}
             {new Date().toLocaleDateString('en-GB')}
           </div>
         </div>

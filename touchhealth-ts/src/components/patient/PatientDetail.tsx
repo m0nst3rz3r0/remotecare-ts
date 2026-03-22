@@ -20,7 +20,7 @@ import Chip from '../ui/Chip';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 
-type DetailTab = 'visits' | 'bp' | 'glucose' | 'hba1c';
+type DetailTab = 'visits' | 'bp' | 'glucose' | 'hba1c' | 'notesDx';
 
 function conditionChipCls(cond: Patient['cond']): string {
   if (cond === 'DM') return 'chip-blue';
@@ -327,11 +327,23 @@ export default function PatientDetail() {
                   tab === 'hba1c'
                     ? 'bg-[var(--teal-ultra)] border-[var(--teal)] text-[var(--teal)]'
                     : 'bg-white border-[var(--border)] text-[var(--ink)]',
-              ].join(' ')}
+                ].join(' ')}
               >
                 HbA1c
               </button>
             ) : null}
+            <button
+              type="button"
+              onClick={() => setTab('notesDx')}
+              className={[
+                'px-3 py-2 rounded-full border text-[11px] uppercase font-extrabold tracking-[0.5px]',
+                tab === 'notesDx'
+                  ? 'bg-[var(--teal-ultra)] border-[var(--teal)] text-[var(--teal)]'
+                  : 'bg-white border-[var(--border)] text-[var(--ink)]',
+              ].join(' ')}
+            >
+              Notes & Dx
+            </button>
           </div>
 
           {/* Tab content */}
@@ -510,6 +522,169 @@ export default function PatientDetail() {
                       })}
                     </div>
                   </>
+                )}
+              </div>
+            ) : null}
+
+            {tab === 'notesDx' ? (
+              <div className="space-y-4">
+                {/* History Summary */}
+                <div className="rounded-[var(--r)] border border-[var(--border)] p-3" style={{ background: 'var(--teal-ultra)' }}>
+                  <div className="font-syne font-extrabold text-[14px] text-[var(--teal)] mb-3">History Summary</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[12px]">
+                    <div>
+                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+                        Total Visits
+                      </div>
+                      <div className="mono font-extrabold">
+                        {(patient.visits ?? []).filter(v => v.att).length}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+                        First Visit
+                      </div>
+                      <div className="mono font-extrabold">
+                        {patient.enrol ? formatDate(patient.enrol) : '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+                        Avg BP
+                      </div>
+                      <div className="mono font-extrabold">
+                        {(() => {
+                          const bpVisits = (patient.visits ?? []).filter(v => v.att && v.sbp && v.dbp);
+                          if (bpVisits.length === 0) return '—';
+                          const avgSbp = bpVisits.reduce((sum, v) => sum + v.sbp!, 0) / bpVisits.length;
+                          const avgDbp = bpVisits.reduce((sum, v) => sum + v.dbp!, 0) / bpVisits.length;
+                          return `${Math.round(avgSbp)}/${Math.round(avgDbp)}`;
+                        })()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+                        Avg Glucose
+                      </div>
+                      <div className="mono font-extrabold">
+                        {(() => {
+                          const sugarVisits = (patient.visits ?? []).filter(v => v.att && v.sugar);
+                          if (sugarVisits.length === 0) return '—';
+                          const avgSugar = sugarVisits.reduce((sum, v) => sum + v.sugar!, 0) / sugarVisits.length;
+                          return avgSugar.toFixed(1);
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Clinical Visit Cards */}
+                {(patient.visits ?? [])
+                  .filter(v => v.att && (v.presentingComplaint || v.notes || v.physicalExam))
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map((v) => (
+                    <div key={v.id} className="border border-[var(--border)] rounded-[var(--r)] overflow-hidden">
+                      {/* Card Header */}
+                      <div className="px-3 py-2 bg-[var(--ink)] text-white">
+                        <div className="font-syne font-extrabold text-[14px]">
+                          {formatDateLong(v.date)} - Month {v.month}
+                        </div>
+                      </div>
+                      
+                      {/* Card Content */}
+                      <div className="p-3 space-y-3">
+                        {/* Presenting Complaint */}
+                        {v.presentingComplaint && (
+                          <div>
+                            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+                              Presenting Complaint
+                            </div>
+                            <div className="text-[12px] text-[var(--ink)]">
+                              {v.presentingComplaint}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Clinical Notes */}
+                        {v.notes && (
+                          <div>
+                            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+                              Clinical Notes
+                            </div>
+                            <div className="text-[12px] text-[var(--ink)]">
+                              {v.notes}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Physical Examination */}
+                        {v.physicalExam && (
+                          <div>
+                            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+                              Physical Examination
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[12px]">
+                              {v.physicalExam.generalAppearance && (
+                                <div><strong>General:</strong> {v.physicalExam.generalAppearance}</div>
+                              )}
+                              {v.physicalExam.pulseRate && (
+                                <div><strong>Pulse:</strong> {v.physicalExam.pulseRate} bpm</div>
+                              )}
+                              {v.physicalExam.respiratoryRate && (
+                                <div><strong>RR:</strong> {v.physicalExam.respiratoryRate} /min</div>
+                              )}
+                              {v.physicalExam.temperature && (
+                                <div><strong>Temp:</strong> {v.physicalExam.temperature}°C</div>
+                              )}
+                              {v.physicalExam.oxygenSaturation && (
+                                <div><strong>O₂ Sat:</strong> {v.physicalExam.oxygenSaturation}%</div>
+                              )}
+                              {v.physicalExam.oedema && v.physicalExam.oedema !== 'none' && (
+                                <div><strong>Oedema:</strong> {v.physicalExam.oedema}</div>
+                              )}
+                              {v.physicalExam.fundoscopy && (
+                                <div><strong>Fundoscopy:</strong> {v.physicalExam.fundoscopy}</div>
+                              )}
+                              {v.physicalExam.footExamination && v.physicalExam.footExamination !== 'normal' && (
+                                <div><strong>Foot:</strong> {v.physicalExam.footExamination}</div>
+                              )}
+                              {v.physicalExam.otherFindings && (
+                                <div className="col-span-2"><strong>Other:</strong> {v.physicalExam.otherFindings}</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Medications */}
+                        {v.meds && v.meds.length > 0 && (
+                          <div>
+                            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+                              Medications Prescribed
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {v.meds.map((med, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-3 py-1 rounded-full text-[12px] font-extrabold"
+                                  style={{ background: 'var(--violet-pale)', color: 'var(--violet)' }}
+                                >
+                                  {med.name}
+                                  {med.dose && ` ${med.dose}`}
+                                  {med.freq && ` ${med.freq}`}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                {/* No clinical data message */}
+                {!(patient.visits ?? []).some(v => v.att && (v.presentingComplaint || v.notes || v.physicalExam)) && (
+                  <div className="text-[var(--slate)] text-[13px] text-center py-8">
+                    No clinical notes recorded yet — add via + Visit
+                  </div>
                 )}
               </div>
             ) : null}

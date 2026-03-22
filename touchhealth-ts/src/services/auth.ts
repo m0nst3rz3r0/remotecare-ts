@@ -18,8 +18,8 @@ const KEYS = {
 const DEFAULT_USERS: User[] = [
   {
     id: 'u0',
-    username: 'alexalpha360',
-    password: 'admin123',
+    username: 'superadmin',
+    password: 'super123',
     role: 'admin',
     displayName: 'Super Admin',
     hospital: '',
@@ -37,6 +37,17 @@ const DEFAULT_USERS: User[] = [
     hospital: '',
     region: '',
     district: '',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'u2',
+    username: 'doctor',
+    password: 'doctor123',
+    role: 'doctor',
+    displayName: 'Dr. John Smith',
+    hospital: 'Bukoba Regional Hospital',
+    region: 'Kagera',
+    district: 'Bukoba Municipal',
     createdAt: new Date().toISOString(),
   },
 ];
@@ -78,8 +89,31 @@ export function saveHospitals(hospitals: Hospital[]): void {
 // ── SEED DEFAULTS ─────────────────────────────────────────────
 
 export function seedDefaults(): void {
-  if (!loadUsers().length)     saveUsers(DEFAULT_USERS);
-  if (!loadHospitals().length) saveHospitals(DEFAULT_HOSPITALS);
+  const existingUsers = loadUsers();
+  console.log('Existing users before seeding:', existingUsers.length);
+  
+  if (!loadUsers().length) {
+    console.log('Seeding default users:', DEFAULT_USERS.map(u => ({ username: u.username, password: u.password, role: u.role })));
+    saveUsers(DEFAULT_USERS);
+  }
+  
+  const existingHospitals = loadHospitals();
+  console.log('Existing hospitals before seeding:', existingHospitals.length);
+  
+  if (!loadHospitals().length) {
+    console.log('Seeding default hospitals');
+    saveHospitals(DEFAULT_HOSPITALS);
+  }
+}
+
+export function clearAndReseed(): void {
+  console.log('Clearing all data and re-seeding...');
+  localStorage.removeItem(KEYS.USERS);
+  localStorage.removeItem(KEYS.HOSPITALS);
+  localStorage.removeItem(KEYS.SESSION);
+  saveUsers(DEFAULT_USERS);
+  saveHospitals(DEFAULT_HOSPITALS);
+  console.log('Re-seeded with users:', DEFAULT_USERS.map(u => ({ username: u.username, password: u.password, role: u.role })));
 }
 
 // ── SESSION ───────────────────────────────────────────────────
@@ -127,17 +161,22 @@ export function login(params: {
 }): LoginResult {
   const { username, password, role, hospital = '', region = '', district = '' } = params;
 
+  console.log('Login attempt:', { username, password, role, hospital, region, district });
+
   if (!username || !password) {
     return { success: false, error: 'Please enter your username and password.' };
   }
 
   const users = loadUsers();
+  console.log('Loaded users:', users.map(u => ({ username: u.username, password: u.password, role: u.role })));
 
   const anyMatch = users.find(
     (u) =>
       u.username.toLowerCase() === username.toLowerCase() &&
       u.password === password
   );
+
+  console.log('Found match:', anyMatch);
 
   if (!anyMatch) {
     return { success: false, error: 'Incorrect username or password. Please try again.' };
@@ -184,7 +223,7 @@ export function login(params: {
     displayName:     anyMatch.displayName,
     role:            anyMatch.role,
     hospital:        anyMatch.hospital,
-    sessionHospital: 'Touch Health',
+    sessionHospital: 'RemoteCare',
     sessionRegion:   '',
     sessionDistrict: '',
   };

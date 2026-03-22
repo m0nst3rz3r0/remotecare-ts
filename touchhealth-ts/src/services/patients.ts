@@ -19,6 +19,8 @@ import type {
   GeneratedCode,
   CodeComponents,
 } from '../types';
+import { Diagnosis } from '../data/icd10';
+import { InvestigationResult } from '../data/investigations';
 import { today, getLastVisit } from './clinical';
 
 // ── STORAGE KEY ───────────────────────────────────────────────
@@ -280,6 +282,23 @@ export interface RecordVisitParams {
   nextDate?:    string;
   nextNote?:    string;
   scheduledBy?: string;
+  // New clinical fields
+  clinicalNotes?: string;
+  differentialDx?: string;
+  diagnoses?: Diagnosis[];
+  investigations?: InvestigationResult[];
+  presentingComplaint?: string;
+  physicalExam?: {
+    generalAppearance?: string;
+    pulseRate?: number;
+    respiratoryRate?: number;
+    temperature?: number;
+    oxygenSaturation?: number;
+    oedema?: 'none' | 'mild' | 'moderate' | 'severe';
+    fundoscopy?: string;
+    footExamination?: 'normal' | 'abnormal' | 'ulcer' | 'amputation';
+    otherFindings?: string;
+  };
   // HbA1c (DM patients only)
   hba1cValue?:   number;
   hba1cQuarter?: HbA1cQuarter;
@@ -298,6 +317,7 @@ export function recordVisit(
       weight, height, bmi, notes, meds,
       nextDate, nextNote, scheduledBy,
       hba1cValue, hba1cQuarter, hba1cYear,
+      presentingComplaint, physicalExam,
     } = params;
 
     // Build visit record
@@ -316,6 +336,8 @@ export function recordVisit(
       bmi:       att ? bmi ?? null : null,
       notes:     att ? notes ?? '' : '',
       meds:      att ? meds : [],
+      presentingComplaint: att ? presentingComplaint ?? undefined : undefined,
+      physicalExam: att ? physicalExam ?? undefined : undefined,
     };
 
     // Remove existing entry for same month, then add new
@@ -598,4 +620,127 @@ export function patientsToAggregateRows(
       visitCount: (p.visits ?? []).filter((v) => v.att).length,
     };
   });
+}
+
+// ── SAMPLE DATA SEEDING ────────────────────────────────────────
+
+const DEFAULT_PATIENTS: Patient[] = [
+  {
+    id: 1,
+    code: 'BRH001',
+    enrol: '2024-01-15',
+    age: 45,
+    sex: 'F',
+    cond: 'DM+HTN',
+    status: 'active',
+    hospital: 'Bukoba Regional Hospital',
+    region: 'Kagera',
+    district: 'Bukoba Municipal',
+    phone: '',
+    address: '',
+    visits: [
+      { id: 'v1', month: 1, year: 2024, date: '2024-01-15', att: true, sbp: 140, dbp: 90, sugar: 7.2, sugarType: 'FBS', weight: 65, height: 160, bmi: 25.4, notes: '', meds: [] },
+      { id: 'v2', month: 2, year: 2024, date: '2024-02-15', att: true, sbp: 135, dbp: 85, sugar: 6.8, sugarType: 'FBS', weight: 64, height: 160, bmi: 25.0, notes: '', meds: [] },
+      { id: 'v3', month: 3, year: 2024, date: '', att: false, sbp: null, dbp: null, sugar: null, sugarType: 'FBS', weight: null, height: null, bmi: null, notes: '', meds: [] },
+    ],
+    medications: [],
+    hba1c: [],
+    callLog: [],
+    scheduledNext: undefined,
+  },
+  {
+    id: 2,
+    code: 'BRH002',
+    enrol: '2024-02-20',
+    age: 52,
+    sex: 'M',
+    cond: 'HTN',
+    status: 'active',
+    hospital: 'Bukoba Regional Hospital',
+    region: 'Kagera',
+    district: 'Bukoba Municipal',
+    phone: '',
+    address: '',
+    visits: [
+      { id: 'v4', month: 2, year: 2024, date: '2024-02-20', att: true, sbp: 150, dbp: 95, sugar: null, sugarType: 'FBS', weight: 75, height: 170, bmi: 26.0, notes: '', meds: [] },
+      { id: 'v5', month: 3, year: 2024, date: '2024-03-20', att: true, sbp: 145, dbp: 90, sugar: null, sugarType: 'FBS', weight: 74, height: 170, bmi: 25.6, notes: '', meds: [] },
+    ],
+    medications: [],
+    hba1c: [],
+    callLog: [],
+    scheduledNext: undefined,
+  },
+  {
+    id: 3,
+    code: 'BRH003',
+    enrol: '2024-03-10',
+    age: 38,
+    sex: 'F',
+    cond: 'DM',
+    status: 'ltfu',
+    hospital: 'Bukoba Regional Hospital',
+    region: 'Kagera',
+    district: 'Bukoba Municipal',
+    phone: '',
+    address: '',
+    visits: [
+      { id: 'v6', month: 3, year: 2024, date: '2024-03-10', att: true, sbp: 120, dbp: 80, sugar: 8.5, sugarType: 'FBS', weight: 58, height: 155, bmi: 24.1, notes: '', meds: [] },
+    ],
+    medications: [],
+    hba1c: [],
+    callLog: [],
+    scheduledNext: undefined,
+  },
+  {
+    id: 4,
+    code: 'BRH004',
+    enrol: '2023-12-05',
+    age: 60,
+    sex: 'M',
+    cond: 'DM+HTN',
+    status: 'active',
+    hospital: 'Bukoba Regional Hospital',
+    region: 'Kagera',
+    district: 'Bukoba Municipal',
+    phone: '',
+    address: '',
+    visits: [
+      { id: 'v7', month: 12, year: 2023, date: '2023-12-05', att: true, sbp: 160, dbp: 100, sugar: 9.1, sugarType: 'FBS', weight: 80, height: 165, bmi: 29.4, notes: '', meds: [] },
+      { id: 'v8', month: 1, year: 2024, date: '2024-01-05', att: true, sbp: 155, dbp: 95, sugar: 8.8, sugarType: 'FBS', weight: 79, height: 165, bmi: 29.0, notes: '', meds: [] },
+      { id: 'v9', month: 2, year: 2024, date: '2024-02-05', att: true, sbp: 150, dbp: 92, sugar: 8.2, sugarType: 'FBS', weight: 78, height: 165, bmi: 28.6, notes: '', meds: [] },
+      { id: 'v10', month: 3, year: 2024, date: '2024-03-05', att: true, sbp: 148, dbp: 90, sugar: 7.9, sugarType: 'FBS', weight: 77, height: 165, bmi: 28.3, notes: '', meds: [] },
+    ],
+    medications: [],
+    hba1c: [],
+    callLog: [],
+    scheduledNext: undefined,
+  },
+  {
+    id: 5,
+    code: 'BRH005',
+    enrol: '2024-01-28',
+    age: 41,
+    sex: 'F',
+    cond: 'DM',
+    status: 'active',
+    hospital: 'Bukoba Regional Hospital',
+    region: 'Kagera',
+    district: 'Bukoba Municipal',
+    phone: '',
+    address: '',
+    visits: [
+      { id: 'v11', month: 1, year: 2024, date: '2024-01-28', att: true, sbp: 118, dbp: 78, sugar: 7.5, sugarType: 'FBS', weight: 62, height: 158, bmi: 24.8, notes: '', meds: [] },
+      { id: 'v12', month: 2, year: 2024, date: '2024-02-28', att: true, sbp: 115, dbp: 75, sugar: 7.1, sugarType: 'FBS', weight: 61, height: 158, bmi: 24.4, notes: '', meds: [] },
+    ],
+    medications: [],
+    hba1c: [],
+    callLog: [],
+    scheduledNext: undefined,
+  },
+];
+
+export function seedPatients(): void {
+  if (!loadPatients().length) {
+    savePatients(DEFAULT_PATIENTS);
+  }
 }

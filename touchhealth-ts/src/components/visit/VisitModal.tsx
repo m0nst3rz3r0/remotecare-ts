@@ -7,7 +7,6 @@ import {
   calculateBMI,
   getCurrentMeds,
   getCurrentQuarter,
-  formatDateLong,
   nextVisitDate,
   bpClass,
   sgClass,
@@ -15,10 +14,9 @@ import {
 import { today } from '../../services/clinical';
 import HbA1cBox from './HbA1cBox';
 import MedRow from './MedRow';
-import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 import Chip from '../ui/Chip';
-import { DM_MEDS, HTN_MEDS } from '../../services/clinical';
+import { HTN_MEDS } from '../../services/clinical';
 
 function toISODate(d: Date) {
   return d.toISOString().split('T')[0];
@@ -68,6 +66,18 @@ export default function VisitModal() {
   }, [weightKg, heightCm]);
 
   const [notes, setNotes] = useState<string>('');
+  const [presentingComplaint, setPresentingComplaint] = useState<string>('');
+  
+  // Physical examination fields
+  const [generalAppearance, setGeneralAppearance] = useState<string>('');
+  const [pulseRate, setPulseRate] = useState<string>('');
+  const [respiratoryRate, setRespiratoryRate] = useState<string>('');
+  const [temperature, setTemperature] = useState<string>('');
+  const [oxygenSaturation, setOxygenSaturation] = useState<string>('');
+  const [oedema, setOedema] = useState<'none' | 'mild' | 'moderate' | 'severe'>('none');
+  const [fundoscopy, setFundoscopy] = useState<string>('');
+  const [footExamination, setFootExamination] = useState<'normal' | 'abnormal' | 'ulcer' | 'amputation'>('normal');
+  const [otherFindings, setOtherFindings] = useState<string>('');
 
   const [meds, setMeds] = useState<Medication[]>([]);
 
@@ -104,6 +114,18 @@ export default function VisitModal() {
     setNotes('');
     setHba1cValue('');
     setHba1cQuarter(getCurrentQuarter());
+    
+    // Reset clinical fields
+    setPresentingComplaint('');
+    setGeneralAppearance('');
+    setPulseRate('');
+    setRespiratoryRate('');
+    setTemperature('');
+    setOxygenSaturation('');
+    setOedema('none');
+    setFundoscopy('');
+    setFootExamination('normal');
+    setOtherFindings('');
 
     const current = getCurrentMeds(patient);
     setMeds(current.length ? current : [{ name: HTN_MEDS[0] }]);
@@ -153,6 +175,18 @@ export default function VisitModal() {
       nextDate,
       nextNote: nextNote || undefined,
       scheduledBy,
+      presentingComplaint: attended ? presentingComplaint || undefined : undefined,
+      physicalExam: attended ? {
+        generalAppearance: generalAppearance || undefined,
+        pulseRate: parseNumber(pulseRate) ?? undefined,
+        respiratoryRate: parseNumber(respiratoryRate) ?? undefined,
+        temperature: parseNumber(temperature) ?? undefined,
+        oxygenSaturation: parseNumber(oxygenSaturation) ?? undefined,
+        oedema,
+        fundoscopy: fundoscopy || undefined,
+        footExamination,
+        otherFindings: otherFindings || undefined,
+      } : undefined,
       // HbA1c (DM only)
       ...(isDM &&
       attended &&
@@ -168,6 +202,12 @@ export default function VisitModal() {
 
     close();
   };
+
+  function defaultMedicationFromPatient(p: Patient | null): Medication {
+    if (!p) return { name: '' };
+    const current = getCurrentMeds(p);
+    return current.length > 0 ? current[0] : { name: HTN_MEDS[0] };
+  }
 
   return (
     <div className="fixed inset-0 z-50">
@@ -313,7 +353,7 @@ export default function VisitModal() {
                 />
               ) : null}
 
-              {/* Measurements row */}
+              {/* MEASUREMENTS row */}
               <div className="rounded-[var(--r)] border border-[var(--border)] p-3">
                 <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
                   <div className="font-syne font-extrabold text-[14px] text-[var(--ink)]">Measurements</div>
@@ -326,12 +366,10 @@ export default function VisitModal() {
                     </div>
                     <input
                       type="number"
-                      inputMode="decimal"
-                      step="0.1"
                       value={weightKg}
                       onChange={(e) => setWeightKg(e.target.value)}
                       className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white mono"
-                      placeholder="e.g. 72.0"
+                      placeholder="e.g. 70"
                     />
                   </div>
                   <div>
@@ -340,24 +378,385 @@ export default function VisitModal() {
                     </div>
                     <input
                       type="number"
-                      inputMode="decimal"
-                      step="0.1"
                       value={heightCm}
                       onChange={(e) => setHeightCm(e.target.value)}
                       className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white mono"
-                      placeholder="e.g. 160"
+                      placeholder="e.g. 170"
                     />
                   </div>
-                  <div className="flex items-end">
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)]">
-                      {/* BMI is auto-calculated */}
-                      Auto-calculated
+                  <div>
+                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+                      BMI
+                    </div>
+                    <div className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 bg-white mono font-extrabold text-center">
+                      {bmi === null ? '—' : bmi.toFixed(1)}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Medications */}
+              {/* SECTION A - CLINICAL NOTES */}
+              <div style={{
+                background: 'white',
+                border: '1px solid rgba(191,200,205,.25)',
+                borderRadius: '8px',
+                padding: '16px',
+                marginBottom: '16px'
+              }}>
+                <div style={{
+                  fontFamily: 'Syne, sans-serif',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  marginBottom: '12px',
+                  color: '#0f1f26'
+                }}>
+                  Clinical Notes
+                </div>
+                
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '4px',
+                    color: '#516169'
+                  }}>
+                    Presenting Complaint
+                  </div>
+                  <textarea
+                    value={presentingComplaint}
+                    onChange={(e) => setPresentingComplaint(e.target.value)}
+                    rows={2}
+                    style={{
+                      width: '100%',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(191,200,205,.25)',
+                      padding: '8px 12px',
+                      fontSize: '12px',
+                      fontFamily: 'Karla, sans-serif',
+                      resize: 'vertical',
+                      outline: 'none'
+                    }}
+                    placeholder="Chief complaint and history of presenting illness…"
+                  />
+                </div>
+                
+                <div>
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '4px',
+                    color: '#516169'
+                  }}>
+                    Clinical Notes
+                  </div>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    style={{
+                      width: '100%',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(191,200,205,.25)',
+                      padding: '8px 12px',
+                      fontSize: '12px',
+                      fontFamily: 'Karla, sans-serif',
+                      resize: 'vertical',
+                      outline: 'none'
+                    }}
+                    placeholder="General clinical notes, plan, referrals…"
+                  />
+                </div>
+              </div>
+
+              {/* SECTION B - PHYSICAL EXAMINATION */}
+              <div style={{
+                background: 'rgba(13,110,135,.04)',
+                border: '1px solid rgba(13,110,135,.1)',
+                borderRadius: '8px',
+                padding: '16px',
+                marginBottom: '16px'
+              }}>
+                <div style={{
+                  fontFamily: 'Syne, sans-serif',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  marginBottom: '12px',
+                  color: '#0d6e87'
+                }}>
+                  🩺 Physical Examination
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: '4px',
+                      color: '#516169'
+                    }}>
+                      General Appearance
+                    </div>
+                    <input
+                      type="text"
+                      value={generalAppearance}
+                      onChange={(e) => setGeneralAppearance(e.target.value)}
+                      style={{
+                        width: '100%',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(13,110,135,.25)',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        fontFamily: 'Karla, sans-serif',
+                        outline: 'none'
+                      }}
+                      placeholder=""
+                    />
+                  </div>
+                  
+                  <div>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: '4px',
+                      color: '#516169'
+                    }}>
+                      Pulse Rate
+                    </div>
+                    <input
+                      type="number"
+                      value={pulseRate}
+                      onChange={(e) => setPulseRate(e.target.value)}
+                      style={{
+                        width: '100%',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(13,110,135,.25)',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        fontFamily: 'Karla, sans-serif',
+                        outline: 'none'
+                      }}
+                      placeholder=""
+                    />
+                    <div style={{ fontSize: '10px', color: '#516169', marginTop: '2px' }}>bpm</div>
+                  </div>
+                  
+                  <div>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: '4px',
+                      color: '#516169'
+                    }}>
+                      Respiratory Rate
+                    </div>
+                    <input
+                      type="number"
+                      value={respiratoryRate}
+                      onChange={(e) => setRespiratoryRate(e.target.value)}
+                      style={{
+                        width: '100%',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(13,110,135,.25)',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        fontFamily: 'Karla, sans-serif',
+                        outline: 'none'
+                      }}
+                      placeholder=""
+                    />
+                    <div style={{ fontSize: '10px', color: '#516169', marginTop: '2px' }}>/min</div>
+                  </div>
+                  
+                  <div>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: '4px',
+                      color: '#516169'
+                    }}>
+                      Temperature
+                    </div>
+                    <input
+                      type="number"
+                      value={temperature}
+                      onChange={(e) => setTemperature(e.target.value)}
+                      style={{
+                        width: '100%',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(13,110,135,.25)',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        fontFamily: 'Karla, sans-serif',
+                        outline: 'none'
+                      }}
+                      placeholder=""
+                    />
+                    <div style={{ fontSize: '10px', color: '#516169', marginTop: '2px' }}>°C</div>
+                  </div>
+                  
+                  <div>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: '4px',
+                      color: '#516169'
+                    }}>
+                      Oxygen Saturation
+                    </div>
+                    <input
+                      type="number"
+                      value={oxygenSaturation}
+                      onChange={(e) => setOxygenSaturation(e.target.value)}
+                      style={{
+                        width: '100%',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(13,110,135,.25)',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        fontFamily: 'Karla, sans-serif',
+                        outline: 'none'
+                      }}
+                      placeholder=""
+                    />
+                    <div style={{ fontSize: '10px', color: '#516169', marginTop: '2px' }}>%</div>
+                  </div>
+                  
+                  <div>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: '4px',
+                      color: '#516169'
+                    }}>
+                      Oedema
+                    </div>
+                    <select
+                      value={oedema}
+                      onChange={(e) => setOedema(e.target.value as any)}
+                      style={{
+                        width: '100%',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(13,110,135,.25)',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        fontFamily: 'Karla, sans-serif',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="none">None</option>
+                      <option value="mild">Mild</option>
+                      <option value="moderate">Moderate</option>
+                      <option value="severe">Severe</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: '4px',
+                      color: '#516169'
+                    }}>
+                      Fundoscopy
+                    </div>
+                    <input
+                      type="text"
+                      value={fundoscopy}
+                      onChange={(e) => setFundoscopy(e.target.value)}
+                      style={{
+                        width: '100%',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(13,110,135,.25)',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        fontFamily: 'Karla, sans-serif',
+                        outline: 'none'
+                      }}
+                      placeholder="findings…"
+                    />
+                  </div>
+                  
+                  <div>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: '4px',
+                      color: '#516169'
+                    }}>
+                      Foot Examination
+                    </div>
+                    <select
+                      value={footExamination}
+                      onChange={(e) => setFootExamination(e.target.value as any)}
+                      style={{
+                        width: '100%',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(13,110,135,.25)',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        fontFamily: 'Karla, sans-serif',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="abnormal">Abnormal</option>
+                      <option value="ulcer">Ulcer present</option>
+                      <option value="amputation">Amputation</option>
+                    </select>
+                  </div>
+                  
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: '4px',
+                      color: '#516169'
+                    }}>
+                      Other Findings
+                    </div>
+                    <textarea
+                      value={otherFindings}
+                      onChange={(e) => setOtherFindings(e.target.value)}
+                      rows={2}
+                      style={{
+                        width: '100%',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(13,110,135,.25)',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        fontFamily: 'Karla, sans-serif',
+                        resize: 'vertical',
+                        outline: 'none'
+                      }}
+                      placeholder=""
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* MEDICATIONS */}
               <div className="rounded-[var(--r)] border border-[var(--border)] p-3" style={{ background: 'var(--violet-pale)' }}>
                 <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
                   <div className="font-syne font-extrabold text-[14px] text-[var(--violet)]">Medications</div>
@@ -380,94 +779,118 @@ export default function VisitModal() {
                 </div>
               </div>
 
-              {/* Notes */}
-              <div>
-                <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                  Notes
+              {/* SECTION C - INVESTIGATIONS */}
+              <div style={{
+                background: '#f0fdf4',
+                border: '1px solid rgba(34,197,94,.25)',
+                borderRadius: '8px',
+                padding: '16px',
+                marginBottom: '16px'
+              }}>
+                <div style={{
+                  fontFamily: 'Syne, sans-serif',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  marginBottom: '12px',
+                  color: '#166534'
+                }}>
+                  🧪 Investigations
                 </div>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-[var(--r)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-                  placeholder="Clinical notes (2 lines)"
-                />
+                
+                <div style={{ marginBottom: '12px' }}>
+                  <select
+                    style={{
+                      width: '100%',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(34,197,94,.25)',
+                      padding: '8px 12px',
+                      fontSize: '12px',
+                      fontFamily: 'Karla, sans-serif',
+                      outline: 'none'
+                    }}
+                    onChange={(e) => {
+                      const selected = e.target.value;
+                      if (selected) {
+                        // Add investigation logic here
+                        e.target.value = '';
+                      }
+                    }}
+                  >
+                    <option value="">+ Add Investigation</option>
+                    <optgroup label="Hematology">
+                      <option value="hgb">Hemoglobin</option>
+                      <option value="hct">Hematocrit</option>
+                      <option value="rbc">Red Blood Cells</option>
+                      <option value="wbc">White Blood Cells</option>
+                      <option value="plt">Platelets</option>
+                    </optgroup>
+                    <optgroup label="Renal Function">
+                      <option value="creatinine">Creatinine</option>
+                      <option value="urea">Urea</option>
+                      <option value="egfr">eGFR</option>
+                    </optgroup>
+                    <optgroup label="Liver Function">
+                      <option value="ast">AST (SGOT)</option>
+                      <option value="alt">ALT (SGPT)</option>
+                      <option value="alp">Alkaline Phosphatase</option>
+                      <option value="bilirubin">Bilirubin</option>
+                    </optgroup>
+                    <optgroup label="Lipids">
+                      <option value="cholesterol">Total Cholesterol</option>
+                      <option value="ldl">LDL Cholesterol</option>
+                      <option value="hdl">HDL Cholesterol</option>
+                      <option value="triglycerides">Triglycerides</option>
+                    </optgroup>
+                    <optgroup label="Glucose Metabolism">
+                      <option value="glucose_fasting">Glucose (Fasting)</option>
+                      <option value="glucose_random">Glucose (Random)</option>
+                      <option value="hba1c">HbA1c</option>
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+
+              {/* SECTION D - NEXT APPOINTMENT */}
+              <div className="rounded-[var(--r)] border border-[var(--border)] p-3" style={{ background: 'var(--cream)' }}>
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+                  <div className="font-syne font-extrabold text-[14px] text-[var(--ink)]">Next Appointment</div>
+                  <div className="text-[12px] text-[var(--slate)]">Hard deadline: {hardDeadline.toLocaleDateString()}</div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+                      Date
+                    </div>
+                    <input
+                      type="date"
+                      value={nextDate}
+                      onChange={(e) => setNextDate(e.target.value)}
+                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+                      Note (optional)
+                    </div>
+                    <input
+                      type="text"
+                      value={nextNote}
+                      onChange={(e) => setNextNote(e.target.value)}
+                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
+                      placeholder="e.g. Bring medications"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           ) : null}
-
-          {/* Next appointment scheduler (always visible) */}
-          <div className="mt-4 rounded-[var(--r)] border border-[var(--border)] p-3">
-            <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
-              <div>
-                <div className="font-syne font-extrabold text-[14px] text-[var(--ink)]">
-                  Next Appointment
-                </div>
-                <div className="text-[12px] text-[var(--slate)]">
-                  {formatDateLong(visitDate)} + 30d = {formatDateLong(toISODate(hardDeadline))} →{' '}
-                  {formatDateLong(toISODate(computedNextDate))}
-                </div>
-              </div>
-
-              {clinicDays.length ? null : (
-                <Alert variant="amber" icon={<span>!</span>}>
-                  Set clinic days in Schedule
-                </Alert>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-              <div>
-                <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                  Appointment date
-                </div>
-                <input
-                  type="date"
-                  value={nextDate}
-                  onChange={(e) => setNextDate(e.target.value)}
-                  max={toISODate(hardDeadline)}
-                  className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-                />
-              </div>
-
-              <div>
-                <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                  Note
-                </div>
-                <input
-                  value={nextNote}
-                  onChange={(e) => setNextNote(e.target.value)}
-                  className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-                  placeholder="Optional note"
-                />
-              </div>
-            </div>
-
-            <div className="mt-3 flex gap-2 justify-end">
-              <Button
-                size="xs"
-                variant="ghost"
-                label="Recalc"
-                onClick={() => setNextDate(toISODate(nextVisitDate(new Date(visitDate), 30, clinicDays)))}
-              />
-            </div>
-          </div>
         </div>
 
-        <div className="px-4 py-3 border-t border-[var(--border)] flex gap-2 justify-end bg-white">
+        <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--cream)] flex gap-2 justify-end">
           <Button size="sm" variant="ghost" label="Cancel" onClick={close} />
-          <Button size="sm" variant="primary" label="Save & Schedule" onClick={onSave} />
+          <Button size="sm" variant="primary" label="Save Visit" onClick={onSave} />
         </div>
       </div>
     </div>
   );
 }
-
-function defaultMedicationFromPatient(patient: Patient): Medication {
-  // Prefer DM meds for DM patients, otherwise HTN.
-  if (patient.cond === 'DM' || patient.cond === 'DM+HTN') {
-    return { name: DM_MEDS[0] ?? HTN_MEDS[0] };
-  }
-  return { name: HTN_MEDS[0] };
-}
-
