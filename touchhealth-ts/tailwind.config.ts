@@ -8,7 +8,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Touch Health design tokens — matches CSS variables in HTML
         teal: {
           DEFAULT: '#0d6e87',
           2:       '#1a8fa8',
@@ -18,8 +17,8 @@ export default {
         },
         ink: {
           DEFAULT: '#0f1f26',
-          2:       '#2a4a58',
-          3:       '#4a7a8a',
+          2:       '#005469',
+          3:       '#0d6e87',
         },
       },
       fontFamily: {
