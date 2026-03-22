@@ -34,16 +34,23 @@ const INK  = '#0f1f26';
 const TEAL = '#0d6e87';
 
 function SectionCard({
-  title, color = INK, bg = '#fff', children,
-}: { title: string; color?: string; bg?: string; children: React.ReactNode }) {
+  title, color = INK, bg = '#fff', children, defaultOpen = true,
+}: { title: string; color?: string; bg?: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ background: bg, borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(191,200,205,.3)', marginBottom: '14px' }}>
-      <div style={{ background: color, height: '36px', padding: '0 14px', display: 'flex', alignItems: 'center' }}>
+      <div
+        onClick={() => setOpen(!open)}
+        style={{ background: color, height: '36px', padding: '0 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+      >
         <span style={{ color: '#fff', fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
           {title}
         </span>
+        <span style={{ color: 'rgba(255,255,255,.7)', fontSize: '16px', lineHeight: 1, transition: 'transform .2s', display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+          ▾
+        </span>
       </div>
-      <div style={{ padding: '14px' }}>{children}</div>
+      {open && <div style={{ padding: '14px' }}>{children}</div>}
     </div>
   );
 }
@@ -450,7 +457,7 @@ export default function VisitModal() {
               </SectionCard>
 
               {/* ── 2. PRESENTING COMPLAINT ────────────────── */}
-              <SectionCard title="2. Presenting Complaint" color="#2a4a58">
+              <SectionCard title="2. Presenting Complaint" color="#2a4a58" defaultOpen={true}>
                 <div>
                   <FieldLabel text="Chief complaint and history" />
                   <textarea
@@ -463,7 +470,7 @@ export default function VisitModal() {
               </SectionCard>
 
               {/* ── 3. PHYSICAL EXAMINATION ────────────────── */}
-              <SectionCard title="3. Physical Examination" color={TEAL} bg="rgba(13,110,135,.03)">
+              <SectionCard title="3. Physical Examination" color={TEAL} bg="rgba(13,110,135,.03)" defaultOpen={false}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   {[
                     { label: 'General Appearance', val: generalAppearance, set: setGeneralAppearance, type: 'text', unit: '' },
@@ -504,7 +511,7 @@ export default function VisitModal() {
               </SectionCard>
 
               {/* ── 4. PROVISIONAL DIAGNOSIS (ICD-10) ─────── */}
-              <SectionCard title="4. Provisional Diagnosis (ICD-10)" color="#7c3aed" bg="rgba(124,58,237,.03)">
+              <SectionCard title="4. Provisional Diagnosis (ICD-10)" color="#7c3aed" bg="rgba(124,58,237,.03)" defaultOpen={false}>
                 <DiagnosisSearch
                   label="Search and add provisional diagnoses"
                   selected={provisionalDx}
@@ -516,7 +523,7 @@ export default function VisitModal() {
               </SectionCard>
 
               {/* ── 5. INVESTIGATIONS ──────────────────────── */}
-              <SectionCard title="5. Investigations / Lab Results" color="#166534" bg="#f0fdf4">
+              <SectionCard title="5. Investigations / Lab Results" color="#166534" bg="#f0fdf4" defaultOpen={false}>
                 {/* Add investigation */}
                 <div style={{ position: 'relative', marginBottom: '10px' }}>
                   <FieldLabel text="Add investigation" />
@@ -566,7 +573,7 @@ export default function VisitModal() {
               </SectionCard>
 
               {/* ── 6. FINAL DIAGNOSIS (ICD-10) ────────────── */}
-              <SectionCard title="6. Final Diagnosis (ICD-10)" color="#005469">
+              <SectionCard title="6. Final Diagnosis (ICD-10)" color="#005469" defaultOpen={false}>
                 <DiagnosisSearch
                   label="Search and add final diagnoses"
                   selected={finalDx}
@@ -578,7 +585,7 @@ export default function VisitModal() {
               </SectionCard>
 
               {/* ── 7. MEDICATIONS ─────────────────────────── */}
-              <SectionCard title="7. Medications" color="#7c3aed" bg="rgba(124,58,237,.03)">
+              <SectionCard title="7. Medications" color="#7c3aed" bg="rgba(124,58,237,.03)" defaultOpen={true}>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
                   <button
                     onClick={() => setMeds((prev) => [...prev, defaultMed(patient)])}
@@ -601,7 +608,7 @@ export default function VisitModal() {
               </SectionCard>
 
               {/* ── 8. NEXT APPOINTMENT ────────────────────── */}
-              <SectionCard title="8. Next Appointment" color="#2a4a58">
+              <SectionCard title="8. Next Appointment" color="#2a4a58" defaultOpen={true}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <FieldLabel text={`Date (deadline: ${hardDeadline.toLocaleDateString()})`} />
@@ -615,7 +622,7 @@ export default function VisitModal() {
               </SectionCard>
 
               {/* ── 9. FINAL NOTE ──────────────────────────── */}
-              <SectionCard title="9. Final Note / Clinical Summary" color={INK}>
+              <SectionCard title="9. Final Note / Clinical Summary" color={INK} defaultOpen={false}>
                 <div>
                   <FieldLabel text="Summary, plan, referrals, or additional notes" />
                   <textarea
