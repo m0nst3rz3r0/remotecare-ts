@@ -17,11 +17,11 @@ import MedRow from './MedRow';
 import Button from '../ui/Button';
 import Chip from '../ui/Chip';
 import { HTN_MEDS } from '../../services/clinical';
+import { ICD10_CODES } from '../../data/icd10';
+import { INVESTIGATION_TEMPLATES } from '../../data/investigations';
 
-function toISODate(d: Date) {
-  return d.toISOString().split('T')[0];
-}
-
+// ── Helpers ──────────────────────────────────────────────────
+function toISODate(d: Date) { return d.toISOString().split('T')[0]; }
 function parseNumber(v: string) {
   const t = v.trim();
   if (!t) return null;
@@ -29,15 +29,153 @@ function parseNumber(v: string) {
   return Number.isFinite(n) ? n : null;
 }
 
+// ── Section card matching Stitch design ──────────────────────
+const INK  = '#0f1f26';
+const TEAL = '#0d6e87';
+
+function SectionCard({
+  title, color = INK, bg = '#fff', children,
+}: { title: string; color?: string; bg?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ background: bg, borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(191,200,205,.3)', marginBottom: '14px' }}>
+      <div style={{ background: color, height: '36px', padding: '0 14px', display: 'flex', alignItems: 'center' }}>
+        <span style={{ color: '#fff', fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
+          {title}
+        </span>
+      </div>
+      <div style={{ padding: '14px' }}>{children}</div>
+    </div>
+  );
+}
+
+function FieldLabel({ text }: { text: string }) {
+  return (
+    <div style={{ fontSize: '10px', fontFamily: 'Syne, sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#516169', marginBottom: '4px' }}>
+      {text}
+    </div>
+  );
+}
+
+const fieldStyle: React.CSSProperties = {
+  width: '100%', border: '1.5px solid rgba(191,200,205,.55)', borderRadius: '4px',
+  padding: '8px 10px', fontSize: '13px', fontFamily: 'Karla, sans-serif',
+  color: INK, background: '#fff', outline: 'none',
+};
+
+// ── ICD-10 search component ───────────────────────────────────
+interface SelectedDiagnosis { code: string; description: string; isPrimary?: boolean; }
+
+function DiagnosisSearch({
+  label, selected, onAdd, onRemove, onTogglePrimary,
+}: {
+  label: string;
+  selected: SelectedDiagnosis[];
+  onAdd: (d: SelectedDiagnosis) => void;
+  onRemove: (code: string) => void;
+  onTogglePrimary?: (code: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const results = useMemo(() => {
+    if (!query.trim() || query.length < 2) return [];
+    const q = query.toLowerCase();
+    return ICD10_CODES.filter(
+      (c) => c.code.toLowerCase().includes(q) || c.description.toLowerCase().includes(q),
+    ).slice(0, 8);
+  }, [query]);
+
+  return (
+    <div>
+      <FieldLabel text={label} />
+      {/* Selected diagnoses */}
+      {selected.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+          {selected.map((d) => (
+            <div
+              key={d.code}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '4px 10px', borderRadius: '4px',
+                background: d.isPrimary ? 'rgba(13,110,135,.12)' : '#f4f4f2',
+                border: `1.5px solid ${d.isPrimary ? TEAL : 'rgba(191,200,205,.5)'}`,
+                fontSize: '12px', color: d.isPrimary ? '#005469' : INK,
+              }}
+            >
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '11px' }}>{d.code}</span>
+              <span>{d.description}</span>
+              {onTogglePrimary && (
+                <button
+                  onClick={() => onTogglePrimary(d.code)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: d.isPrimary ? TEAL : '#516169', fontWeight: 700, padding: '0 2px' }}
+                  title={d.isPrimary ? 'Primary diagnosis' : 'Set as primary'}
+                >
+                  {d.isPrimary ? '★' : '☆'}
+                </button>
+              )}
+              <button
+                onClick={() => onRemove(d.code)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '14px', lineHeight: 1, padding: '0 2px' }}
+              >×</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Search input */}
+      <div style={{ position: 'relative' }}>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ ...fieldStyle, paddingLeft: '10px' }}
+          placeholder="Search ICD-10 code or diagnosis name…"
+        />
+        {results.length > 0 && (
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #0d6e87', borderTop: 'none', borderRadius: '0 0 4px 4px', zIndex: 999, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 20px rgba(15,31,38,.1)' }}>
+            {results.map((r) => (
+              <div
+                key={r.code}
+                onClick={() => { onAdd({ code: r.code, description: r.description }); setQuery(''); }}
+                style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '12px', borderBottom: '1px solid rgba(191,200,205,.15)', display: 'flex', gap: '10px', alignItems: 'center' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(13,110,135,.05)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#fff'; }}
+              >
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: TEAL, fontSize: '11px', minWidth: '52px' }}>{r.code}</span>
+                <span style={{ color: INK }}>{r.description}</span>
+                <span style={{ marginLeft: 'auto', fontSize: '10px', color: '#516169', background: '#f4f4f2', padding: '2px 6px', borderRadius: '3px' }}>{r.category}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Investigation row ─────────────────────────────────────────
+interface InvResult { id: string; name: string; value: string; unit: string; reference: string; }
+
+function InvestigationRow({ inv, onChange, onRemove }: { inv: InvResult; onChange: (v: InvResult) => void; onRemove: () => void; }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '8px', alignItems: 'center', padding: '8px 10px', background: '#fafaf8', borderRadius: '4px', border: '1px solid rgba(191,200,205,.3)', marginBottom: '6px' }}>
+      <span style={{ fontSize: '12px', fontWeight: 700, color: INK }}>{inv.name}</span>
+      <input
+        value={inv.value}
+        onChange={(e) => onChange({ ...inv, value: e.target.value })}
+        style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', padding: '5px 8px' }}
+        placeholder="Result"
+      />
+      <span style={{ fontSize: '11px', color: '#516169' }}>{inv.unit} · {inv.reference}</span>
+      <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '16px', padding: '0 4px' }}>×</button>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────
 export default function VisitModal() {
-  const open = useUIStore((s) => s.visitModalOpen);
-  const patientId = useUIStore((s) => s.visitModalPatientId);
-  const close = useUIStore((s) => s.closeVisitModal);
+  const open       = useUIStore((s) => s.visitModalOpen);
+  const patientId  = useUIStore((s) => s.visitModalPatientId);
+  const close      = useUIStore((s) => s.closeVisitModal);
   const clinicDays = useUIStore((s) => s.clinicSettings.days);
-
   const currentUser = useAuthStore((s) => s.currentUser);
-
-  const patients = usePatientStore((s) => s.patients);
+  const patients   = usePatientStore((s) => s.patients);
   const recordVisit = usePatientStore((s) => s.recordVisit);
 
   const patient: Patient | null = useMemo(() => {
@@ -47,846 +185,457 @@ export default function VisitModal() {
 
   const isDM = patient?.cond === 'DM' || patient?.cond === 'DM+HTN';
 
+  // ── Basic visit fields ────────────────────────────────────
   const [visitDate, setVisitDate] = useState<string>(today());
-  const [attended, setAttended] = useState<boolean>(true);
+  const [attended, setAttended]   = useState<boolean>(true);
 
-  const [sbp, setSbp] = useState<string>('');
-  const [dbp, setDbp] = useState<string>('');
-
+  // ── Vitals ────────────────────────────────────────────────
+  const [sbp, setSbp]     = useState<string>('');
+  const [dbp, setDbp]     = useState<string>('');
   const [sugar, setSugar] = useState<string>('');
   const [sugarType, setSugarType] = useState<SugarTestType>('FBS');
-
-  const [weightKg, setWeightKg] = useState<string>('');
-  const [heightCm, setHeightCm] = useState<string>('');
+  const [weightKg, setWeightKg]   = useState<string>('');
+  const [heightCm, setHeightCm]   = useState<string>('');
   const bmi = useMemo(() => {
-    const w = parseNumber(weightKg);
-    const h = parseNumber(heightCm);
+    const w = parseNumber(weightKg), h = parseNumber(heightCm);
     if (w === null || h === null) return null;
     return calculateBMI(w, h);
   }, [weightKg, heightCm]);
 
-  const [notes, setNotes] = useState<string>('');
+  // ── Presenting complaint ──────────────────────────────────
   const [presentingComplaint, setPresentingComplaint] = useState<string>('');
-  
-  // Physical examination fields
-  const [generalAppearance, setGeneralAppearance] = useState<string>('');
-  const [pulseRate, setPulseRate] = useState<string>('');
-  const [respiratoryRate, setRespiratoryRate] = useState<string>('');
-  const [temperature, setTemperature] = useState<string>('');
-  const [oxygenSaturation, setOxygenSaturation] = useState<string>('');
-  const [oedema, setOedema] = useState<'none' | 'mild' | 'moderate' | 'severe'>('none');
-  const [fundoscopy, setFundoscopy] = useState<string>('');
-  const [footExamination, setFootExamination] = useState<'normal' | 'abnormal' | 'ulcer' | 'amputation'>('normal');
-  const [otherFindings, setOtherFindings] = useState<string>('');
 
+  // ── Physical examination ──────────────────────────────────
+  const [generalAppearance,  setGeneralAppearance]  = useState<string>('');
+  const [pulseRate,           setPulseRate]           = useState<string>('');
+  const [respiratoryRate,     setRespiratoryRate]     = useState<string>('');
+  const [temperature,         setTemperature]         = useState<string>('');
+  const [oxygenSaturation,    setOxygenSaturation]    = useState<string>('');
+  const [oedema,              setOedema]              = useState<'none'|'mild'|'moderate'|'severe'>('none');
+  const [fundoscopy,          setFundoscopy]          = useState<string>('');
+  const [footExamination,     setFootExamination]     = useState<'normal'|'abnormal'|'ulcer'|'amputation'>('normal');
+  const [otherFindings,       setOtherFindings]       = useState<string>('');
+
+  // ── Provisional diagnosis (ICD-10) ───────────────────────
+  const [provisionalDx, setProvisionalDx] = useState<SelectedDiagnosis[]>([]);
+
+  // ── Investigations ────────────────────────────────────────
+  const [investigations, setInvestigations] = useState<InvResult[]>([]);
+  const [invSearch, setInvSearch] = useState<string>('');
+  const invResults = useMemo(() => {
+    if (!invSearch.trim() || invSearch.length < 2) return [];
+    const q = invSearch.toLowerCase();
+    return INVESTIGATION_TEMPLATES.filter(
+      (t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q),
+    ).slice(0, 8);
+  }, [invSearch]);
+
+  // ── Final diagnosis (ICD-10) ──────────────────────────────
+  const [finalDx, setFinalDx] = useState<SelectedDiagnosis[]>([]);
+
+  // ── Medications ───────────────────────────────────────────
   const [meds, setMeds] = useState<Medication[]>([]);
 
-  const [hba1cValue, setHba1cValue] = useState<string>('');
+  // ── HbA1c ─────────────────────────────────────────────────
+  const [hba1cValue,   setHba1cValue]   = useState<string>('');
   const [hba1cQuarter, setHba1cQuarter] = useState<HbA1cQuarter>(getCurrentQuarter());
 
-  // Appointment scheduler
+  // ── Next appointment ──────────────────────────────────────
   const hardDeadline = useMemo(() => {
-    const d = new Date(visitDate);
-    const dd = new Date(d);
-    dd.setDate(dd.getDate() + 30);
-    return dd;
+    const d = new Date(visitDate); d.setDate(d.getDate() + 30); return d;
   }, [visitDate]);
 
-  const computedNextDate = useMemo(() => {
-    const d = new Date(visitDate);
-    const nd = nextVisitDate(d, 30, clinicDays);
-    return nd;
-  }, [visitDate, clinicDays]);
-
+  const computedNextDate = useMemo(() => nextVisitDate(new Date(visitDate), 30, clinicDays), [visitDate, clinicDays]);
   const [nextDate, setNextDate] = useState<string>(toISODate(computedNextDate));
   const [nextNote, setNextNote] = useState<string>('');
 
+  // ── Final note ────────────────────────────────────────────
+  const [finalNote, setFinalNote] = useState<string>('');
+
+  // ── Reset on open ─────────────────────────────────────────
   useEffect(() => {
     if (!open || !patient) return;
     setVisitDate(today());
     setAttended(true);
-    setSbp('');
-    setDbp('');
-    setSugar('');
-    setSugarType('FBS');
-    setWeightKg('');
-    setHeightCm('');
-    setNotes('');
-    setHba1cValue('');
-    setHba1cQuarter(getCurrentQuarter());
-    
-    // Reset clinical fields
+    setSbp(''); setDbp(''); setSugar(''); setSugarType('FBS');
+    setWeightKg(''); setHeightCm('');
     setPresentingComplaint('');
-    setGeneralAppearance('');
-    setPulseRate('');
-    setRespiratoryRate('');
-    setTemperature('');
-    setOxygenSaturation('');
-    setOedema('none');
-    setFundoscopy('');
-    setFootExamination('normal');
-    setOtherFindings('');
-
-    const current = getCurrentMeds(patient);
-    setMeds(current.length ? current : [{ name: HTN_MEDS[0] }]);
-
-    const initialNext = nextVisitDate(new Date(today()), 30, clinicDays);
-    setNextDate(toISODate(initialNext));
+    setGeneralAppearance(''); setPulseRate(''); setRespiratoryRate('');
+    setTemperature(''); setOxygenSaturation(''); setOedema('none');
+    setFundoscopy(''); setFootExamination('normal'); setOtherFindings('');
+    setProvisionalDx([]);
+    setInvestigations([]); setInvSearch('');
+    setFinalDx([]);
+    setMeds(getCurrentMeds(patient).length ? getCurrentMeds(patient) : [{ name: HTN_MEDS[0] }]);
+    setHba1cValue(''); setHba1cQuarter(getCurrentQuarter());
+    setNextDate(toISODate(nextVisitDate(new Date(today()), 30, clinicDays)));
     setNextNote('');
+    setFinalNote('');
   }, [open, patient, clinicDays]);
 
   useEffect(() => {
-    // When visit date / clinic days change, update suggestion.
     if (!open) return;
     setNextDate(toISODate(computedNextDate));
   }, [computedNextDate, open]);
 
   if (!open || !patient || patientId === null || !currentUser) return null;
 
-  const month = new Date(visitDate).getMonth() + 1;
-
-  const sbpN = parseNumber(sbp);
-  const dbpN = parseNumber(dbp);
+  const month  = new Date(visitDate).getMonth() + 1;
+  const sbpN   = parseNumber(sbp);
+  const dbpN   = parseNumber(dbp);
   const sugarN = parseNumber(sugar);
-
   const liveBP = sbpN !== null && dbpN !== null ? bpClass(sbpN, dbpN) : null;
   const liveSG = sugarN !== null ? sgClass(sugarN, sugarType) : null;
 
   const onSave = () => {
-    const scheduledBy = currentUser.displayName;
-
-    const medsToSave = attended ? meds : [];
-    const notesToSave = attended ? notes : '';
-
     recordVisit({
       patientId,
       month,
       date: visitDate,
       attended,
-      sbp: attended ? (sbpN ?? undefined) : undefined,
-      dbp: attended ? (dbpN ?? undefined) : undefined,
-      sugar: attended ? (sugarN ?? undefined) : undefined,
+      sbp:       attended ? (sbpN   ?? undefined) : undefined,
+      dbp:       attended ? (dbpN   ?? undefined) : undefined,
+      sugar:     attended ? (sugarN ?? undefined) : undefined,
       sugarType: attended ? sugarType : undefined,
-      weight: attended ? (parseNumber(weightKg) ?? undefined) : undefined,
-      height: attended ? (parseNumber(heightCm) ?? undefined) : undefined,
-      bmi: attended ? (bmi ?? undefined) : undefined,
-      notes: attended ? (notesToSave || undefined) : undefined,
-      meds: medsToSave,
+      weight:    attended ? (parseNumber(weightKg) ?? undefined) : undefined,
+      height:    attended ? (parseNumber(heightCm) ?? undefined) : undefined,
+      bmi:       attended ? (bmi    ?? undefined)  : undefined,
+      notes:     attended ? (finalNote || undefined) : undefined,
+      meds:      attended ? meds : [],
       nextDate,
-      nextNote: nextNote || undefined,
-      scheduledBy,
+      nextNote:  nextNote || undefined,
+      scheduledBy: currentUser.displayName,
       presentingComplaint: attended ? presentingComplaint || undefined : undefined,
       physicalExam: attended ? {
-        generalAppearance: generalAppearance || undefined,
-        pulseRate: parseNumber(pulseRate) ?? undefined,
-        respiratoryRate: parseNumber(respiratoryRate) ?? undefined,
-        temperature: parseNumber(temperature) ?? undefined,
-        oxygenSaturation: parseNumber(oxygenSaturation) ?? undefined,
+        generalAppearance:  generalAppearance  || undefined,
+        pulseRate:          parseNumber(pulseRate)        ?? undefined,
+        respiratoryRate:    parseNumber(respiratoryRate)  ?? undefined,
+        temperature:        parseNumber(temperature)      ?? undefined,
+        oxygenSaturation:   parseNumber(oxygenSaturation) ?? undefined,
         oedema,
-        fundoscopy: fundoscopy || undefined,
+        fundoscopy:         fundoscopy    || undefined,
         footExamination,
-        otherFindings: otherFindings || undefined,
+        otherFindings:      otherFindings || undefined,
       } : undefined,
-      // HbA1c (DM only)
-      ...(isDM &&
-      attended &&
-      hba1cValue.trim() !== '' &&
-      hba1cQuarter
-        ? {
-            hba1cValue: Number(hba1cValue),
-            hba1cQuarter,
-            hba1cYear: new Date(visitDate).getFullYear(),
-          }
+      ...(isDM && attended && hba1cValue.trim() !== '' && hba1cQuarter
+        ? { hba1cValue: Number(hba1cValue), hba1cQuarter, hba1cYear: new Date(visitDate).getFullYear() }
         : {}),
     });
-
     close();
   };
 
-  function defaultMedicationFromPatient(p: Patient | null): Medication {
+  function defaultMed(p: Patient | null): Medication {
     if (!p) return { name: '' };
-    const current = getCurrentMeds(p);
-    return current.length > 0 ? current[0] : { name: HTN_MEDS[0] };
+    const c = getCurrentMeds(p);
+    return c.length > 0 ? c[0] : { name: HTN_MEDS[0] };
   }
+
+  // ── Helpers for diagnosis lists ───────────────────────────
+  const addProvisional = (d: SelectedDiagnosis) => {
+    if (provisionalDx.find((x) => x.code === d.code)) return;
+    setProvisionalDx((prev) => [...prev, { ...d, isPrimary: prev.length === 0 }]);
+  };
+  const addFinal = (d: SelectedDiagnosis) => {
+    if (finalDx.find((x) => x.code === d.code)) return;
+    setFinalDx((prev) => [...prev, { ...d, isPrimary: prev.length === 0 }]);
+  };
+  const togglePrimary = (list: SelectedDiagnosis[], setList: React.Dispatch<React.SetStateAction<SelectedDiagnosis[]>>, code: string) => {
+    setList(list.map((d) => ({ ...d, isPrimary: d.code === code })));
+  };
 
   return (
     <div className="fixed inset-0 z-50">
-      <div
-        className="absolute inset-0"
-        onClick={close}
-        style={{ background: 'rgba(0,0,0,.35)' }}
-      />
+      <div className="absolute inset-0" onClick={close} style={{ background: 'rgba(0,0,0,.45)' }} />
 
-      <div className="absolute inset-y-0 right-0 w-full max-w-[720px] bg-white border-l border-[var(--border)] shadow-[var(--shadow)] flex flex-col">
-        <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between gap-3">
+      <div className="absolute inset-y-0 right-0 w-full max-w-[760px] bg-white border-l border-[var(--border)] flex flex-col" style={{ boxShadow: '-8px 0 48px rgba(15,31,38,.2)' }}>
+
+        {/* ── Header ──────────────────────────────────────── */}
+        <div style={{ background: INK, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div className="font-syne font-extrabold text-[16px] text-[var(--ink)]">
-              Record Visit
-            </div>
-            <div className="text-[12px] text-[var(--slate)]">{patient.code}</div>
+            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', fontWeight: 800, color: '#fff' }}>Record Visit</div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'rgba(255,255,255,.6)', marginTop: '2px' }}>{patient.code} · {patient.cond} · {patient.sex === 'M' ? 'Male' : 'Female'} {patient.age}y</div>
           </div>
-          <Button size="xs" variant="ghost" label="Cancel" onClick={close} />
+          <button onClick={close} style={{ background: 'rgba(255,255,255,.1)', border: 'none', color: '#fff', borderRadius: '6px', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Syne, sans-serif', fontSize: '12px', fontWeight: 700 }}>
+            Cancel
+          </button>
         </div>
 
-        <div className="p-4 overflow-auto flex-1">
-          {/* Row 1: Date | Month # | Attendance */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+        {/* ── Scrollable body ──────────────────────────────── */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+
+          {/* Visit date + attendance */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             <div>
-              <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                Date
-              </div>
-              <input
-                type="date"
-                value={visitDate}
-                onChange={(e) => setVisitDate(e.target.value)}
-                className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-              />
+              <FieldLabel text="Date" />
+              <input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} style={fieldStyle} />
             </div>
             <div>
-              <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                Month #
-              </div>
-              <div className="rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 bg-white">
-                <span className="mono font-extrabold">{month}</span>
-              </div>
+              <FieldLabel text="Month #" />
+              <div style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>{month}</div>
             </div>
             <div>
-              <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                Attendance
-              </div>
-              <select
-                value={attended ? 'yes' : 'no'}
-                onChange={(e) => setAttended(e.target.value === 'yes')}
-                className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-              >
-                <option value="yes">✅ Attended</option>
-                <option value="no">❌ Missed</option>
+              <FieldLabel text="Attendance" />
+              <select value={attended ? 'yes' : 'no'} onChange={(e) => setAttended(e.target.value === 'yes')} style={fieldStyle}>
+                <option value="yes">Attended</option>
+                <option value="no">Missed</option>
               </select>
             </div>
           </div>
 
-          {/* Clinical fields (only for attended) */}
           {attended ? (
-            <div className="mt-4 space-y-4">
-              {/* BP */}
-              <div className="rounded-[var(--r)] border border-[var(--border)] p-3" style={{ background: 'var(--teal-ultra)' }}>
-                <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-                  <div className="font-syne font-extrabold text-[14px] text-[var(--teal)]">Blood Pressure</div>
-                  {liveBP ? <Chip cls={liveBP.cls}>{liveBP.lbl}</Chip> : <Chip cls="chip-gray">No BP data</Chip>}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                      SBP
+            <>
+              {/* ── 1. VITALS ──────────────────────────────── */}
+              <SectionCard title="1. Vitals & Measurements" color={INK}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                  {/* BP */}
+                  <div style={{ background: 'rgba(13,110,135,.06)', borderRadius: '6px', padding: '10px', border: '1px solid rgba(13,110,135,.15)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: TEAL, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Blood Pressure</span>
+                      {liveBP ? <Chip cls={liveBP.cls}>{liveBP.lbl}</Chip> : null}
                     </div>
-                    <input
-                      type="number"
-                      value={sbp}
-                      onChange={(e) => setSbp(e.target.value)}
-                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white mono"
-                      placeholder="e.g. 145"
-                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <div>
+                        <FieldLabel text="SBP (mmHg)" />
+                        <input type="number" value={sbp} onChange={(e) => setSbp(e.target.value)} style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} placeholder="145" />
+                      </div>
+                      <div>
+                        <FieldLabel text="DBP (mmHg)" />
+                        <input type="number" value={dbp} onChange={(e) => setDbp(e.target.value)} style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} placeholder="95" />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Glucose */}
+                  <div style={{ background: 'rgba(217,119,6,.06)', borderRadius: '6px', padding: '10px', border: '1px solid rgba(217,119,6,.2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#d97706', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Glucose</span>
+                      {liveSG ? <Chip cls={liveSG.cls}>{liveSG.lbl}</Chip> : null}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <div>
+                        <FieldLabel text="Value (mmol/L)" />
+                        <input type="number" step="0.1" value={sugar} onChange={(e) => setSugar(e.target.value)} style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} placeholder="8.2" />
+                      </div>
+                      <div>
+                        <FieldLabel text="Type" />
+                        <select value={sugarType} onChange={(e) => setSugarType(e.target.value as SugarTestType)} style={fieldStyle}>
+                          <option value="FBS">FBS</option>
+                          <option value="RBS">RBS</option>
+                          <option value="2HPP">2HPP</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* Weight / Height / BMI */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <FieldLabel text="Weight (kg)" />
+                    <input type="number" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} placeholder="70" />
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                      DBP
-                    </div>
-                    <input
-                      type="number"
-                      value={dbp}
-                      onChange={(e) => setDbp(e.target.value)}
-                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white mono"
-                      placeholder="e.g. 95"
-                    />
+                    <FieldLabel text="Height (cm)" />
+                    <input type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} placeholder="170" />
+                  </div>
+                  <div>
+                    <FieldLabel text="BMI" />
+                    <div style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: TEAL }}>{bmi === null ? '—' : bmi.toFixed(1)}</div>
                   </div>
                 </div>
-              </div>
+                {/* HbA1c for DM */}
+                {isDM && (
+                  <div style={{ marginTop: '10px' }}>
+                    <HbA1cBox patient={patient} value={hba1cValue} quarter={hba1cQuarter} onValueChange={setHba1cValue} onQuarterChange={setHba1cQuarter} />
+                  </div>
+                )}
+              </SectionCard>
 
-              {/* Glucose */}
-              <div className="rounded-[var(--r)] border border-[var(--border)] p-3" style={{ background: 'var(--amber-pale)' }}>
-                <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-                  <div className="font-syne font-extrabold text-[14px] text-[var(--amber)]">Glucose</div>
-                  {liveSG ? <Chip cls={liveSG.cls}>{liveSG.lbl}</Chip> : <Chip cls="chip-gray">No glucose data</Chip>}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                      Value (mmol/L)
-                    </div>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.1"
-                      value={sugar}
-                      onChange={(e) => setSugar(e.target.value)}
-                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white mono"
-                      placeholder="e.g. 8.2"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                      Type
-                    </div>
-                    <select
-                      value={sugarType}
-                      onChange={(e) => setSugarType(e.target.value as SugarTestType)}
-                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-                    >
-                      <option value="FBS">FBS</option>
-                      <option value="RBS">RBS</option>
-                      <option value="2HPP">2HPP</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* HbA1c (DM patients only) */}
-              {isDM ? (
-                <HbA1cBox
-                  patient={patient}
-                  value={hba1cValue}
-                  quarter={hba1cQuarter}
-                  onValueChange={setHba1cValue}
-                  onQuarterChange={setHba1cQuarter}
-                />
-              ) : null}
-
-              {/* MEASUREMENTS row */}
-              <div className="rounded-[var(--r)] border border-[var(--border)] p-3">
-                <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-                  <div className="font-syne font-extrabold text-[14px] text-[var(--ink)]">Measurements</div>
-                  <Chip cls="chip-gray">BMI: {bmi === null ? '—' : bmi.toFixed(1)}</Chip>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                      Weight (kg)
-                    </div>
-                    <input
-                      type="number"
-                      value={weightKg}
-                      onChange={(e) => setWeightKg(e.target.value)}
-                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white mono"
-                      placeholder="e.g. 70"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                      Height (cm)
-                    </div>
-                    <input
-                      type="number"
-                      value={heightCm}
-                      onChange={(e) => setHeightCm(e.target.value)}
-                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white mono"
-                      placeholder="e.g. 170"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                      BMI
-                    </div>
-                    <div className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 bg-white mono font-extrabold text-center">
-                      {bmi === null ? '—' : bmi.toFixed(1)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION A - CLINICAL NOTES */}
-              <div style={{
-                background: 'white',
-                border: '1px solid rgba(191,200,205,.25)',
-                borderRadius: '8px',
-                padding: '16px',
-                marginBottom: '16px'
-              }}>
-                <div style={{
-                  fontFamily: 'Syne, sans-serif',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  marginBottom: '12px',
-                  color: '#0f1f26'
-                }}>
-                  Clinical Notes
-                </div>
-                
-                <div style={{ marginBottom: '12px' }}>
-                  <div style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    marginBottom: '4px',
-                    color: '#516169'
-                  }}>
-                    Presenting Complaint
-                  </div>
+              {/* ── 2. PRESENTING COMPLAINT ────────────────── */}
+              <SectionCard title="2. Presenting Complaint" color="#2a4a58">
+                <div>
+                  <FieldLabel text="Chief complaint and history" />
                   <textarea
                     value={presentingComplaint}
                     onChange={(e) => setPresentingComplaint(e.target.value)}
-                    rows={2}
-                    style={{
-                      width: '100%',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(191,200,205,.25)',
-                      padding: '8px 12px',
-                      fontSize: '12px',
-                      fontFamily: 'Karla, sans-serif',
-                      resize: 'vertical',
-                      outline: 'none'
-                    }}
-                    placeholder="Chief complaint and history of presenting illness…"
+                    rows={3} style={{ ...fieldStyle, resize: 'vertical' }}
+                    placeholder="Describe the patient's main complaint and history of presenting illness…"
                   />
                 </div>
-                
-                <div>
-                  <div style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    marginBottom: '4px',
-                    color: '#516169'
-                  }}>
-                    Clinical Notes
-                  </div>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
-                    style={{
-                      width: '100%',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(191,200,205,.25)',
-                      padding: '8px 12px',
-                      fontSize: '12px',
-                      fontFamily: 'Karla, sans-serif',
-                      resize: 'vertical',
-                      outline: 'none'
-                    }}
-                    placeholder="General clinical notes, plan, referrals…"
-                  />
-                </div>
-              </div>
+              </SectionCard>
 
-              {/* SECTION B - PHYSICAL EXAMINATION */}
-              <div style={{
-                background: 'rgba(13,110,135,.04)',
-                border: '1px solid rgba(13,110,135,.1)',
-                borderRadius: '8px',
-                padding: '16px',
-                marginBottom: '16px'
-              }}>
-                <div style={{
-                  fontFamily: 'Syne, sans-serif',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  marginBottom: '12px',
-                  color: '#0d6e87'
-                }}>
-                  🩺 Physical Examination
-                </div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: '4px',
-                      color: '#516169'
-                    }}>
-                      General Appearance
+              {/* ── 3. PHYSICAL EXAMINATION ────────────────── */}
+              <SectionCard title="3. Physical Examination" color={TEAL} bg="rgba(13,110,135,.03)">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {[
+                    { label: 'General Appearance', val: generalAppearance, set: setGeneralAppearance, type: 'text', unit: '' },
+                    { label: 'Pulse Rate', val: pulseRate, set: setPulseRate, type: 'number', unit: 'bpm' },
+                    { label: 'Respiratory Rate', val: respiratoryRate, set: setRespiratoryRate, type: 'number', unit: '/min' },
+                    { label: 'Temperature', val: temperature, set: setTemperature, type: 'number', unit: '°C' },
+                    { label: 'Oxygen Saturation', val: oxygenSaturation, set: setOxygenSaturation, type: 'number', unit: '%' },
+                    { label: 'Fundoscopy', val: fundoscopy, set: setFundoscopy, type: 'text', unit: '' },
+                  ].map(({ label, val, set, type, unit }) => (
+                    <div key={label}>
+                      <FieldLabel text={label + (unit ? ` (${unit})` : '')} />
+                      <input type={type} value={val} onChange={(e) => set(e.target.value)} style={{ ...fieldStyle, border: '1.5px solid rgba(13,110,135,.25)' }} />
                     </div>
-                    <input
-                      type="text"
-                      value={generalAppearance}
-                      onChange={(e) => setGeneralAppearance(e.target.value)}
-                      style={{
-                        width: '100%',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(13,110,135,.25)',
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        fontFamily: 'Karla, sans-serif',
-                        outline: 'none'
-                      }}
-                      placeholder=""
-                    />
-                  </div>
-                  
+                  ))}
                   <div>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: '4px',
-                      color: '#516169'
-                    }}>
-                      Pulse Rate
-                    </div>
-                    <input
-                      type="number"
-                      value={pulseRate}
-                      onChange={(e) => setPulseRate(e.target.value)}
-                      style={{
-                        width: '100%',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(13,110,135,.25)',
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        fontFamily: 'Karla, sans-serif',
-                        outline: 'none'
-                      }}
-                      placeholder=""
-                    />
-                    <div style={{ fontSize: '10px', color: '#516169', marginTop: '2px' }}>bpm</div>
-                  </div>
-                  
-                  <div>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: '4px',
-                      color: '#516169'
-                    }}>
-                      Respiratory Rate
-                    </div>
-                    <input
-                      type="number"
-                      value={respiratoryRate}
-                      onChange={(e) => setRespiratoryRate(e.target.value)}
-                      style={{
-                        width: '100%',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(13,110,135,.25)',
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        fontFamily: 'Karla, sans-serif',
-                        outline: 'none'
-                      }}
-                      placeholder=""
-                    />
-                    <div style={{ fontSize: '10px', color: '#516169', marginTop: '2px' }}>/min</div>
-                  </div>
-                  
-                  <div>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: '4px',
-                      color: '#516169'
-                    }}>
-                      Temperature
-                    </div>
-                    <input
-                      type="number"
-                      value={temperature}
-                      onChange={(e) => setTemperature(e.target.value)}
-                      style={{
-                        width: '100%',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(13,110,135,.25)',
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        fontFamily: 'Karla, sans-serif',
-                        outline: 'none'
-                      }}
-                      placeholder=""
-                    />
-                    <div style={{ fontSize: '10px', color: '#516169', marginTop: '2px' }}>°C</div>
-                  </div>
-                  
-                  <div>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: '4px',
-                      color: '#516169'
-                    }}>
-                      Oxygen Saturation
-                    </div>
-                    <input
-                      type="number"
-                      value={oxygenSaturation}
-                      onChange={(e) => setOxygenSaturation(e.target.value)}
-                      style={{
-                        width: '100%',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(13,110,135,.25)',
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        fontFamily: 'Karla, sans-serif',
-                        outline: 'none'
-                      }}
-                      placeholder=""
-                    />
-                    <div style={{ fontSize: '10px', color: '#516169', marginTop: '2px' }}>%</div>
-                  </div>
-                  
-                  <div>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: '4px',
-                      color: '#516169'
-                    }}>
-                      Oedema
-                    </div>
-                    <select
-                      value={oedema}
-                      onChange={(e) => setOedema(e.target.value as any)}
-                      style={{
-                        width: '100%',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(13,110,135,.25)',
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        fontFamily: 'Karla, sans-serif',
-                        outline: 'none'
-                      }}
-                    >
+                    <FieldLabel text="Oedema" />
+                    <select value={oedema} onChange={(e) => setOedema(e.target.value as any)} style={{ ...fieldStyle, border: '1.5px solid rgba(13,110,135,.25)' }}>
                       <option value="none">None</option>
                       <option value="mild">Mild</option>
                       <option value="moderate">Moderate</option>
                       <option value="severe">Severe</option>
                     </select>
                   </div>
-                  
                   <div>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: '4px',
-                      color: '#516169'
-                    }}>
-                      Fundoscopy
-                    </div>
-                    <input
-                      type="text"
-                      value={fundoscopy}
-                      onChange={(e) => setFundoscopy(e.target.value)}
-                      style={{
-                        width: '100%',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(13,110,135,.25)',
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        fontFamily: 'Karla, sans-serif',
-                        outline: 'none'
-                      }}
-                      placeholder="findings…"
-                    />
-                  </div>
-                  
-                  <div>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: '4px',
-                      color: '#516169'
-                    }}>
-                      Foot Examination
-                    </div>
-                    <select
-                      value={footExamination}
-                      onChange={(e) => setFootExamination(e.target.value as any)}
-                      style={{
-                        width: '100%',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(13,110,135,.25)',
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        fontFamily: 'Karla, sans-serif',
-                        outline: 'none'
-                      }}
-                    >
+                    <FieldLabel text="Foot Examination" />
+                    <select value={footExamination} onChange={(e) => setFootExamination(e.target.value as any)} style={{ ...fieldStyle, border: '1.5px solid rgba(13,110,135,.25)' }}>
                       <option value="normal">Normal</option>
                       <option value="abnormal">Abnormal</option>
                       <option value="ulcer">Ulcer present</option>
                       <option value="amputation">Amputation</option>
                     </select>
                   </div>
-                  
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: '4px',
-                      color: '#516169'
-                    }}>
-                      Other Findings
-                    </div>
-                    <textarea
-                      value={otherFindings}
-                      onChange={(e) => setOtherFindings(e.target.value)}
-                      rows={2}
-                      style={{
-                        width: '100%',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(13,110,135,.25)',
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        fontFamily: 'Karla, sans-serif',
-                        resize: 'vertical',
-                        outline: 'none'
-                      }}
-                      placeholder=""
-                    />
+                    <FieldLabel text="Other Findings" />
+                    <textarea value={otherFindings} onChange={(e) => setOtherFindings(e.target.value)} rows={2} style={{ ...fieldStyle, resize: 'vertical', border: '1.5px solid rgba(13,110,135,.25)' }} />
                   </div>
                 </div>
-              </div>
+              </SectionCard>
 
-              {/* MEDICATIONS */}
-              <div className="rounded-[var(--r)] border border-[var(--border)] p-3" style={{ background: 'var(--violet-pale)' }}>
-                <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-                  <div className="font-syne font-extrabold text-[14px] text-[var(--violet)]">Medications</div>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    label="+ Add"
-                    onClick={() => setMeds((prev) => [...prev, defaultMedicationFromPatient(patient)])}
+              {/* ── 4. PROVISIONAL DIAGNOSIS (ICD-10) ─────── */}
+              <SectionCard title="4. Provisional Diagnosis (ICD-10)" color="#7c3aed" bg="rgba(124,58,237,.03)">
+                <DiagnosisSearch
+                  label="Search and add provisional diagnoses"
+                  selected={provisionalDx}
+                  onAdd={addProvisional}
+                  onRemove={(code) => setProvisionalDx((p) => p.filter((d) => d.code !== code))}
+                  onTogglePrimary={(code) => togglePrimary(provisionalDx, setProvisionalDx, code)}
+                />
+                <div style={{ fontSize: '11px', color: '#516169', marginTop: '6px' }}>★ = Primary diagnosis. Click star to change.</div>
+              </SectionCard>
+
+              {/* ── 5. INVESTIGATIONS ──────────────────────── */}
+              <SectionCard title="5. Investigations / Lab Results" color="#166534" bg="#f0fdf4">
+                {/* Add investigation */}
+                <div style={{ position: 'relative', marginBottom: '10px' }}>
+                  <FieldLabel text="Add investigation" />
+                  <input
+                    value={invSearch}
+                    onChange={(e) => setInvSearch(e.target.value)}
+                    style={{ ...fieldStyle, border: '1.5px solid rgba(34,197,94,.3)' }}
+                    placeholder="Search investigation name or category…"
                   />
+                  {invResults.length > 0 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #16a34a', borderTop: 'none', borderRadius: '0 0 4px 4px', zIndex: 999, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
+                      {invResults.map((t) => (
+                        <div
+                          key={t.id}
+                          onClick={() => {
+                            if (!investigations.find((i) => i.id === t.id)) {
+                              setInvestigations((prev) => [...prev, {
+                                id: t.id, name: t.name, value: '', unit: t.unit,
+                                reference: t.referenceText ?? `${t.referenceLow}–${t.referenceHigh}`,
+                              }]);
+                            }
+                            setInvSearch('');
+                          }}
+                          style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '12px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(191,200,205,.15)' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#f0fdf4'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#fff'; }}
+                        >
+                          <span style={{ fontWeight: 700, color: '#166534' }}>{t.name}</span>
+                          <span style={{ color: '#516169', fontSize: '11px' }}>{t.category} · {t.unit}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="space-y-3">
+                {/* Investigation rows */}
+                {investigations.map((inv, idx) => (
+                  <InvestigationRow
+                    key={inv.id}
+                    inv={inv}
+                    onChange={(v) => setInvestigations((prev) => prev.map((x, i) => i === idx ? v : x))}
+                    onRemove={() => setInvestigations((prev) => prev.filter((_, i) => i !== idx))}
+                  />
+                ))}
+                {investigations.length === 0 && (
+                  <div style={{ fontSize: '12px', color: '#516169', textAlign: 'center', padding: '8px' }}>No investigations added</div>
+                )}
+              </SectionCard>
+
+              {/* ── 6. FINAL DIAGNOSIS (ICD-10) ────────────── */}
+              <SectionCard title="6. Final Diagnosis (ICD-10)" color="#005469">
+                <DiagnosisSearch
+                  label="Search and add final diagnoses"
+                  selected={finalDx}
+                  onAdd={addFinal}
+                  onRemove={(code) => setFinalDx((p) => p.filter((d) => d.code !== code))}
+                  onTogglePrimary={(code) => togglePrimary(finalDx, setFinalDx, code)}
+                />
+                <div style={{ fontSize: '11px', color: '#516169', marginTop: '6px' }}>★ = Primary diagnosis. Click star to change.</div>
+              </SectionCard>
+
+              {/* ── 7. MEDICATIONS ─────────────────────────── */}
+              <SectionCard title="7. Medications" color="#7c3aed" bg="rgba(124,58,237,.03)">
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                  <button
+                    onClick={() => setMeds((prev) => [...prev, defaultMed(patient)])}
+                    style={{ background: 'rgba(124,58,237,.1)', border: '1.5px solid rgba(124,58,237,.2)', color: '#7c3aed', borderRadius: '4px', padding: '5px 12px', fontSize: '12px', fontFamily: 'Syne, sans-serif', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    + Add Medication
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {meds.map((m, idx) => (
                     <MedRow
                       key={`${m.name}-${idx}`}
                       med={m}
-                      onChange={(next) => setMeds((prev) => prev.map((x, i) => (i === idx ? next : x)))}
+                      onChange={(next) => setMeds((prev) => prev.map((x, i) => i === idx ? next : x))}
                       onRemove={() => setMeds((prev) => prev.filter((_, i) => i !== idx))}
                     />
                   ))}
+                  {meds.length === 0 && <div style={{ fontSize: '12px', color: '#516169', textAlign: 'center' }}>No medications added</div>}
                 </div>
-              </div>
+              </SectionCard>
 
-              {/* SECTION C - INVESTIGATIONS */}
-              <div style={{
-                background: '#f0fdf4',
-                border: '1px solid rgba(34,197,94,.25)',
-                borderRadius: '8px',
-                padding: '16px',
-                marginBottom: '16px'
-              }}>
-                <div style={{
-                  fontFamily: 'Syne, sans-serif',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  marginBottom: '12px',
-                  color: '#166534'
-                }}>
-                  🧪 Investigations
-                </div>
-                
-                <div style={{ marginBottom: '12px' }}>
-                  <select
-                    style={{
-                      width: '100%',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(34,197,94,.25)',
-                      padding: '8px 12px',
-                      fontSize: '12px',
-                      fontFamily: 'Karla, sans-serif',
-                      outline: 'none'
-                    }}
-                    onChange={(e) => {
-                      const selected = e.target.value;
-                      if (selected) {
-                        // Add investigation logic here
-                        e.target.value = '';
-                      }
-                    }}
-                  >
-                    <option value="">+ Add Investigation</option>
-                    <optgroup label="Hematology">
-                      <option value="hgb">Hemoglobin</option>
-                      <option value="hct">Hematocrit</option>
-                      <option value="rbc">Red Blood Cells</option>
-                      <option value="wbc">White Blood Cells</option>
-                      <option value="plt">Platelets</option>
-                    </optgroup>
-                    <optgroup label="Renal Function">
-                      <option value="creatinine">Creatinine</option>
-                      <option value="urea">Urea</option>
-                      <option value="egfr">eGFR</option>
-                    </optgroup>
-                    <optgroup label="Liver Function">
-                      <option value="ast">AST (SGOT)</option>
-                      <option value="alt">ALT (SGPT)</option>
-                      <option value="alp">Alkaline Phosphatase</option>
-                      <option value="bilirubin">Bilirubin</option>
-                    </optgroup>
-                    <optgroup label="Lipids">
-                      <option value="cholesterol">Total Cholesterol</option>
-                      <option value="ldl">LDL Cholesterol</option>
-                      <option value="hdl">HDL Cholesterol</option>
-                      <option value="triglycerides">Triglycerides</option>
-                    </optgroup>
-                    <optgroup label="Glucose Metabolism">
-                      <option value="glucose_fasting">Glucose (Fasting)</option>
-                      <option value="glucose_random">Glucose (Random)</option>
-                      <option value="hba1c">HbA1c</option>
-                    </optgroup>
-                  </select>
-                </div>
-              </div>
-
-              {/* SECTION D - NEXT APPOINTMENT */}
-              <div className="rounded-[var(--r)] border border-[var(--border)] p-3" style={{ background: 'var(--cream)' }}>
-                <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-                  <div className="font-syne font-extrabold text-[14px] text-[var(--ink)]">Next Appointment</div>
-                  <div className="text-[12px] text-[var(--slate)]">Hard deadline: {hardDeadline.toLocaleDateString()}</div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* ── 8. NEXT APPOINTMENT ────────────────────── */}
+              <SectionCard title="8. Next Appointment" color="#2a4a58">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                      Date
-                    </div>
-                    <input
-                      type="date"
-                      value={nextDate}
-                      onChange={(e) => setNextDate(e.target.value)}
-                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-                    />
+                    <FieldLabel text={`Date (deadline: ${hardDeadline.toLocaleDateString()})`} />
+                    <input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)} style={fieldStyle} />
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                      Note (optional)
-                    </div>
-                    <input
-                      type="text"
-                      value={nextNote}
-                      onChange={(e) => setNextNote(e.target.value)}
-                      className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-                      placeholder="e.g. Bring medications"
-                    />
+                    <FieldLabel text="Appointment note (optional)" />
+                    <input type="text" value={nextNote} onChange={(e) => setNextNote(e.target.value)} style={fieldStyle} placeholder="e.g. Bring medications" />
                   </div>
                 </div>
-              </div>
+              </SectionCard>
+
+              {/* ── 9. FINAL NOTE ──────────────────────────── */}
+              <SectionCard title="9. Final Note / Clinical Summary" color={INK}>
+                <div>
+                  <FieldLabel text="Summary, plan, referrals, or additional notes" />
+                  <textarea
+                    value={finalNote}
+                    onChange={(e) => setFinalNote(e.target.value)}
+                    rows={4} style={{ ...fieldStyle, resize: 'vertical' }}
+                    placeholder="Overall clinical summary, management plan, referrals…"
+                  />
+                </div>
+              </SectionCard>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#516169', fontSize: '14px' }}>
+              Visit marked as missed. No clinical data will be recorded.
             </div>
-          ) : null}
+          )}
         </div>
 
-        <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--cream)] flex gap-2 justify-end">
+        {/* ── Footer ──────────────────────────────────────── */}
+        <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(191,200,205,.3)', background: '#f4f4f2', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
           <Button size="sm" variant="ghost" label="Cancel" onClick={close} />
           <Button size="sm" variant="primary" label="Save Visit" onClick={onSave} />
         </div>
