@@ -1,836 +1,429 @@
 import { useMemo, useState } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePatientStore, selectVisiblePatients, selectSelectedPatient } from '../store/usePatientStore';
-import { isDue } from '../services/clinical';
+import { isDue, getLastVisit } from '../services/clinical';
+import {
+  getPatientNextDate, daysUntilAppointment,
+  sendSMS as sendSMSService,
+} from '../services/sms';
+import { loadSMSConfig, saveSMSConfig, loadSMSLog, saveSMSLog } from '../services/storage';
+import { useUIStore } from '../store/useUIStore';
 import PatientDetail from '../components/patient/PatientDetail';
+import type { Patient, SMSConfig } from '../types';
+
+// ── Design tokens ─────────────────────────────────────────────
+const INK  = '#0f1f26';
+const TEAL = '#0d6e87';
+const BG   = '#f4f4f2';
+
+function SectionHeader({ title, right }: { title: string; right?: React.ReactNode }) {
+  return (
+    <div style={{ background: INK, height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span style={{ color: '#fff', fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>{title}</span>
+      {right}
+    </div>
+  );
+}
+
+function StatusBadge({ status, days }: { status: string; days?: number }) {
+  if (status === 'ltfu') return (
+    <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '9px', fontWeight: 700, background: '#fee2e2', color: '#7f1d1d', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>LTFU</span>
+  );
+  if (days !== undefined && days < 0) return (
+    <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '9px', fontWeight: 700, background: '#fef3c7', color: '#92400e', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Overdue {Math.abs(days)}d</span>
+  );
+  return (
+    <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '9px', fontWeight: 700, background: '#fef3c7', color: '#92400e', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Due in {days}d</span>
+  );
+}
 
 export default function LTFUPage() {
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const patients = usePatientStore((s) => s.patients);
-
+  const currentUser   = useAuthStore((s) => s.currentUser);
+  const patients      = usePatientStore((s) => s.patients);
+  const clinicSettings = useUIStore((s) => s.clinicSettings);
   const selectedPatient = usePatientStore((s) => selectSelectedPatient(s.patients, s.selectedId));
+  const selectPatient = usePatientStore((s) => s.selectPatient);
 
+  // ── Filters ───────────────────────────────────────────────
+  const [filterTab, setFilterTab]     = useState<'ltfu' | 'overdue' | 'reminder' | 'all'>('ltfu');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterTab, setFilterTab] = useState<'ltfu' | 'overdue' | 'all'>('ltfu');
-  const [smsConfigExpanded, setSmsConfigExpanded] = useState(false);
-  const [language, setLanguage] = useState<'EN' | 'SW'>('EN');
-  const [smsConfig, setSmsConfig] = useState({
-    apiKey: '',
-    apiSecret: '',
-    senderId: '',
-    baseUrl: '',
-    enTemplate: '',
-    swTemplate: ''
-  });
-  const [smsLog, setSmsLog] = useState([
-    {
-      id: 1,
-      code: 'BRH001',
-      phone: '+255754123456',
-      message: 'Reminder: Your appointment is scheduled for tomorrow at Bukoba Regional Hospital...',
-      status: 'sent',
-      time: '10:30 AM'
-    },
-    {
-      id: 2,
-      code: 'BRH002',
-      phone: '+255789654321',
-      message: 'Mkumbusho: Matibabu yako yamepangwa kesho katika Hospitali ya Mkoa wa Bukoba...',
-      status: 'failed',
-      time: '09:15 AM'
-    }
-  ]);
+  const [lang, setLang]               = useState<'en' | 'sw'>('en');
+
+  // ── SMS Config ────────────────────────────────────────────
+  const [smsConfig, setSmsConfig] = useState<SMSConfig>(() => loadSMSConfig());
+  const [configOpen, setConfigOpen] = useState(false);
+  const [configSaved, setConfigSaved] = useState(false);
+
+  // ── SMS Log ───────────────────────────────────────────────
+  const [smsLog, setSmsLog] = useState(() => loadSMSLog());
+  const [selectedLogPt, setSelectedLogPt] = useState<string | null>(null); // view individual
+
+  // ── Sending state ─────────────────────────────────────────
+  const [sending,     setSending]     = useState<Record<number, boolean>>({});
+  const [massSending, setMassSending] = useState(false);
+  const [massResult,  setMassResult]  = useState<string | null>(null);
 
   const visiblePatients = useMemo(
     () => selectVisiblePatients(patients, currentUser),
     [patients, currentUser],
   );
 
+  // ── Computed patient lists ────────────────────────────────
+  const ltfuPatients = useMemo(() =>
+    visiblePatients.filter((p) => p.status === 'ltfu' && p.phone),
+  [visiblePatients]);
+
+  const overduePatients = useMemo(() =>
+    visiblePatients.filter((p) => p.status === 'active' && isDue(p) && p.phone),
+  [visiblePatients]);
+
+  // Reminder = due within next 2 days (1 day before clinic)
+  const reminderPatients = useMemo(() =>
+    visiblePatients.filter((p) => {
+      if (p.status !== 'active' || !p.phone) return false;
+      const days = daysUntilAppointment(p, clinicSettings);
+      return days >= 0 && days <= 2;
+    }),
+  [visiblePatients, clinicSettings]);
+
   const filteredPatients = useMemo(() => {
-    let base = visiblePatients;
-    
-    if (filterTab === 'ltfu') {
-      base = base.filter((p) => p.status === 'ltfu');
-    } else if (filterTab === 'overdue') {
-      base = base.filter((p) => p.status === 'active' && isDue(p));
-    }
-    // 'all' shows both LTFU and overdue
+    let base =
+      filterTab === 'ltfu'     ? visiblePatients.filter((p) => p.status === 'ltfu') :
+      filterTab === 'overdue'  ? visiblePatients.filter((p) => p.status === 'active' && isDue(p)) :
+      filterTab === 'reminder' ? reminderPatients :
+      visiblePatients.filter((p) => p.status === 'ltfu' || isDue(p));
 
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return base;
-    
-    return base.filter((p) => 
-      p.code.toLowerCase().includes(query) || 
-      (p.phone ?? '').includes(query)
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return base;
+    return base.filter((p) =>
+      p.code.toLowerCase().includes(q) || (p.phone ?? '').includes(q),
     );
-  }, [visiblePatients, filterTab, searchQuery]);
+  }, [visiblePatients, filterTab, searchQuery, reminderPatients]);
 
-  const sendSMS = (patientCode: string, phone: string) => {
-    const template = language === 'EN' ? smsConfig.enTemplate : smsConfig.swTemplate;
-    const message = template
-      .replace('{patient_code}', patientCode)
-      .replace('{facility}', currentUser?.sessionHospital || 'Bukoba Regional Hospital');
-    
-    const newLog = {
-      id: smsLog.length + 1,
-      code: patientCode,
-      phone,
-      message,
-      status: 'sent',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    
-    setSmsLog(prev => [newLog, ...prev]);
+  // ── Send single SMS ───────────────────────────────────────
+  const handleSendSingle = async (patient: Patient) => {
+    setSending((prev) => ({ ...prev, [patient.id]: true }));
+    const entry = await sendSMSService(patient, lang, smsConfig, clinicSettings);
+    const updated = [entry, ...smsLog];
+    setSmsLog(updated);
+    saveSMSLog(updated);
+    setSending((prev) => ({ ...prev, [patient.id]: false }));
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  // ── Mass SMS ──────────────────────────────────────────────
+  const handleMassSMS = async (list: Patient[], type: string) => {
+    if (!list.length) return;
+    setMassSending(true);
+    setMassResult(null);
+    let sent = 0;
+    const newEntries = [];
+    for (const p of list) {
+      if (!p.phone) continue;
+      const entry = await sendSMSService(p, lang, smsConfig, clinicSettings);
+      newEntries.push(entry);
+      sent++;
+    }
+    const updated = [...newEntries, ...smsLog];
+    setSmsLog(updated);
+    saveSMSLog(updated);
+    setMassSending(false);
+    setMassResult(`${sent} ${type} SMS sent (${smsConfig.apiKey ? 'live' : 'demo mode'})`);
   };
 
-  const clearSmsLog = () => {
-    setSmsLog([]);
+  // ── Save SMS config ───────────────────────────────────────
+  const handleSaveConfig = () => {
+    saveSMSConfig(smsConfig);
+    setConfigSaved(true);
+    setTimeout(() => setConfigSaved(false), 2000);
+    setConfigOpen(false);
   };
 
-  const saveSmsConfig = () => {
-    // Save SMS configuration logic here
-    console.log('Saving SMS config:', smsConfig);
-    setSmsConfigExpanded(false);
+  const inputCls: React.CSSProperties = {
+    width: '100%', border: '1.5px solid rgba(191,200,205,.55)', borderRadius: '4px',
+    padding: '8px 10px', fontSize: '12px', fontFamily: 'Karla, sans-serif',
+    color: INK, background: '#fff', outline: 'none',
   };
+
+  const tabCounts = {
+    ltfu:     visiblePatients.filter((p) => p.status === 'ltfu').length,
+    overdue:  visiblePatients.filter((p) => p.status === 'active' && isDue(p)).length,
+    reminder: reminderPatients.length,
+    all:      visiblePatients.filter((p) => p.status === 'ltfu' || isDue(p)).length,
+  };
+
+  // Individual patient SMS log
+  const patientLog = selectedLogPt
+    ? smsLog.filter((e) => e.ptCode === selectedLogPt)
+    : smsLog;
 
   return (
-    <div style={{ background: '#f9f9f7', minHeight: '100vh', padding: '22px 24px' }}>
-      {/* Header */}
-      <div style={{
-        marginBottom: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px'
-      }}>
+    <div style={{ background: BG, minHeight: '100vh', padding: '20px 24px' }}>
+
+      {/* ── Page header ──────────────────────────────────── */}
+      <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={{
-            fontSize: '22px',
-            fontWeight: 800,
-            fontFamily: 'Syne, sans-serif',
-            margin: 0,
-            marginBottom: '4px'
-          }}>
-            LTFU & Overdue Patients
+          <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: '24px', fontWeight: 800, color: INK, margin: 0, marginBottom: '4px' }}>
+            LTFU & Overdue Tracker
           </h2>
-          <p style={{
-            color: '#64748b',
-            fontSize: '13px',
-            margin: 0,
-            fontFamily: 'Karla, sans-serif'
-          }}>
-            NCD Management Program · {currentUser?.sessionDistrict || 'Bukoba Municipal'}
+          <p style={{ color: '#516169', fontSize: '13px', margin: 0 }}>
+            {currentUser?.adminDistrict || currentUser?.sessionDistrict || 'NCD Programme'} · SMS Outreach
           </p>
+        </div>
+
+        {/* Mass SMS actions */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', background: '#e0e0de', borderRadius: '4px', overflow: 'hidden' }}>
+            {(['en', 'sw'] as const).map((l) => (
+              <button key={l} onClick={() => setLang(l)}
+                style={{ padding: '6px 14px', border: 'none', background: lang === l ? TEAL : 'transparent', color: lang === l ? '#fff' : '#516169', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                {l.toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => handleMassSMS(reminderPatients.filter((p) => !!p.phone), 'reminder')}
+            disabled={massSending || reminderPatients.length === 0}
+            style={{ padding: '7px 14px', borderRadius: '4px', border: 'none', background: reminderPatients.length ? '#0d6e87' : '#e0e0de', color: reminderPatients.length ? '#fff' : '#516169', fontSize: '11px', fontWeight: 700, cursor: reminderPatients.length ? 'pointer' : 'not-allowed', fontFamily: 'Syne, sans-serif' }}
+          >
+            {massSending ? 'Sending…' : `📅 Remind Tomorrow (${reminderPatients.filter(p=>p.phone).length})`}
+          </button>
+
+          <button
+            onClick={() => handleMassSMS(ltfuPatients, 'LTFU')}
+            disabled={massSending || ltfuPatients.length === 0}
+            style={{ padding: '7px 14px', borderRadius: '4px', border: 'none', background: ltfuPatients.length ? '#dc2626' : '#e0e0de', color: ltfuPatients.length ? '#fff' : '#516169', fontSize: '11px', fontWeight: 700, cursor: ltfuPatients.length ? 'pointer' : 'not-allowed', fontFamily: 'Syne, sans-serif' }}
+          >
+            {massSending ? 'Sending…' : `⚠ LTFU Mass SMS (${ltfuPatients.length})`}
+          </button>
+
+          <button
+            onClick={() => setConfigOpen(!configOpen)}
+            style={{ padding: '7px 14px', borderRadius: '4px', border: `1.5px solid ${TEAL}`, background: '#fff', color: TEAL, fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}
+          >
+            ⚙ SMS Config
+          </button>
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div style={{
-        display: 'flex',
-        gap: '0',
-        marginBottom: '16px'
-      }}>
-        {[
-          { id: 'ltfu', label: 'LTFU', icon: '⚠️' },
-          { id: 'overdue', label: 'Overdue', icon: '📅' },
-          { id: 'all', label: 'All', icon: '📋' }
-        ].map((tab) => (
+      {massResult && (
+        <div style={{ marginBottom: '12px', padding: '10px 16px', background: '#dcfce7', border: '1.5px solid #16a34a', borderRadius: '6px', color: '#14532d', fontSize: '13px', fontWeight: 700 }}>
+          ✓ {massResult}
+        </div>
+      )}
+
+      {/* ── SMS Config Panel ──────────────────────────────── */}
+      {configOpen && (
+        <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid rgba(191,200,205,.3)', marginBottom: '16px', overflow: 'hidden' }}>
+          <SectionHeader title="SMS Configuration" right={
+            <button onClick={() => setConfigOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: '18px' }}>×</button>
+          } />
+          <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            {[
+              { label: 'Provider API Key', key: 'apiKey', type: 'text' },
+              { label: 'API Secret', key: 'apiSecret', type: 'password' },
+              { label: 'Sender ID', key: 'senderId', type: 'text' },
+            ].map(({ label, key, type }) => (
+              <div key={key}>
+                <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#516169', marginBottom: '4px', fontFamily: 'Syne, sans-serif' }}>{label}</div>
+                <input
+                  type={type}
+                  value={(smsConfig as any)[key] ?? ''}
+                  onChange={(e) => setSmsConfig((prev) => ({ ...prev, [key]: e.target.value }))}
+                  style={inputCls}
+                />
+              </div>
+            ))}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#516169', marginBottom: '4px', fontFamily: 'Syne, sans-serif' }}>English Template</div>
+              <textarea rows={2} value={smsConfig.template} onChange={(e) => setSmsConfig((prev) => ({ ...prev, template: e.target.value }))} style={{ ...inputCls, resize: 'vertical' }} placeholder="Dear {name}, your appointment is at {hospital} on {date}." />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#516169', marginBottom: '4px', fontFamily: 'Syne, sans-serif' }}>Kiswahili Template</div>
+              <textarea rows={2} value={smsConfig.templateSw} onChange={(e) => setSmsConfig((prev) => ({ ...prev, templateSw: e.target.value }))} style={{ ...inputCls, resize: 'vertical' }} placeholder="Mpendwa {name}, ziara yako ni {hospital} tarehe {date}." />
+            </div>
+            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <button onClick={handleSaveConfig} style={{ padding: '8px 20px', borderRadius: '4px', border: 'none', background: TEAL, color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}>
+                Save Configuration
+              </button>
+              {configSaved && <span style={{ color: '#16a34a', fontSize: '12px', fontWeight: 700 }}>✓ Saved</span>}
+              <span style={{ fontSize: '11px', color: '#516169' }}>Supported: Africa's Talking, Twilio · No API key = demo mode</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Filter tabs ───────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        {([
+          { id: 'ltfu',     label: 'LTFU',           color: '#dc2626' },
+          { id: 'overdue',  label: 'Overdue',         color: '#d97706' },
+          { id: 'reminder', label: 'Due Tomorrow',    color: TEAL },
+          { id: 'all',      label: 'All at Risk',     color: INK },
+        ] as const).map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setFilterTab(tab.id as any)}
+            onClick={() => setFilterTab(tab.id)}
             style={{
-              padding: '12px 20px',
-              border: 'none',
-              background: filterTab === tab.id ? '#0d6e87' : 'transparent',
-              color: filterTab === tab.id ? 'white' : '#64748b',
-              fontSize: '12px',
-              fontWeight: 600,
-              fontFamily: 'Syne, sans-serif',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
+              padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer',
+              background: filterTab === tab.id ? tab.color : '#fff',
+              color: filterTab === tab.id ? '#fff' : '#516169',
+              fontSize: '12px', fontWeight: 700, fontFamily: 'Syne, sans-serif',
+              transition: 'all .15s',
+              boxShadow: filterTab === tab.id ? '0 2px 8px rgba(0,0,0,.15)' : 'none',
             }}
           >
-            <span>{tab.icon}</span>
             {tab.label}
+            <span style={{ marginLeft: '6px', background: filterTab === tab.id ? 'rgba(255,255,255,.25)' : '#e8e8e6', color: filterTab === tab.id ? '#fff' : '#516169', borderRadius: '999px', padding: '1px 7px', fontSize: '10px' }}>
+              {tabCounts[tab.id]}
+            </span>
           </button>
         ))}
-      </div>
-
-      {/* Search Input */}
-      <div style={{
-        marginBottom: '16px',
-        position: 'relative'
-      }}>
-        <span style={{
-          position: 'absolute',
-          left: '12px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          fontSize: '14px'
-        }}>
-          🔍
-        </span>
         <input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search…"
-          style={{
-            width: '100%',
-            padding: '10px 12px 10px 40px',
-            border: '1px solid #d4e9ef',
-            borderRadius: '6px',
-            fontSize: '12px',
-            fontFamily: 'Karla, sans-serif',
-            background: 'white'
-          }}
+          placeholder="Search patient code or phone…"
+          style={{ ...inputCls, maxWidth: '220px', marginLeft: 'auto' }}
         />
       </div>
 
-      {/* SMS Configuration Card */}
-      <div style={{
-        background: 'white',
-        border: '1px solid #d4e9ef',
-        borderRadius: '10px',
-        marginBottom: '16px',
-        boxShadow: '0 2px 8px rgba(15,31,38,.06)',
-        overflow: 'hidden'
-      }}>
-        <button
-          onClick={() => setSmsConfigExpanded(!smsConfigExpanded)}
-          style={{
-            width: '100%',
-            padding: '12px 16px',
-            border: 'none',
-            background: 'transparent',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontFamily: 'Syne, sans-serif',
-            fontSize: '12px',
-            fontWeight: 600,
-            color: '#0f1f26'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '16px' }}>📡</span>
-            SMS Configuration
+      {/* ── Main grid ────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '16px' }}>
+
+        {/* LEFT — Patient list */}
+        <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.08)', border: '1px solid rgba(191,200,205,.2)' }}>
+          <SectionHeader title={`Patient List (${filteredPatients.length})`} />
+          <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+            {filteredPatients.map((p) => {
+              const days = daysUntilAppointment(p, clinicSettings);
+              const isSending = sending[p.id];
+              const isSelected = selectedPatient?.id === p.id;
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => selectPatient(p.id)}
+                  style={{
+                    padding: '12px 14px', borderBottom: '1px solid rgba(191,200,205,.2)',
+                    cursor: 'pointer', background: isSelected ? 'rgba(13,110,135,.06)' : '#fff',
+                    borderLeft: isSelected ? `3px solid ${TEAL}` : '3px solid transparent',
+                    transition: 'all .12s',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '11px', color: TEAL }}>{p.code}</span>
+                    <StatusBadge status={p.status} days={days} />
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#516169', marginBottom: '6px' }}>
+                    {p.cond} · {p.sex === 'M' ? 'Male' : 'Female'} {p.age}y
+                    {p.phone ? ` · ${p.phone}` : ' · No phone'}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleSendSingle(p); }}
+                      disabled={!p.phone || isSending}
+                      style={{
+                        padding: '4px 10px', borderRadius: '4px', border: 'none', fontSize: '10px',
+                        fontWeight: 700, fontFamily: 'Syne, sans-serif', cursor: p.phone ? 'pointer' : 'not-allowed',
+                        background: p.phone ? TEAL : '#e0e0de', color: p.phone ? '#fff' : '#516169',
+                        opacity: isSending ? 0.6 : 1,
+                      }}
+                    >
+                      {isSending ? 'Sending…' : '📱 Send SMS'}
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSelectedLogPt(selectedLogPt === p.code ? null : p.code); }}
+                      style={{ padding: '4px 8px', borderRadius: '4px', border: `1px solid rgba(191,200,205,.5)`, background: selectedLogPt === p.code ? '#f4f4f2' : '#fff', fontSize: '10px', fontWeight: 700, cursor: 'pointer', color: '#516169', fontFamily: 'Syne, sans-serif' }}
+                    >
+                      📋 Log
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {filteredPatients.length === 0 && (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#516169', fontSize: '13px' }}>
+                No patients in this category
+              </div>
+            )}
           </div>
-          <span style={{ fontSize: '12px' }}>
-            {smsConfigExpanded ? '▲' : '▼'}
-          </span>
-        </button>
-        
-        {smsConfigExpanded && (
-          <div style={{
-            padding: '16px',
-            borderTop: '1px solid #d4e9ef',
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '12px'
-          }}>
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '10px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                color: '#64748b',
-                marginBottom: '4px',
-                fontFamily: 'Syne, sans-serif'
-              }}>
-                API Key
-              </label>
-              <input
-                value={smsConfig.apiKey}
-                onChange={(e) => setSmsConfig(prev => ({ ...prev, apiKey: e.target.value }))}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  border: '1px solid #d4e9ef',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  fontFamily: 'Karla, sans-serif'
-                }}
-              />
+        </div>
+
+        {/* RIGHT — Patient detail */}
+        <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.08)', border: '1px solid rgba(191,200,205,.2)', minHeight: '400px' }}>
+          <SectionHeader title={selectedPatient ? `Patient: ${selectedPatient.code}` : 'Patient Detail'} />
+          {selectedPatient ? (
+            <PatientDetail />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px', color: '#516169', fontSize: '13px' }}>
+              Select a patient from the list to view their record
             </div>
-            
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '10px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                color: '#64748b',
-                marginBottom: '4px',
-                fontFamily: 'Syne, sans-serif'
-              }}>
-                API Secret
-              </label>
-              <input
-                value={smsConfig.apiSecret}
-                onChange={(e) => setSmsConfig(prev => ({ ...prev, apiSecret: e.target.value }))}
-                type="password"
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  border: '1px solid #d4e9ef',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  fontFamily: 'Karla, sans-serif'
-                }}
-              />
-            </div>
-            
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '10px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                color: '#64748b',
-                marginBottom: '4px',
-                fontFamily: 'Syne, sans-serif'
-              }}>
-                Sender ID
-              </label>
-              <input
-                value={smsConfig.senderId}
-                onChange={(e) => setSmsConfig(prev => ({ ...prev, senderId: e.target.value }))}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  border: '1px solid #d4e9ef',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  fontFamily: 'Karla, sans-serif'
-                }}
-              />
-            </div>
-            
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '10px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                color: '#64748b',
-                marginBottom: '4px',
-                fontFamily: 'Syne, sans-serif'
-              }}>
-                Base URL
-              </label>
-              <input
-                value={smsConfig.baseUrl}
-                onChange={(e) => setSmsConfig(prev => ({ ...prev, baseUrl: e.target.value }))}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  border: '1px solid #d4e9ef',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  fontFamily: 'Karla, sans-serif'
-                }}
-              />
-            </div>
-            
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{
-                display: 'block',
-                fontSize: '10px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                color: '#64748b',
-                marginBottom: '4px',
-                fontFamily: 'Syne, sans-serif'
-              }}>
-                EN Template
-              </label>
-              <textarea
-                value={smsConfig.enTemplate}
-                onChange={(e) => setSmsConfig(prev => ({ ...prev, enTemplate: e.target.value }))}
-                rows={2}
-                placeholder="Dear {patient_code}, your appointment is scheduled at {facility}..."
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  border: '1px solid #d4e9ef',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  fontFamily: 'Karla, sans-serif',
-                  resize: 'vertical'
-                }}
-              />
-            </div>
-            
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{
-                display: 'block',
-                fontSize: '10px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                color: '#64748b',
-                marginBottom: '4px',
-                fontFamily: 'Syne, sans-serif'
-              }}>
-                SW Template
-              </label>
-              <textarea
-                value={smsConfig.swTemplate}
-                onChange={(e) => setSmsConfig(prev => ({ ...prev, swTemplate: e.target.value }))}
-                rows={2}
-                placeholder="Mpendwa {patient_code}, matibabu yako yamepangwa {facility}..."
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  border: '1px solid #d4e9ef',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  fontFamily: 'Karla, sans-serif',
-                  resize: 'vertical'
-                }}
-              />
-            </div>
-            
-            <div style={{ gridColumn: '1 / -1' }}>
+          )}
+        </div>
+      </div>
+
+      {/* ── SMS Log ──────────────────────────────────────────── */}
+      <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.08)', border: '1px solid rgba(191,200,205,.2)', marginTop: '16px' }}>
+        <SectionHeader
+          title={selectedLogPt ? `SMS Log — ${selectedLogPt}` : `SMS Log (${smsLog.length} messages)`}
+          right={
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {selectedLogPt && (
+                <button onClick={() => setSelectedLogPt(null)} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', borderRadius: '4px', padding: '3px 10px', fontSize: '10px', cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}>
+                  Show All
+                </button>
+              )}
               <button
-                onClick={saveSmsConfig}
-                style={{
-                  background: '#0d6e87',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '8px 16px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  fontFamily: 'Syne, sans-serif',
-                  cursor: 'pointer'
-                }}
+                onClick={() => { const updated: typeof smsLog = []; setSmsLog(updated); saveSMSLog(updated); }}
+                style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', borderRadius: '4px', padding: '3px 10px', fontSize: '10px', cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}
               >
-                Save Configuration
+                Clear Log
               </button>
             </div>
-            
-            <div style={{ gridColumn: '1 / -1' }}>
-              <div style={{
-                fontSize: '11px',
-                color: '#64748b',
-                fontFamily: 'Karla, sans-serif',
-                background: '#f0fafc',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                border: '1px solid #d4e9ef'
-              }}>
-                ℹ️ Supported providers: Twilio, Africa's Talking, SMSHub
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Main Content Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '300px 1fr',
-        gap: '20px'
-      }}>
-        {/* LEFT PANEL - Patient List */}
-        <div style={{
-          background: 'white',
-          border: '1px solid #d4e9ef',
-          borderRadius: '10px',
-          boxShadow: '0 2px 8px rgba(15,31,38,.06)',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            background: '#0f1f26',
-            padding: '12px 16px',
-            fontFamily: 'Syne, sans-serif',
-            fontSize: '12px',
-            fontWeight: 700,
-            color: 'white',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px'
-          }}>
-            Patient List ({filteredPatients.length})
-          </div>
-          
-          <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-            {filteredPatients.map((patient) => (
-              <div key={patient.id} style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid rgba(212,233,239,0.3)',
-                fontFamily: 'Karla, sans-serif'
-              }}>
-                {/* Patient Code */}
-                <div style={{
-                  fontFamily: 'JetBrains Mono, monospace',
-                  background: '#0d6e87',
-                  color: 'white',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontSize: '10px',
-                  fontWeight: 600,
-                  display: 'inline-block',
-                  marginBottom: '8px'
-                }}>
-                  {patient.code}
-                </div>
-                
-                {/* Condition and Status Chips */}
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                  <span style={{
-                    background: patient.cond === 'DM' ? '#e4f6fb' : 
-                              patient.cond === 'DM+HTN' ? '#ede9fe' : '#dcfce7',
-                    color: patient.cond === 'DM' ? '#0d6e87' : 
-                           patient.cond === 'DM+HTN' ? '#7c3aed' : '#16a34a',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    fontSize: '9px',
-                    fontWeight: 600
-                  }}>
-                    {patient.cond}
-                  </span>
-                  <span style={{
-                    background: patient.status === 'ltfu' ? '#fee2e2' : '#fef3c7',
-                    color: patient.status === 'ltfu' ? '#dc2626' : '#d97706',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    fontSize: '9px',
-                    fontWeight: 600
-                  }}>
-                    {patient.status === 'ltfu' ? 'LTFU' : 'Overdue'}
-                  </span>
-                </div>
-                
-                {/* Phone Number */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  marginBottom: '8px',
-                  fontSize: '11px',
-                  color: '#64748b'
-                }}>
-                  <span>📞</span>
-                  {patient.phone || 'No phone'}
-                </div>
-                
-                {/* SMS Action Row */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  flexWrap: 'wrap'
-                }}>
-                  {/* Language Toggle */}
-                  <div style={{
-                    display: 'flex',
-                    background: '#f4f4f2',
-                    borderRadius: '4px',
-                    overflow: 'hidden'
-                  }}>
-                    {(['EN', 'SW'] as const).map((lang) => (
-                      <button
-                        key={lang}
-                        onClick={() => setLanguage(lang)}
-                        style={{
-                          padding: '4px 8px',
-                          border: 'none',
-                          background: language === lang ? '#0d6e87' : 'transparent',
-                          color: language === lang ? 'white' : '#64748b',
-                          fontSize: '9px',
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {lang}
-                      </button>
-                    ))}
-                  </div>
-                  
-                  {/* Send SMS Button */}
-                  <button
-                    onClick={() => patient.phone && sendSMS(patient.code, patient.phone)}
-                    disabled={!patient.phone}
-                    style={{
-                      background: patient.phone ? '#0d6e87' : '#f4f4f2',
-                      color: patient.phone ? 'white' : '#64748b',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '4px 8px',
-                      fontSize: '9px',
-                      fontWeight: 600,
-                      cursor: patient.phone ? 'pointer' : 'not-allowed',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    📱 Send SMS
-                  </button>
-                  
-                  {/* Copy Button */}
-                  <button
-                    onClick={() => copyToClipboard(patient.phone || '')}
-                    style={{
-                      background: 'transparent',
-                      color: '#64748b',
-                      border: '1px solid #d4e9ef',
-                      borderRadius: '4px',
-                      padding: '4px 8px',
-                      fontSize: '9px',
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    📋 Copy
-                  </button>
-                </div>
-              </div>
-            ))}
-            
-            {filteredPatients.length === 0 && (
-              <div style={{
-                padding: '40px 16px',
-                textAlign: 'center',
-                color: '#64748b',
-                fontSize: '12px',
-                fontFamily: 'Karla, sans-serif'
-              }}>
-                No patients found matching the current filters.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT PANEL - Patient Detail */}
-        <div style={{
-          background: 'white',
-          border: '1px solid #d4e9ef',
-          borderRadius: '10px',
-          boxShadow: '0 2px 8px rgba(15,31,38,.06)',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            background: '#0f1f26',
-            padding: '12px 16px',
-            fontFamily: 'Syne, sans-serif',
-            fontSize: '12px',
-            fontWeight: 700,
-            color: 'white',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px'
-          }}>
-            Patient Details
-          </div>
-          
-          <div style={{ padding: '16px' }}>
-            {selectedPatient ? (
-              <PatientDetail />
-            ) : (
-              <div style={{
-                textAlign: 'center',
-                color: '#64748b',
-                fontSize: '12px',
-                fontFamily: 'Karla, sans-serif',
-                padding: '40px'
-              }}>
-                Select a patient from the list to view details
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* SMS Log */}
-      <div style={{
-        background: 'white',
-        border: '1px solid #d4e9ef',
-        borderRadius: '10px',
-        boxShadow: '0 2px 8px rgba(15,31,38,.06)',
-        overflow: 'hidden',
-        marginTop: '20px'
-      }}>
-        <div style={{
-          background: '#0f1f26',
-          padding: '12px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <div style={{
-            fontFamily: 'Syne, sans-serif',
-            fontSize: '12px',
-            fontWeight: 700,
-            color: 'white',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <span>📜</span>
-            SMS Log
-          </div>
-          <button
-            onClick={clearSmsLog}
-            style={{
-              background: 'transparent',
-              color: 'white',
-              border: '1px solid rgba(255,255,255,0.2)',
-              borderRadius: '4px',
-              padding: '4px 12px',
-              fontSize: '10px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontFamily: 'Syne, sans-serif'
-            }}
-          >
-            Clear Log
-          </button>
-        </div>
-        
+          }
+        />
         <div style={{ overflowX: 'auto' }}>
-          <table style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            fontSize: '11px',
-            fontFamily: 'Karla, sans-serif'
-          }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
             <thead>
-              <tr style={{
-                background: '#f4f4f2',
-                color: '#0f1f26'
-              }}>
-                <th style={{
-                  padding: '8px 12px',
-                  textAlign: 'left',
-                  fontSize: '10px',
-                  fontWeight: 600,
-                  fontFamily: 'Syne, sans-serif',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>Code</th>
-                <th style={{
-                  padding: '8px 12px',
-                  textAlign: 'left',
-                  fontSize: '10px',
-                  fontWeight: 600,
-                  fontFamily: 'Syne, sans-serif',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>Phone</th>
-                <th style={{
-                  padding: '8px 12px',
-                  textAlign: 'left',
-                  fontSize: '10px',
-                  fontWeight: 600,
-                  fontFamily: 'Syne, sans-serif',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>Message Preview</th>
-                <th style={{
-                  padding: '8px 12px',
-                  textAlign: 'left',
-                  fontSize: '10px',
-                  fontWeight: 600,
-                  fontFamily: 'Syne, sans-serif',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>Status</th>
-                <th style={{
-                  padding: '8px 12px',
-                  textAlign: 'left',
-                  fontSize: '10px',
-                  fontWeight: 600,
-                  fontFamily: 'Syne, sans-serif',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>Time</th>
+              <tr style={{ borderBottom: '1px solid #e8e8e6' }}>
+                {['Patient', 'Phone', 'Message', 'Status', 'Sent At', 'Provider'].map((h) => (
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '10px', fontFamily: 'Syne, sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#516169', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {smsLog.map((log) => (
-                <tr key={log.id} style={{
-                  borderBottom: '1px solid rgba(212,233,239,0.3)'
-                }}>
-                  <td style={{
-                    padding: '8px 12px',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    fontWeight: 600,
-                    color: '#0d6e87'
-                  }}>
-                    {log.code}
+              {patientLog.map((log, idx) => (
+                <tr key={log.id} style={{ borderBottom: '1px solid #f4f4f2', background: idx % 2 === 0 ? '#fff' : '#fafaf8' }}>
+                  <td style={{ padding: '10px 14px' }}>
+                    <button
+                      onClick={() => setSelectedLogPt(selectedLogPt === log.ptCode ? null : log.ptCode)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: TEAL, fontSize: '11px', padding: 0 }}
+                    >
+                      {log.ptCode}
+                    </button>
                   </td>
-                  <td style={{
-                    padding: '8px 12px',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    color: '#64748b'
-                  }}>
-                    {log.phone}
+                  <td style={{ padding: '10px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#516169' }}>{log.phone}</td>
+                  <td style={{ padding: '10px 14px', color: INK, maxWidth: '320px' }}>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px' }}>{log.message}</div>
+                    {log.note && <div style={{ fontSize: '10px', color: '#d97706', marginTop: '2px' }}>{log.note}</div>}
                   </td>
-                  <td style={{
-                    padding: '8px 12px',
-                    color: '#0f1f26',
-                    maxWidth: '300px'
-                  }}>
-                    <div style={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      {log.message}
-                    </div>
-                  </td>
-                  <td style={{
-                    padding: '8px 12px'
-                  }}>
+                  <td style={{ padding: '10px 14px' }}>
                     <span style={{
-                      background: log.status === 'sent' ? '#dcfce7' : '#fee2e2',
-                      color: log.status === 'sent' ? '#16a34a' : '#dc2626',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      fontSize: '9px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase'
+                      padding: '2px 8px', borderRadius: '999px', fontSize: '9px', fontWeight: 700,
+                      fontFamily: 'Syne, sans-serif', textTransform: 'uppercase',
+                      background: log.status === 'sent' ? '#dcfce7' : log.status === 'demo' ? '#fef3c7' : '#fee2e2',
+                      color: log.status === 'sent' ? '#14532d' : log.status === 'demo' ? '#92400e' : '#7f1d1d',
                     }}>
                       {log.status}
                     </span>
                   </td>
-                  <td style={{
-                    padding: '8px 12px',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    color: '#64748b'
-                  }}>
-                    {log.time}
+                  <td style={{ padding: '10px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#516169', whiteSpace: 'nowrap' }}>
+                    {new Date(log.sentAt).toLocaleString()}
                   </td>
+                  <td style={{ padding: '10px 14px', fontSize: '11px', color: '#516169', textTransform: 'uppercase' }}>{log.provider}</td>
                 </tr>
               ))}
-              {smsLog.length === 0 && (
-                <tr>
-                  <td colSpan={5} style={{
-                    padding: '40px',
-                    textAlign: 'center',
-                    color: '#64748b',
-                    fontSize: '12px'
-                  }}>
-                    No SMS messages sent yet
-                  </td>
-                </tr>
+              {patientLog.length === 0 && (
+                <tr><td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#516169', fontSize: '13px' }}>No SMS messages sent yet</td></tr>
               )}
             </tbody>
           </table>
@@ -839,4 +432,3 @@ export default function LTFUPage() {
     </div>
   );
 }
-
