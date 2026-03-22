@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TZ_GEO } from '../../utils/geo';
 import { useAuthStore } from '../../store/useAuthStore';
 import { usePatientStore } from '../../store/usePatientStore';
@@ -14,22 +14,34 @@ import Button from '../ui/Button';
 export default function RegisterForm() {
   const patients = usePatientStore((s) => s.patients);
   const registerPatient = usePatientStore((s) => s.registerPatient);
-
   const currentUser = useAuthStore((s) => s.currentUser);
 
-  const [region, setRegion] = useState('');
-  const [district, setDistrict] = useState('');
-  const [hospital, setHospital] = useState('');
+  // Auto-fill location from doctor's profile
+  const isDoctor = currentUser?.role === 'doctor';
+  const doctorRegion   = isDoctor ? (currentUser?.region   ?? '') : '';
+  const doctorDistrict = isDoctor ? (currentUser?.district ?? '') : '';
+  const doctorHospital = isDoctor ? (currentUser?.hospital ?? '') : '';
 
-  const [age, setAge] = useState<number | ''>('');
-  const [sex, setSex] = useState<Sex | ''>('');
-  const [cond, setCond] = useState<Condition | ''>('');
+  const [region,   setRegion]   = useState(doctorRegion);
+  const [district, setDistrict] = useState(doctorDistrict);
+  const [hospital, setHospital] = useState(doctorHospital);
 
-  const [enrol, setEnrol] = useState('');
-  const [phone, setPhone] = useState('');
+  // If doctor logs in and their profile has location, lock it in
+  useEffect(() => {
+    if (isDoctor) {
+      setRegion(doctorRegion);
+      setDistrict(doctorDistrict);
+      setHospital(doctorHospital);
+    }
+  }, [isDoctor, doctorRegion, doctorDistrict, doctorHospital]);
+
+  const [age,     setAge]     = useState<number | ''>('');
+  const [sex,     setSex]     = useState<Sex | ''>('');
+  const [cond,    setCond]    = useState<Condition | ''>('');
+  const [enrol,   setEnrol]   = useState('');
+  const [phone,   setPhone]   = useState('');
   const [address, setAddress] = useState('');
-
-  const [error, setError] = useState<string | null>(null);
+  const [error,   setError]   = useState<string | null>(null);
 
   const regionOptions = useMemo(() => Object.keys(TZ_GEO).sort(), []);
   const districtOptions = useMemo(() => {
@@ -44,55 +56,43 @@ export default function RegisterForm() {
 
   const previewCode = useMemo(() => {
     if (!region || !district || !hospital || !sex) return '—';
-    const { code: rawCode } = generatePatientCode(
-      patients,
-      region,
-      district,
-      hospital,
-      sex,
-    );
+    const { code: rawCode } = generatePatientCode(patients, region, district, hospital, sex);
     return ensureUniqueCode(patients, rawCode);
   }, [patients, region, district, hospital, sex]);
 
   const onRegister = () => {
     setError(null);
-    if (!currentUser) {
-      setError('Please sign in again.');
-      return;
-    }
+    if (!currentUser) { setError('Please sign in again.'); return; }
 
     const params: RegisterPatientParams = {
       region,
       district,
       hospital,
-      age: typeof age === 'number' ? age : 0,
-      sex: (sex || 'M') as Sex,
+      age:  typeof age === 'number' ? age : 0,
+      sex:  (sex  || 'M')   as Sex,
       cond: (cond || 'HTN') as Condition,
       enrol,
-      phone: phone.trim() || undefined,
+      phone:   phone.trim()   || undefined,
       address: address.trim() || undefined,
       currentUser,
     };
 
     const res = registerPatient(params);
-    if (!res.success) {
-      setError(res.error ?? 'Unable to register patient.');
-      return;
-    }
+    if (!res.success) { setError(res.error ?? 'Unable to register patient.'); return; }
 
-    // Keep location selections, clear other fields
-    setAge('');
-    setSex('');
-    setCond('');
-    setEnrol('');
-    setPhone('');
-    setAddress('');
-    // Store already selects the new patient
+    setAge(''); setSex(''); setCond(''); setEnrol(''); setPhone(''); setAddress('');
+  };
+
+  // Shared style for selects inside the dark gradient card
+  const darkSelectStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.15)',
+    color: '#ffffff',
+    borderColor: 'rgba(255,255,255,0.25)',
   };
 
   return (
     <div className="w-full">
-      {/* Live generated code */}
+      {/* ── Auto-code preview card ─────────────────────────── */}
       <div
         className="rounded-[var(--r)] px-4 py-3 border border-[rgba(255,255,255,.12)]"
         style={{ background: 'linear-gradient(135deg,var(--ink) 0%,var(--ink2) 75%)' }}
@@ -103,128 +103,112 @@ export default function RegisterForm() {
         <div className="mono text-[22px] font-extrabold text-white mt-1">
           {previewCode}
         </div>
+
         <div className="mt-2 flex gap-2 flex-wrap">
+          {/* Age */}
           <div className="flex-1 min-w-[110px]">
-            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-white/70 mb-1">
-              Age
-            </div>
+            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-white/70 mb-1">Age</div>
             <input
               type="number"
               value={age}
-              onChange={(e) => {
-                const v = e.target.value;
-                setAge(v === '' ? '' : Number(v));
-              }}
-              className="w-full rounded-[var(--r-sm)] border border-white/15 px-3 py-2 outline-none bg-white/10 text-white"
+              onChange={(e) => setAge(e.target.value === '' ? '' : Number(e.target.value))}
+              className="w-full rounded-[var(--r-sm)] border px-3 py-2 outline-none"
+              style={darkSelectStyle}
               placeholder="e.g. 55"
             />
           </div>
 
+          {/* Sex */}
           <div className="flex-1 min-w-[110px]">
-            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-white/70 mb-1">
-              Sex
-            </div>
+            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-white/70 mb-1">Sex</div>
             <select
               value={sex}
               onChange={(e) => setSex(e.target.value as Sex | '')}
-              className="w-full rounded-[var(--r-sm)] border border-white/15 px-3 py-2 outline-none bg-white/10 text-white"
+              className="w-full rounded-[var(--r-sm)] border px-3 py-2 outline-none"
+              style={darkSelectStyle}
             >
-              <option value="">— Select —</option>
-              <option value="M">M</option>
-              <option value="F">F</option>
+              <option value=""  style={{ background: '#1a3a4a', color: '#fff' }}>— Select —</option>
+              <option value="M" style={{ background: '#1a3a4a', color: '#fff' }}>M</option>
+              <option value="F" style={{ background: '#1a3a4a', color: '#fff' }}>F</option>
             </select>
           </div>
 
+          {/* Condition */}
           <div className="flex-1 min-w-[140px]">
-            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-white/70 mb-1">
-              Condition
-            </div>
+            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-white/70 mb-1">Condition</div>
             <select
               value={cond}
               onChange={(e) => setCond(e.target.value as Condition | '')}
-              className="w-full rounded-[var(--r-sm)] border border-white/15 px-3 py-2 outline-none bg-white/10 text-white"
+              className="w-full rounded-[var(--r-sm)] border px-3 py-2 outline-none"
+              style={darkSelectStyle}
             >
-              <option value="">— Select —</option>
-              <option value="HTN">HTN</option>
-              <option value="DM">DM</option>
-              <option value="DM+HTN">DM+HTN</option>
+              <option value=""       style={{ background: '#1a3a4a', color: '#fff' }}>— Select —</option>
+              <option value="HTN"    style={{ background: '#1a3a4a', color: '#fff' }}>HTN</option>
+              <option value="DM"     style={{ background: '#1a3a4a', color: '#fff' }}>DM</option>
+              <option value="DM+HTN" style={{ background: '#1a3a4a', color: '#fff' }}>DM+HTN</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Cascades */}
+      {/* ── Location — hidden for doctors (auto-filled from profile) ── */}
+      {isDoctor ? (
+        // Show as read-only badges so doctor can see their assigned location
+        <div className="mt-3 flex flex-wrap gap-2">
+          {[doctorRegion, doctorDistrict, doctorHospital].filter(Boolean).map((val) => (
+            <span
+              key={val}
+              className="px-3 py-1 rounded-full text-xs font-extrabold"
+              style={{ background: 'var(--teal-pale, #e0f2f7)', color: 'var(--ink, #005469)' }}
+            >
+              {val}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Region</div>
+            <select
+              value={region}
+              onChange={(e) => { setRegion(e.target.value); setDistrict(''); setHospital(''); }}
+              className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
+            >
+              <option value="">— Region —</option>
+              {regionOptions.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">District</div>
+            <select
+              value={district}
+              onChange={(e) => { setDistrict(e.target.value); setHospital(''); }}
+              disabled={!region}
+              className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white disabled:opacity-50"
+            >
+              <option value="">— District —</option>
+              {districtOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Hospital</div>
+            <select
+              value={hospital}
+              onChange={(e) => setHospital(e.target.value)}
+              disabled={!region || !district}
+              className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white disabled:opacity-50"
+            >
+              <option value="">— Select —</option>
+              {hospitalOptions.map((h) => <option key={h.id} value={h.name}>{h.name}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* ── Enrolment fields ───────────────────────────────── */}
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
-          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-            Region
-          </div>
-          <select
-            value={region}
-            onChange={(e) => {
-              setRegion(e.target.value);
-              setDistrict('');
-              setHospital('');
-            }}
-            className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
-          >
-            <option value="">— Region —</option>
-            {regionOptions.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-            District
-          </div>
-          <select
-            value={district}
-            onChange={(e) => {
-              setDistrict(e.target.value);
-              setHospital('');
-            }}
-            disabled={!region}
-            className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white disabled:opacity-50"
-          >
-            <option value="">— District —</option>
-            {districtOptions.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-            Hospital
-          </div>
-          <select
-            value={hospital}
-            onChange={(e) => setHospital(e.target.value)}
-            disabled={!region || !district}
-            className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white disabled:opacity-50"
-          >
-            <option value="">— Select —</option>
-            {hospitalOptions.map((h) => (
-              <option key={h.id} value={h.name}>
-                {h.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Enrolment fields */}
-      <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div>
-          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-            Enrolment date
-          </div>
+          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Enrolment date</div>
           <input
             type="date"
             value={enrol}
@@ -233,9 +217,7 @@ export default function RegisterForm() {
           />
         </div>
         <div>
-          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-            Phone
-          </div>
+          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Phone</div>
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -244,9 +226,7 @@ export default function RegisterForm() {
           />
         </div>
         <div>
-          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-            Village/Address
-          </div>
+          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Village/Address</div>
           <input
             value={address}
             onChange={(e) => setAddress(e.target.value)}
@@ -256,22 +236,15 @@ export default function RegisterForm() {
         </div>
       </div>
 
-      {error ? (
+      {error && (
         <div className="mt-3 rounded-[var(--r)] border border-[var(--rose)] bg-[var(--rose-pale)] px-3 py-2 text-[var(--rose)] font-extrabold text-sm">
           {error}
         </div>
-      ) : null}
+      )}
 
       <div className="mt-3">
-        <Button
-          variant="primary"
-          size="md"
-          label="Register Patient"
-          className="w-full justify-center"
-          onClick={onRegister}
-        />
+        <Button variant="primary" size="md" label="Register Patient" className="w-full justify-center" onClick={onRegister} />
       </div>
     </div>
   );
 }
-
