@@ -42,7 +42,6 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 // ── Design tokens ────────────────────────────────────────────
 const INK   = '#0f1f26';
 const TEAL  = '#0d6e87';
-const PRIMARY = '#005469';
 
 function titleForAdminPage(page: string) {
   switch (page) {
