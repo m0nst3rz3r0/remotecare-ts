@@ -83,7 +83,7 @@ function DiagnosisSearch({
 }) {
   const [query, setQuery] = useState('');
   const results = useMemo(() => {
-    if (!query.trim() || query.length < 2) return [];
+    if (!query.trim() || query.length < 1) return [];
     const q = query.toLowerCase();
     return ICD10_CODES.filter(
       (c) => c.code.toLowerCase().includes(q) || c.description.toLowerCase().includes(q),
@@ -135,7 +135,7 @@ function DiagnosisSearch({
           placeholder="Search ICD-10 code or diagnosis name…"
         />
         {results.length > 0 && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #0d6e87', borderTop: 'none', borderRadius: '0 0 4px 4px', zIndex: 999, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 20px rgba(15,31,38,.1)' }}>
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #0d6e87', borderTop: 'none', borderRadius: '0 0 4px 4px', zIndex: 9999, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 20px rgba(15,31,38,.1)' }}>
             {results.map((r) => (
               <div
                 key={r.code}
