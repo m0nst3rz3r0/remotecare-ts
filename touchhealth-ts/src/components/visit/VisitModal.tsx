@@ -139,7 +139,7 @@ function DiagnosisSearch({
             {results.map((r) => (
               <div
                 key={r.code}
-                onClick={() => { onAdd({ code: r.code, description: r.description }); setQuery(''); }}
+                onMouseDown={(e) => { e.preventDefault(); onAdd({ code: r.code, description: r.description }); setQuery(''); }}
                 style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '12px', borderBottom: '1px solid rgba(191,200,205,.15)', display: 'flex', gap: '10px', alignItems: 'center' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(13,110,135,.05)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#fff'; }}
@@ -156,24 +156,68 @@ function DiagnosisSearch({
   );
 }
 
-// ── Investigation row ─────────────────────────────────────────
-interface InvResult { id: string; name: string; value: string; unit: string; reference: string; }
+// ── Investigation types ───────────────────────────────────────
+interface InvResult {
+  id: string; name: string; value: string; unit: string;
+  referenceLow: number; referenceHigh: number; referenceText?: string;
+}
+
+function getInterpretation(inv: InvResult): { label: string; color: string; bg: string } | null {
+  const v = parseFloat(inv.value);
+  if (isNaN(v) || inv.value === '') return null;
+  const { referenceLow, referenceHigh } = inv;
+  // Special handling for eGFR (higher is better)
+  if (inv.id === 'egfr') {
+    if (v >= 90)  return { label: 'Normal',   color: '#14532d', bg: '#dcfce7' };
+    if (v >= 60)  return { label: 'Mild',     color: '#78350f', bg: '#fef3c7' };
+    if (v >= 30)  return { label: 'Moderate', color: '#c2410c', bg: '#ffedd5' };
+    return { label: 'Severe', color: '#7f1d1d', bg: '#fee2e2' };
+  }
+  if (v < referenceLow)  return { label: 'Low',    color: '#1e3a8a', bg: '#dbeafe' };
+  if (v > referenceHigh) return { label: 'High',   color: '#7f1d1d', bg: '#fee2e2' };
+  return { label: 'Normal', color: '#14532d', bg: '#dcfce7' };
+}
 
 function InvestigationRow({ inv, onChange, onRemove }: { inv: InvResult; onChange: (v: InvResult) => void; onRemove: () => void; }) {
+  const interp = getInterpretation(inv);
+  const ref = inv.referenceText ?? `${inv.referenceLow}–${inv.referenceHigh}`;
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '8px', alignItems: 'center', padding: '8px 10px', background: '#fafaf8', borderRadius: '4px', border: '1px solid rgba(191,200,205,.3)', marginBottom: '6px' }}>
-      <span style={{ fontSize: '12px', fontWeight: 700, color: INK }}>{inv.name}</span>
+    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto auto', gap: '8px', alignItems: 'center', padding: '10px 12px', background: '#fff', borderRadius: '4px', border: `1px solid ${interp ? interp.bg : 'rgba(191,200,205,.3)'}`, marginBottom: '6px' }}>
+      <div>
+        <div style={{ fontSize: '12px', fontWeight: 700, color: INK }}>{inv.name}</div>
+        <div style={{ fontSize: '10px', color: '#516169' }}>{inv.unit} · ref: {ref}</div>
+      </div>
       <input
         value={inv.value}
         onChange={(e) => onChange({ ...inv, value: e.target.value })}
-        style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', padding: '5px 8px' }}
-        placeholder="Result"
+        style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', padding: '6px 8px', textAlign: 'center' }}
+        placeholder="—"
+        type="number"
+        step="0.1"
       />
-      <span style={{ fontSize: '11px', color: '#516169' }}>{inv.unit} · {inv.reference}</span>
-      <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '16px', padding: '0 4px' }}>×</button>
+      {interp ? (
+        <span style={{ padding: '3px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: interp.bg, color: interp.color, whiteSpace: 'nowrap', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+          {interp.label}
+        </span>
+      ) : <span />}
+      <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '18px', padding: '0 4px', lineHeight: 1 }}>×</button>
     </div>
   );
 }
+
+// Category colors
+const CAT_COLORS: Record<string, { bg: string; color: string }> = {
+  Hematology:   { bg: '#fdf2f8', color: '#9d174d' },
+  Renal:        { bg: '#eff6ff', color: '#1e40af' },
+  Liver:        { bg: '#fefce8', color: '#854d0e' },
+  Lipids:       { bg: '#f0fdf4', color: '#166534' },
+  Glucose:      { bg: '#fff7ed', color: '#9a3412' },
+  Electrolytes: { bg: '#f0fdfa', color: '#134e4a' },
+  Cardiac:      { bg: '#fff1f2', color: '#9f1239' },
+  Thyroid:      { bg: '#faf5ff', color: '#6b21a8' },
+  Coagulation:  { bg: '#fef2f2', color: '#7f1d1d' },
+  Inflammatory: { bg: '#fff7ed', color: '#92400e' },
+};
 
 // ── Main component ────────────────────────────────────────────
 export default function VisitModal() {
@@ -228,14 +272,15 @@ export default function VisitModal() {
 
   // ── Investigations ────────────────────────────────────────
   const [investigations, setInvestigations] = useState<InvResult[]>([]);
-  const [invSearch, setInvSearch] = useState<string>('');
-  const invResults = useMemo(() => {
-    if (!invSearch.trim() || invSearch.length < 2) return [];
-    const q = invSearch.toLowerCase();
-    return INVESTIGATION_TEMPLATES.filter(
-      (t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q),
-    ).slice(0, 8);
-  }, [invSearch]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const invCategories = useMemo(() => {
+    const cats = Array.from(new Set(INVESTIGATION_TEMPLATES.map((t) => t.category))).sort();
+    return cats;
+  }, []);
+  const categoryTests = useMemo(() => {
+    if (!selectedCategory) return [];
+    return INVESTIGATION_TEMPLATES.filter((t) => t.category === selectedCategory);
+  }, [selectedCategory]);
 
   // ── Final diagnosis (ICD-10) ──────────────────────────────
   const [finalDx, setFinalDx] = useState<SelectedDiagnosis[]>([]);
@@ -271,7 +316,7 @@ export default function VisitModal() {
     setTemperature(''); setOxygenSaturation(''); setOedema('none');
     setFundoscopy(''); setFootExamination('normal'); setOtherFindings('');
     setProvisionalDx([]);
-    setInvestigations([]); setInvSearch('');
+    setInvestigations([]); setSelectedCategory('');
     setFinalDx([]);
     setMeds(getCurrentMeds(patient).length ? getCurrentMeds(patient) : [{ name: HTN_MEDS[0] }]);
     setHba1cValue(''); setHba1cQuarter(getCurrentQuarter());
@@ -524,55 +569,95 @@ export default function VisitModal() {
 
               {/* ── 5. INVESTIGATIONS ──────────────────────── */}
               <SectionCard title="5. Investigations / Lab Results" color="#166534" bg="#f0fdf4" defaultOpen={false}>
-                {/* Add investigation */}
-                <div style={{ position: 'relative', marginBottom: '10px' }}>
-                  <FieldLabel text="Add investigation" />
-                  <input
-                    value={invSearch}
-                    onChange={(e) => setInvSearch(e.target.value)}
-                    style={{ ...fieldStyle, border: '1.5px solid rgba(34,197,94,.3)' }}
-                    placeholder="Search investigation name or category…"
-                  />
-                  {invResults.length > 0 && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #16a34a', borderTop: 'none', borderRadius: '0 0 4px 4px', zIndex: 999, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
-                      {invResults.map((t) => (
-                        <div
-                          key={t.id}
-                          onClick={() => {
-                            if (!investigations.find((i) => i.id === t.id)) {
-                              setInvestigations((prev) => [...prev, {
-                                id: t.id, name: t.name, value: '', unit: t.unit,
-                                reference: t.referenceText ?? `${t.referenceLow}–${t.referenceHigh}`,
-                              }]);
-                            }
-                            setInvSearch('');
-                          }}
-                          style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '12px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(191,200,205,.15)' }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#f0fdf4'; }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#fff'; }}
-                        >
-                          <span style={{ fontWeight: 700, color: '#166534' }}>{t.name}</span>
-                          <span style={{ color: '#516169', fontSize: '11px' }}>{t.category} · {t.unit}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                {/* Category picker */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+                  {invCategories.map((cat) => {
+                    const c = CAT_COLORS[cat] ?? { bg: '#f4f4f2', color: '#516169' };
+                    const active = selectedCategory === cat;
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(active ? '' : cat)}
+                        style={{
+                          padding: '5px 12px', borderRadius: '999px', fontSize: '11px',
+                          fontFamily: 'Syne, sans-serif', fontWeight: 700, cursor: 'pointer',
+                          border: `1.5px solid ${active ? c.color : 'rgba(191,200,205,.4)'}`,
+                          background: active ? c.bg : '#fff',
+                          color: active ? c.color : '#516169',
+                          transition: 'all .15s',
+                        }}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
                 </div>
-                {/* Investigation rows */}
-                {investigations.map((inv, idx) => (
-                  <InvestigationRow
-                    key={inv.id}
-                    inv={inv}
-                    onChange={(v) => setInvestigations((prev) => prev.map((x, i) => i === idx ? v : x))}
-                    onRemove={() => setInvestigations((prev) => prev.filter((_, i) => i !== idx))}
-                  />
-                ))}
-                {investigations.length === 0 && (
-                  <div style={{ fontSize: '12px', color: '#516169', textAlign: 'center', padding: '8px' }}>No investigations added</div>
+
+                {/* Tests in selected category */}
+                {selectedCategory && (
+                  <div style={{ marginBottom: '14px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#516169', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontFamily: 'Syne, sans-serif' }}>
+                      {selectedCategory} Tests — click to add
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {categoryTests.map((t) => {
+                        const already = investigations.find((i) => i.id === t.id);
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => {
+                              if (!already) {
+                                setInvestigations((prev) => [...prev, {
+                                  id: t.id, name: t.name, value: '',
+                                  unit: t.unit, referenceLow: t.referenceLow,
+                                  referenceHigh: t.referenceHigh,
+                                  referenceText: t.referenceText,
+                                }]);
+                              }
+                            }}
+                            disabled={!!already}
+                            style={{
+                              padding: '4px 10px', borderRadius: '4px', fontSize: '12px',
+                              fontFamily: 'Karla, sans-serif', cursor: already ? 'default' : 'pointer',
+                              border: '1.5px solid rgba(34,197,94,.3)',
+                              background: already ? '#dcfce7' : '#fff',
+                              color: already ? '#166534' : '#0f1f26',
+                              opacity: already ? 0.7 : 1,
+                            }}
+                          >
+                            {already ? '✓ ' : '+ '}{t.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Added investigations with value + WHO interpretation */}
+                {investigations.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#516169', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontFamily: 'Syne, sans-serif' }}>
+                      Enter results
+                    </div>
+                    {investigations.map((inv, idx) => (
+                      <InvestigationRow
+                        key={inv.id}
+                        inv={inv}
+                        onChange={(v) => setInvestigations((prev) => prev.map((x, i) => i === idx ? v : x))}
+                        onRemove={() => setInvestigations((prev) => prev.filter((_, i) => i !== idx))}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {investigations.length === 0 && !selectedCategory && (
+                  <div style={{ fontSize: '12px', color: '#516169', textAlign: 'center', padding: '12px 0' }}>
+                    Select a category above to add investigations
+                  </div>
                 )}
               </SectionCard>
 
-              {/* ── 6. FINAL DIAGNOSIS (ICD-10) ────────────── */}
+                            {/* ── 6. FINAL DIAGNOSIS (ICD-10) ────────────── */}
               <SectionCard title="6. Final Diagnosis (ICD-10)" color="#005469" defaultOpen={false}>
                 <DiagnosisSearch
                   label="Search and add final diagnoses"
