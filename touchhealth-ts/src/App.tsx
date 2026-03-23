@@ -7,7 +7,6 @@ import { useEffect } from 'react';
 import { useAuthStore } from './store/useAuthStore';
 import { usePatientStore } from './store/usePatientStore';
 import { useUIStore } from './store/useUIStore';
-import { seedPatients } from './services/patients';
 import Topbar from './components/layout/Topbar';
 import NavTabs from './components/layout/NavTabs';
 import SyncBar from './components/ui/SyncBar';
@@ -38,7 +37,7 @@ export default function App() {
   useEffect(() => {
     init();
     loadFromStorage();
-    seedPatients();
+    // seedPatients() removed — no demo data
   }, [init, loadFromStorage]);
 
   useEffect(() => {
@@ -53,25 +52,13 @@ export default function App() {
 
   if (isLoading) {
     return (
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'linear-gradient(135deg,#0c1e2a 0%,#0d6e87 60%,#1a8fa8 100%)',
-        }}
-      >
+      <div style={{
+        position: 'fixed', inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(135deg,#0f1f26 0%,#005469 60%,#0d6e87 100%)',
+      }}>
         <div style={{ textAlign: 'center', color: '#fff' }}>
-          <div
-            style={{
-              fontFamily: 'Syne,sans-serif',
-              fontSize: 24,
-              fontWeight: 800,
-              marginBottom: 8,
-            }}
-          >
+          <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
             RemoteCare
           </div>
           <div style={{ fontSize: 12, opacity: 0.5 }}>Loading…</div>
@@ -94,16 +81,15 @@ export default function App() {
         {role === 'doctor' ? (
           <>
             {activePage === 'patients' ? <PatientsPage /> : null}
-            {activePage === 'ltfu' ? <LTFUPage /> : null}
-            {activePage === 'clinic' ? <ClinicPage /> : null}
-            {activePage === 'reports' ? <ReportsPage /> : null}
+            {activePage === 'ltfu'     ? <LTFUPage />     : null}
+            {activePage === 'clinic'   ? <ClinicPage />   : null}
+            {activePage === 'reports'  ? <ReportsPage />  : null}
           </>
         ) : (
           <AdminPage />
         )}
       </main>
 
-      {/* Slide-in panels (driven by Zustand) */}
       <VisitModal />
       <MedModal />
     </div>
