@@ -22,9 +22,7 @@ export default function Topbar() {
       background: 'linear-gradient(90deg, #0f1f26 0%, #005469 100%)',
       boxShadow: '0 2px 20px rgba(0,0,0,.3)',
     }}>
-      {/* Logo */}
       <img src={LOGO} alt="RemoteCare" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1.5px solid rgba(255,255,255,.2)' }} />
-
       <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 16, color: '#fff', letterSpacing: '-.3px', whiteSpace: 'nowrap' }}>
         RemoteCare
       </span>
@@ -43,7 +41,7 @@ export default function Topbar() {
             <div key={label} style={{
               padding: '5px 12px',
               background: warn ? 'rgba(220,38,38,.2)' : 'rgba(255,255,255,.12)',
-              border: ,
+              border: `1px solid ${warn ? 'rgba(220,38,38,.3)' : 'rgba(255,255,255,.15)'}`,
               borderRadius: 9999,
               fontSize: 10, fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '.5px',
@@ -69,8 +67,8 @@ export default function Topbar() {
             whiteSpace: 'nowrap',
           }}>
             {isSuperAdmin
-              ? '🌐 All Regions'
-              : }
+              ? 'All Regions'
+              : `${currentUser.sessionDistrict || 'District'}, ${currentUser.sessionRegion || ''}`}
           </div>
         </div>
       )}
