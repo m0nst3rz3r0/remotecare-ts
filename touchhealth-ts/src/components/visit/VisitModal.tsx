@@ -179,27 +179,38 @@ function getInterpretation(inv: InvResult): { label: string; color: string; bg: 
 }
 
 function InvestigationRow({ inv, onChange, onRemove }: { inv: InvResult; onChange: (v: InvResult) => void; onRemove: () => void; }) {
-  const interp = getInterpretation(inv);
+  const isTextBased = inv.unit === 'findings';
+  const interp = isTextBased ? null : getInterpretation(inv);
   const ref = inv.referenceText ?? `${inv.referenceLow}–${inv.referenceHigh}`;
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto auto', gap: '8px', alignItems: 'center', padding: '10px 12px', background: '#fff', borderRadius: '4px', border: `1px solid ${interp ? interp.bg : 'rgba(191,200,205,.3)'}`, marginBottom: '6px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isTextBased ? '1.5fr 2fr auto' : '2fr 1fr auto auto', gap: '8px', alignItems: 'center', padding: '10px 12px', background: '#fff', borderRadius: '4px', border: `1px solid ${interp ? interp.bg : 'rgba(191,200,205,.3)'}`, marginBottom: '6px' }}>
       <div>
         <div style={{ fontSize: '12px', fontWeight: 700, color: INK }}>{inv.name}</div>
-        <div style={{ fontSize: '10px', color: '#516169' }}>{inv.unit} · ref: {ref}</div>
+        <div style={{ fontSize: '10px', color: '#516169' }}>{isTextBased ? `ref: ${ref}` : `${inv.unit} · ref: ${ref}`}</div>
       </div>
-      <input
-        value={inv.value}
-        onChange={(e) => onChange({ ...inv, value: e.target.value })}
-        style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', padding: '6px 8px', textAlign: 'center' }}
-        placeholder="—"
-        type="number"
-        step="0.1"
-      />
-      {interp ? (
+      {isTextBased ? (
+        <textarea
+          value={inv.value}
+          onChange={(e) => onChange({ ...inv, value: e.target.value })}
+          style={{ ...fieldStyle, fontSize: '12px', padding: '6px 8px', resize: 'vertical', minHeight: '52px' }}
+          placeholder="Enter findings…"
+          rows={2}
+        />
+      ) : (
+        <input
+          value={inv.value}
+          onChange={(e) => onChange({ ...inv, value: e.target.value })}
+          style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', padding: '6px 8px', textAlign: 'center' }}
+          placeholder="—"
+          type="number"
+          step="0.1"
+        />
+      )}
+      {!isTextBased && (interp ? (
         <span style={{ padding: '3px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: interp.bg, color: interp.color, whiteSpace: 'nowrap', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
           {interp.label}
         </span>
-      ) : <span />}
+      ) : <span />)}
       <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '18px', padding: '0 4px', lineHeight: 1 }}>×</button>
     </div>
   );
@@ -268,7 +279,20 @@ export default function VisitModal() {
   const [otherFindings,       setOtherFindings]       = useState<string>('');
 
   // ── Provisional diagnosis (ICD-10) ───────────────────────
-  const [provisionalDx, setProvisionalDx] = useState<SelectedDiagnosis[]>([]);
+  // REMOVED: replaced by comorbidity / associated diagnosis below
+
+  // ── Comorbidity / Associated Diagnosis ───────────────────
+  // Pre-seeded chips for the patient's registered condition (DM / HTN)
+  const seedComorbidities = useMemo<SelectedDiagnosis[]>(() => {
+    if (!patient) return [];
+    const list: SelectedDiagnosis[] = [];
+    if (patient.cond === 'DM' || patient.cond === 'DM+HTN')
+      list.push({ code: 'E11', description: 'Type 2 Diabetes Mellitus', isPrimary: patient.cond === 'DM' });
+    if (patient.cond === 'HTN' || patient.cond === 'DM+HTN')
+      list.push({ code: 'I10', description: 'Essential (Primary) Hypertension', isPrimary: patient.cond === 'HTN' });
+    return list;
+  }, [patient]);
+  const [comorbidities, setComorbidities] = useState<SelectedDiagnosis[]>([]);
 
   // ── Investigations ────────────────────────────────────────
   const [investigations, setInvestigations] = useState<InvResult[]>([]);
@@ -282,8 +306,7 @@ export default function VisitModal() {
     return INVESTIGATION_TEMPLATES.filter((t) => t.category === selectedCategory);
   }, [selectedCategory]);
 
-  // ── Final diagnosis (ICD-10) ──────────────────────────────
-  const [finalDx, setFinalDx] = useState<SelectedDiagnosis[]>([]);
+  // ── Final diagnosis removed — consolidated into comorbidities above ──
 
   // ── Medications ───────────────────────────────────────────
   const [meds, setMeds] = useState<Medication[]>([]);
@@ -315,9 +338,8 @@ export default function VisitModal() {
     setGeneralAppearance(''); setPulseRate(''); setRespiratoryRate('');
     setTemperature(''); setOxygenSaturation(''); setOedema('none');
     setFundoscopy(''); setFootExamination('normal'); setOtherFindings('');
-    setProvisionalDx([]);
+    setComorbidities(seedComorbidities);
     setInvestigations([]); setSelectedCategory('');
-    setFinalDx([]);
     setMeds(getCurrentMeds(patient).length ? getCurrentMeds(patient) : [{ name: HTN_MEDS[0] }]);
     setHba1cValue(''); setHba1cQuarter(getCurrentQuarter());
     setNextDate(toISODate(nextVisitDate(new Date(today()), 30, clinicDays)));
@@ -382,17 +404,13 @@ export default function VisitModal() {
     return c.length > 0 ? c[0] : { name: HTN_MEDS[0] };
   }
 
-  // ── Helpers for diagnosis lists ───────────────────────────
-  const addProvisional = (d: SelectedDiagnosis) => {
-    if (provisionalDx.find((x) => x.code === d.code)) return;
-    setProvisionalDx((prev) => [...prev, { ...d, isPrimary: prev.length === 0 }]);
+  // ── Helpers for comorbidity / associated diagnosis list ──
+  const addComorbidity = (d: SelectedDiagnosis) => {
+    if (comorbidities.find((x) => x.code === d.code)) return;
+    setComorbidities((prev) => [...prev, { ...d, isPrimary: false }]);
   };
-  const addFinal = (d: SelectedDiagnosis) => {
-    if (finalDx.find((x) => x.code === d.code)) return;
-    setFinalDx((prev) => [...prev, { ...d, isPrimary: prev.length === 0 }]);
-  };
-  const togglePrimary = (list: SelectedDiagnosis[], setList: React.Dispatch<React.SetStateAction<SelectedDiagnosis[]>>, code: string) => {
-    setList(list.map((d) => ({ ...d, isPrimary: d.code === code })));
+  const toggleComorbidityPrimary = (code: string) => {
+    setComorbidities((prev) => prev.map((d) => ({ ...d, isPrimary: d.code === code })));
   };
 
   return (
@@ -477,6 +495,63 @@ export default function VisitModal() {
                       </div>
                     </div>
                   </div>
+
+                  {/* SpO2 */}
+                  {(() => {
+                    const spo2N = parseNumber(oxygenSaturation);
+                    const spo2Status = spo2N === null ? null
+                      : spo2N >= 95 ? { lbl: 'Normal', cls: 'controlled' }
+                      : spo2N >= 90 ? { lbl: 'Low', cls: 'grade1' }
+                      : { lbl: 'Critical', cls: 'grade3' };
+                    return (
+                      <div style={{ background: 'rgba(99,102,241,.06)', borderRadius: '6px', padding: '10px', border: '1px solid rgba(99,102,241,.2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#4f46e5', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>SpO₂ / Oxygen Saturation</span>
+                          {spo2Status ? <Chip cls={spo2Status.cls}>{spo2Status.lbl}</Chip> : null}
+                        </div>
+                        <div>
+                          <FieldLabel text="SpO₂ (%)" />
+                          <input
+                            type="number" min="0" max="100" step="1"
+                            value={oxygenSaturation}
+                            onChange={(e) => setOxygenSaturation(e.target.value)}
+                            style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: '18px', fontWeight: 700, textAlign: 'center', color: spo2N !== null && spo2N < 95 ? '#dc2626' : '#0f1f26' }}
+                            placeholder="98"
+                          />
+                          <div style={{ fontSize: '10px', color: '#516169', marginTop: '4px' }}>Normal: ≥95% · Low: 90–94% · Critical: &lt;90%</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Pulse Rate */}
+                  {(() => {
+                    const prN = parseNumber(pulseRate);
+                    const prStatus = prN === null ? null
+                      : prN >= 60 && prN <= 100 ? { lbl: 'Normal', cls: 'controlled' }
+                      : prN < 60 ? { lbl: 'Bradycardia', cls: 'grade1' }
+                      : prN <= 120 ? { lbl: 'Tachycardia', cls: 'grade2' }
+                      : { lbl: 'Severe', cls: 'grade3' };
+                    return (
+                      <div style={{ background: 'rgba(239,68,68,.05)', borderRadius: '6px', padding: '10px', border: '1px solid rgba(239,68,68,.2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#dc2626', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Pulse Rate</span>
+                          {prStatus ? <Chip cls={prStatus.cls}>{prStatus.lbl}</Chip> : null}
+                        </div>
+                        <div>
+                          <FieldLabel text="Pulse Rate (bpm)" />
+                          <input
+                            type="number" min="0" max="300" step="1"
+                            value={pulseRate}
+                            onChange={(e) => setPulseRate(e.target.value)}
+                            style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: '18px', fontWeight: 700, textAlign: 'center', color: prN !== null && (prN < 60 || prN > 100) ? '#dc2626' : '#0f1f26' }}
+                            placeholder="72"
+                          />
+                          <div style={{ fontSize: '10px', color: '#516169', marginTop: '4px' }}>Normal: 60–100 bpm · &lt;60 bradycardia · &gt;100 tachycardia</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 {/* Weight / Height / BMI */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
@@ -516,13 +591,14 @@ export default function VisitModal() {
 
               {/* ── 3. PHYSICAL EXAMINATION ────────────────── */}
               <SectionCard title="3. Physical Examination" color={TEAL} bg="rgba(13,110,135,.03)" defaultOpen={false}>
+                <div style={{ fontSize: '11px', color: '#516169', marginBottom: '10px', background: 'rgba(13,110,135,.05)', padding: '6px 10px', borderRadius: '4px' }}>
+                  SpO₂ and Pulse Rate are recorded in Section 1 (Vitals).
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   {[
                     { label: 'General Appearance', val: generalAppearance, set: setGeneralAppearance, type: 'text', unit: '' },
-                    { label: 'Pulse Rate', val: pulseRate, set: setPulseRate, type: 'number', unit: 'bpm' },
                     { label: 'Respiratory Rate', val: respiratoryRate, set: setRespiratoryRate, type: 'number', unit: '/min' },
                     { label: 'Temperature', val: temperature, set: setTemperature, type: 'number', unit: '°C' },
-                    { label: 'Oxygen Saturation', val: oxygenSaturation, set: setOxygenSaturation, type: 'number', unit: '%' },
                     { label: 'Fundoscopy', val: fundoscopy, set: setFundoscopy, type: 'text', unit: '' },
                   ].map(({ label, val, set, type, unit }) => (
                     <div key={label}>
@@ -555,16 +631,35 @@ export default function VisitModal() {
                 </div>
               </SectionCard>
 
-              {/* ── 4. PROVISIONAL DIAGNOSIS (ICD-10) ─────── */}
-              <SectionCard title="4. Provisional Diagnosis (ICD-10)" color="#7c3aed" bg="rgba(124,58,237,.03)" defaultOpen={false}>
+              {/* ── 4. COMORBIDITY / ASSOCIATED DIAGNOSIS ──── */}
+              <SectionCard title="4. Comorbidity / Associated Diagnosis" color="#b45309" bg="rgba(180,83,9,.03)" defaultOpen={false}>
+                {/* Info banner showing registered condition */}
+                <div style={{ background: 'rgba(180,83,9,.07)', border: '1px solid rgba(180,83,9,.2)', borderRadius: '6px', padding: '10px 12px', marginBottom: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <span style={{ fontSize: '16px', lineHeight: 1, marginTop: '1px' }}>🩺</span>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#92400e', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '3px' }}>
+                      Registered Condition: {patient.cond}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#78350f' }}>
+                      {patient.cond === 'DM' && 'E11 · Type 2 Diabetes Mellitus is pre-loaded. Add any associated or comorbid conditions below.'}
+                      {patient.cond === 'HTN' && 'I10 · Essential Hypertension is pre-loaded. Add any associated or comorbid conditions below.'}
+                      {patient.cond === 'DM+HTN' && 'E11 + I10 (DM & HTN) are pre-loaded. Add any additional comorbid diagnoses below.'}
+                    </div>
+                  </div>
+                </div>
                 <DiagnosisSearch
-                  label="Search and add provisional diagnoses"
-                  selected={provisionalDx}
-                  onAdd={addProvisional}
-                  onRemove={(code) => setProvisionalDx((p) => p.filter((d) => d.code !== code))}
-                  onTogglePrimary={(code) => togglePrimary(provisionalDx, setProvisionalDx, code)}
+                  label="Add associated / comorbid diagnoses (ICD-10)"
+                  selected={comorbidities}
+                  onAdd={addComorbidity}
+                  onRemove={(code) => {
+                    // Prevent removing the core condition codes
+                    const protected_codes = ['E11', 'I10'];
+                    if (protected_codes.includes(code)) return;
+                    setComorbidities((p) => p.filter((d) => d.code !== code));
+                  }}
+                  onTogglePrimary={toggleComorbidityPrimary}
                 />
-                <div style={{ fontSize: '11px', color: '#516169', marginTop: '6px' }}>★ = Primary diagnosis. Click star to change.</div>
+                <div style={{ fontSize: '11px', color: '#516169', marginTop: '6px' }}>★ = Primary diagnosis · E11/I10 are locked (registered condition). Add e.g. E11.2 (Diabetic nephropathy), I11 (Hypertensive heart disease), E78.5 (Dyslipidaemia)…</div>
               </SectionCard>
 
               {/* ── 5. INVESTIGATIONS ──────────────────────── */}
@@ -657,20 +752,8 @@ export default function VisitModal() {
                 )}
               </SectionCard>
 
-                            {/* ── 6. FINAL DIAGNOSIS (ICD-10) ────────────── */}
-              <SectionCard title="6. Final Diagnosis (ICD-10)" color="#005469" defaultOpen={false}>
-                <DiagnosisSearch
-                  label="Search and add final diagnoses"
-                  selected={finalDx}
-                  onAdd={addFinal}
-                  onRemove={(code) => setFinalDx((p) => p.filter((d) => d.code !== code))}
-                  onTogglePrimary={(code) => togglePrimary(finalDx, setFinalDx, code)}
-                />
-                <div style={{ fontSize: '11px', color: '#516169', marginTop: '6px' }}>★ = Primary diagnosis. Click star to change.</div>
-              </SectionCard>
-
-              {/* ── 7. MEDICATIONS ─────────────────────────── */}
-              <SectionCard title="7. Medications" color="#7c3aed" bg="rgba(124,58,237,.03)" defaultOpen={true}>
+              {/* ── 6. MEDICATIONS (was 7) ─────────────────── */}
+              <SectionCard title="6. Medications" color="#7c3aed" bg="rgba(124,58,237,.03)" defaultOpen={true}>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
                   <button
                     onClick={() => setMeds((prev) => [...prev, defaultMed(patient)])}
@@ -693,7 +776,7 @@ export default function VisitModal() {
               </SectionCard>
 
               {/* ── 8. NEXT APPOINTMENT ────────────────────── */}
-              <SectionCard title="8. Next Appointment" color="#2a4a58" defaultOpen={true}>
+              <SectionCard title="7. Next Appointment" color="#2a4a58" defaultOpen={true}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <FieldLabel text={`Date (deadline: ${hardDeadline.toLocaleDateString()})`} />
@@ -707,7 +790,7 @@ export default function VisitModal() {
               </SectionCard>
 
               {/* ── 9. FINAL NOTE ──────────────────────────── */}
-              <SectionCard title="9. Final Note / Clinical Summary" color={INK} defaultOpen={false}>
+              <SectionCard title="8. Final Note / Clinical Summary" color={INK} defaultOpen={false}>
                 <div>
                   <FieldLabel text="Summary, plan, referrals, or additional notes" />
                   <textarea
