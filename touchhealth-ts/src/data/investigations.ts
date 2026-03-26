@@ -86,6 +86,10 @@ export const INVESTIGATION_TEMPLATES: Investigation[] = [
   { id: 'ldh', name: 'LDH', category: 'Cardiac', unit: 'U/L', referenceLow: 100, referenceHigh: 250 },
   { id: 'bnp', name: 'BNP', category: 'Cardiac', unit: 'pg/mL', referenceLow: 0, referenceHigh: 100, referenceText: '<100 normal' },
 
+  // Cardiac Imaging & ECG — non-numeric, free-text findings
+  { id: 'ecg', name: 'ECG', category: 'Cardiac', unit: 'findings', referenceLow: 0, referenceHigh: 0, referenceText: 'Normal sinus rhythm' },
+  { id: 'echocardiogram', name: 'Echocardiogram', category: 'Cardiac', unit: 'findings', referenceLow: 0, referenceHigh: 0, referenceText: 'Normal cardiac function' },
+
   // Coagulation
   { id: 'pt', name: 'Prothrombin Time', category: 'Coagulation', unit: 'seconds', referenceLow: 11, referenceHigh: 13.5 },
   { id: 'inr', name: 'INR', category: 'Coagulation', unit: 'ratio', referenceLow: 0.8, referenceHigh: 1.2 },
