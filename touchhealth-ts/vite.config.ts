@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig({
-  base: './',
+  // Vercel serves from domain root — must use '/'
+  base: '/',
   plugins: [react()],
   resolve: {
     alias: {
@@ -13,6 +14,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    // Ensures assets are placed in assets/ folder and referenced correctly
+    assetsDir: 'assets',
   },
   server: {
     port: 3000,
