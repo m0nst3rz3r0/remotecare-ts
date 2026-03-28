@@ -22,6 +22,7 @@ interface AuthState {
 
   // Actions
   init:    () => void;
+  // CHANGED: signIn is now async because login() is async
   signIn:  (params: {
     username: string;
     password: string;
@@ -29,7 +30,7 @@ interface AuthState {
     hospital?: string;
     region?:   string;
     district?: string;
-  }) => LoginResult;
+  }) => Promise<LoginResult>;
   signOut: () => void;
   clearError: () => void;
 }
@@ -48,8 +49,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ currentUser: session, isLoading: false });
   },
 
-  signIn: (params) => {
-    const result = login(params);
+  // CHANGED: signIn is now async — awaits the async login() function
+  signIn: async (params) => {
+    const result = await login(params);
     if (result.success) {
       set({ currentUser: result.user, loginError: null });
     } else {
