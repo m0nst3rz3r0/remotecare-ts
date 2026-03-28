@@ -4,6 +4,7 @@
 // ════════════════════════════════════════════════════════════
 
 import type { User, SessionUser, UserRole, Hospital } from '../types';
+import { hashPassword, verifyPassword } from './crypto';
 
 // ── STORAGE KEYS ─────────────────────────────────────────────
 
@@ -114,14 +115,15 @@ export type LoginResult =
   | { success: true;  user: SessionUser }
   | { success: false; error: string };
 
-export function login(params: {
+// CHANGED: login is now async to support password hashing
+export async function login(params: {
   username: string;
   password: string;
   role: UserRole;
   hospital?: string;
   region?: string;
   district?: string;
-}): LoginResult {
+}): Promise<LoginResult> {
   const { username, password, role, hospital = '', region = '', district = '' } = params;
 
   if (!username || !password) {
@@ -129,13 +131,21 @@ export function login(params: {
   }
 
   const users = loadUsers();
-  const anyMatch = users.find(
-    (u) => u.username.toLowerCase() === username.toLowerCase() && u.password === password,
+  const foundUser = users.find(
+    (u) => u.username.toLowerCase() === username.toLowerCase(),
   );
 
-  if (!anyMatch) {
+  if (!foundUser) {
     return { success: false, error: 'Incorrect username or password. Please try again.' };
   }
+
+  // CHANGED: use verifyPassword (supports both plain-text legacy + hashed)
+  const passwordOk = await verifyPassword(password, foundUser.password);
+  if (!passwordOk) {
+    return { success: false, error: 'Incorrect username or password. Please try again.' };
+  }
+
+  const anyMatch = foundUser;
 
   if (anyMatch.role !== role) {
     const correctTab = anyMatch.role === 'admin' ? 'Admin' : 'Doctor';
@@ -204,7 +214,8 @@ export type MutationResult =
   | { success: true }
   | { success: false; error: string };
 
-export function addUser(params: {
+// CHANGED: addUser is now async to hash the password before saving
+export async function addUser(params: {
   displayName: string;
   username: string;
   password: string;
@@ -213,8 +224,8 @@ export function addUser(params: {
   region?: string;
   district?: string;
   isSuperAdmin?: boolean;
-  createdBy?: SessionUser | null;  // who is creating this user
-}): MutationResult {
+  createdBy?: SessionUser | null;
+}): Promise<MutationResult> {
   const {
     displayName, username, password, role,
     hospital = '', region = '', district = '',
@@ -231,13 +242,11 @@ export function addUser(params: {
 
   // ── Permission checks ──────────────────────────────────────
   if (role === 'admin') {
-    // Only superadmin can create admins
     if (!createdBy?.isSuperAdmin) {
       return { success: false, error: 'Only superadmin can create admin accounts.' };
     }
   }
   if (role === 'doctor') {
-    // Only admin (or superadmin) can create doctors
     if (createdBy && createdBy.role !== 'admin') {
       return { success: false, error: 'Only admins can create doctor accounts.' };
     }
@@ -251,11 +260,14 @@ export function addUser(params: {
     return { success: false, error: 'You must assign a hospital to this doctor.' };
   }
 
+  // CHANGED: hash password before saving
+  const hashed = await hashPassword(password);
+
   const newUser: User = {
     id:           'u' + Date.now(),
     displayName,
     username:     username.toLowerCase(),
-    password,
+    password:     hashed,
     role,
     hospital,
     region,
@@ -274,11 +286,12 @@ export function deleteUser(id: string): void {
 
 // ── PASSWORD RESET ────────────────────────────────────────────
 
-export function updateUserPassword(
+// CHANGED: updateUserPassword is now async to hash the new password
+export async function updateUserPassword(
   targetId: string,
   newPassword: string,
   requestedBy: SessionUser | null,
-): MutationResult {
+): Promise<MutationResult> {
   if (!requestedBy) {
     return { success: false, error: 'You must be signed in to reset passwords.' };
   }
@@ -292,9 +305,6 @@ export function updateUserPassword(
     return { success: false, error: 'User not found.' };
   }
 
-  // Superadmin can reset any admin password
-  // Admin can reset any doctor password
-  // Nobody can reset a superadmin password (except themselves via profile — future feature)
   if (target.isSuperAdmin) {
     return { success: false, error: 'Superadmin password cannot be reset here.' };
   }
@@ -305,7 +315,9 @@ export function updateUserPassword(
     return { success: false, error: 'Only admins can reset doctor passwords.' };
   }
 
-  saveUsers(users.map((u) => (u.id === targetId ? { ...u, password: newPassword } : u)));
+  // CHANGED: hash the new password before saving
+  const hashed = await hashPassword(newPassword);
+  saveUsers(users.map((u) => (u.id === targetId ? { ...u, password: hashed } : u)));
   return { success: true };
 }
 
