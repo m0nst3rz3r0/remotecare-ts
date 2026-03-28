@@ -19,6 +19,7 @@ import AdminPage from './pages/AdminPage';
 import VisitModal from './components/visit/VisitModal';
 import MedModal from './components/visit/MedModal';
 import type { PageId } from './types';
+import { checkAutoBackup, startAutoBackupScheduler } from './services/backup';
 
 function isDoctorPage(p: PageId) {
   return p === 'patients' || p === 'ltfu' || p === 'clinic' || p === 'reports';
@@ -39,6 +40,13 @@ export default function App() {
     loadFromStorage();
     // seedPatients() removed — no demo data
   }, [init, loadFromStorage]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    checkAutoBackup(currentUser.displayName);
+    const cleanup = startAutoBackupScheduler(currentUser.displayName);
+    return cleanup;
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
