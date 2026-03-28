@@ -327,8 +327,8 @@ export default function MedRow({
           <input
             type="text"
             placeholder="e.g. take with food, titrate up…"
-            value={med.instructions ?? ''}
-            onChange={(e) => onChange({ ...med, instructions: e.target.value })}
+            value={(med as any).instructions ?? ''}
+            onChange={(e) => onChange({ ...med, ...{ instructions: e.target.value } } as Medication)}
             style={fieldStyle}
           />
         </div>
