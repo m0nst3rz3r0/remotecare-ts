@@ -25,6 +25,8 @@ import TrendsChart from '../components/charts/TrendsChart';
 import Chip from '../components/ui/Chip';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
+import BackupPanel from '../components/ui/BackupPanel';
+import { backupStatus } from '../services/backup';
 
 import {
   Chart as ChartJS,
@@ -159,6 +161,25 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
         <StatCard title="Due This Month"    value={stats.due}        valueColor="#d97706"   sub="Appointments pending" />
         <StatCard title="Controlled BP"     value={stats.controlled} valueColor="#16a34a"   sub={`${stats.ctrlRate}% control rate`} />
       </div>
+
+      {/* ── Backup Status Card ──────────────────────────── */}
+      {(() => {
+        const bs = backupStatus();
+        return (
+          <div style={{ borderRadius: 10, background: bs.isDue ? '#fef3c7' : '#f0fdf4', border: `1px solid ${bs.isDue ? '#fde68a' : '#86efac'}`, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 24 }}>{bs.isDue ? '⚠️' : '✅'}</span>
+            <div>
+              <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: 12, color: bs.isDue ? '#78350f' : '#14532d' }}>
+                {bs.isDue ? 'Backup Overdue' : 'Data Protected'}
+              </div>
+              <div style={{ fontSize: 11, color: '#516169' }}>
+                Last backup: {bs.lastBackupAt ? new Date(bs.lastBackupAt).toLocaleDateString('en-GB') : 'Never'}
+                {bs.daysSinceBackup !== null ? ` (${bs.daysSinceBackup} days ago)` : ''}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <Card title="Enrollment Velocity"><EnrolmentChart patients={patients} year={year} /></Card>
@@ -313,10 +334,10 @@ function SettingsView() {
 
   const onDeleteHospital = (id: string) => { deleteHospital(id); refresh(); };
 
-  const onAddUser = () => {
+  const onAddUser = async () => {
     setUErr(null); setUOk(null);
     const role: 'admin' | 'doctor' = superAdmin ? 'admin' : 'doctor';
-    const res = addUser({
+    const res: { success: boolean; error?: string } = await addUser({
       displayName: uName.trim(),
       username:    uUser.trim(),
       password:    uPass,
@@ -354,10 +375,10 @@ function SettingsView() {
     setSelfPwCurrent(''); setSelfPwNew('');
   };
 
-  const onResetPassword = () => {
+  const onResetPassword = async () => {
     setPwErr(null); setPwOk(null);
     if (!pwTargetId) { setPwErr('Select a user first.'); return; }
-    const res = updateUserPassword(pwTargetId, pwNew, currentUser);
+    const res: { success: boolean; error?: string } = await updateUserPassword(pwTargetId, pwNew, currentUser);
     if (!res.success) { setPwErr(res.error); return; }
     setPwOk('Password updated successfully.');
     setPwTargetId(''); setPwNew('');
@@ -581,6 +602,9 @@ function SettingsView() {
           </div>
         </div>
       )}
+
+      {/* ── Backup & Restore ────────────────────────────── */}
+      <BackupPanel />
 
     </div>
   );
