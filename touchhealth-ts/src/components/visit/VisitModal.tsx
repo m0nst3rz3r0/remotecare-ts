@@ -792,7 +792,9 @@ export default function VisitModal() {
                     unit: template.unit,
                     date: visitDate,
                     interpretation: 'pending',
-                    referenceRange: template.referenceRange,
+                    referenceLow: template.referenceLow,
+                    referenceHigh: template.referenceHigh,
+                    referenceText: template.referenceText,
                   }]);
                 }}
               />
