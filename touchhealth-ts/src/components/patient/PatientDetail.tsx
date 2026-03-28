@@ -40,6 +40,378 @@ function statusGradient(status: Patient['status']) {
   return 'linear-gradient(135deg,#0f1f26 0%,#005469 100%)';
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// PatientActionBar — Clinical action buttons with safe delete
+// ═══════════════════════════════════════════════════════════════
+
+function PatientActionBar({
+  patient,
+  onVisit,
+  onMeds,
+  onToggleLTFU,
+  onDelete,
+}: {
+  patient: Patient;
+  onVisit: () => void;
+  onMeds: () => void;
+  onToggleLTFU: () => void;
+  onDelete: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deletePhase, setDeletePhase] = useState<'idle' | 'confirm'>('idle');
+  const [deleteInput, setDeleteInput] = useState('');
+
+  const isLTFU = patient.status === 'ltfu';
+
+  function handleDeleteClick() {
+    setDeletePhase('confirm');
+    setDeleteInput('');
+    setMenuOpen(false);
+  }
+
+  function handleDeleteConfirm() {
+    if (deleteInput.trim().toUpperCase() === patient.code.trim().toUpperCase()) {
+      onDelete();
+    }
+  }
+
+  function cancelDelete() {
+    setDeletePhase('idle');
+    setDeleteInput('');
+  }
+
+  // --- shared button base ---
+  const btnBase =
+    'inline-flex items-center gap-1.5 rounded font-bold text-[11px] uppercase tracking-[0.5px] px-2.5 py-1.5 transition-all duration-150 select-none cursor-pointer border-0 whitespace-nowrap';
+
+  return (
+    <div className="flex flex-col items-end gap-2 min-w-0">
+
+      {/* Delete confirmation overlay */}
+      {deletePhase === 'confirm' && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '16px',
+          }}
+          onClick={cancelDelete}
+        >
+          <div
+            style={{
+              background: '#0f1f26',
+              border: '1.5px solid rgba(220,38,38,0.4)',
+              borderRadius: '10px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '380px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Icon + title */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: '24px', color: '#dc2626' }}
+              >
+                delete_forever
+              </span>
+              <div>
+                <div style={{
+                  fontFamily: 'Syne, sans-serif', fontWeight: 800,
+                  fontSize: '14px', color: '#fff',
+                }}>
+                  Permanent Deletion
+                </div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '1px' }}>
+                  This action cannot be undone
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+              fontSize: '12px', color: 'rgba(255,255,255,0.7)',
+              background: 'rgba(220,38,38,0.08)',
+              border: '1px solid rgba(220,38,38,0.2)',
+              borderRadius: '6px',
+              padding: '10px 12px',
+              marginBottom: '16px',
+              lineHeight: 1.5,
+            }}>
+              All visits, medications, and clinical records for{' '}
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#fff' }}>
+                {patient.code}
+              </span>{' '}
+              will be permanently erased. Type the patient code below to confirm.
+            </div>
+
+            <div style={{ marginBottom: '4px' }}>
+              <div style={{
+                fontSize: '9px', fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.5px',
+                color: 'rgba(255,255,255,0.4)', marginBottom: '6px',
+              }}>
+                Type patient code to confirm
+              </div>
+              <input
+                autoFocus
+                type="text"
+                placeholder={patient.code}
+                value={deleteInput}
+                onChange={(e) => setDeleteInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleDeleteConfirm();
+                  if (e.key === 'Escape') cancelDelete();
+                }}
+                style={{
+                  width: '100%',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1.5px solid rgba(220,38,38,0.35)',
+                  borderRadius: '5px',
+                  padding: '8px 12px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  color: '#fff',
+                  outline: 'none',
+                  letterSpacing: '0.5px',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+              <button
+                type="button"
+                onClick={cancelDelete}
+                style={{
+                  flex: 1, padding: '8px', borderRadius: '5px',
+                  background: 'rgba(255,255,255,0.07)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: 'rgba(255,255,255,0.6)',
+                  fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                  fontFamily: 'Syne, sans-serif',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={deleteInput.trim().toUpperCase() !== patient.code.trim().toUpperCase()}
+                style={{
+                  flex: 1, padding: '8px', borderRadius: '5px',
+                  background: deleteInput.trim().toUpperCase() === patient.code.trim().toUpperCase()
+                    ? '#dc2626' : 'rgba(220,38,38,0.2)',
+                  border: '1px solid rgba(220,38,38,0.4)',
+                  color: deleteInput.trim().toUpperCase() === patient.code.trim().toUpperCase()
+                    ? '#fff' : 'rgba(255,255,255,0.3)',
+                  fontSize: '12px', fontWeight: 800, cursor: deleteInput.trim().toUpperCase() === patient.code.trim().toUpperCase() ? 'pointer' : 'not-allowed',
+                  fontFamily: 'Syne, sans-serif',
+                  transition: 'all 0.15s',
+                }}
+              >
+                Delete Patient
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Main action buttons ── */}
+      {/* Mobile: column, Desktop: row */}
+      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 flex-wrap justify-end">
+
+        {/* PRIMARY: + Visit */}
+        <button
+          type="button"
+          onClick={onVisit}
+          className={btnBase}
+          style={{
+            background: 'linear-gradient(135deg, #0d6e87 0%, #005469 100%)',
+            color: '#fff',
+            boxShadow: '0 2px 8px rgba(13,110,135,0.45), 0 0 0 0 rgba(13,110,135,0)',
+            fontSize: '12px',
+            paddingLeft: '10px',
+            paddingRight: '12px',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 16px rgba(13,110,135,0.6), 0 0 0 3px rgba(13,110,135,0.2)';
+            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(13,110,135,0.45)';
+            (e.currentTarget as HTMLButtonElement).style.transform = '';
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>
+            add_circle
+          </span>
+          Visit
+        </button>
+
+        {/* SECONDARY: Edit Meds */}
+        <button
+          type="button"
+          onClick={onMeds}
+          className={btnBase}
+          style={{
+            background: 'rgba(71,85,105,0.75)',
+            color: '#e2e8f0',
+            border: '1px solid rgba(148,163,184,0.25)',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(100,116,139,0.85)';
+            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(71,85,105,0.75)';
+            (e.currentTarget as HTMLButtonElement).style.transform = '';
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '13px', fontVariationSettings: "'FILL' 1" }}>
+            medication
+          </span>
+          Meds
+        </button>
+
+        {/* SECONDARY: Mark LTFU / Recall */}
+        <button
+          type="button"
+          onClick={onToggleLTFU}
+          className={btnBase}
+          style={isLTFU ? {
+            background: 'rgba(16,185,129,0.2)',
+            color: '#6ee7b7',
+            border: '1px solid rgba(16,185,129,0.35)',
+          } : {
+            background: 'rgba(217,119,6,0.2)',
+            color: '#fcd34d',
+            border: '1px solid rgba(217,119,6,0.35)',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = isLTFU
+              ? 'rgba(16,185,129,0.35)' : 'rgba(217,119,6,0.35)';
+            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = isLTFU
+              ? 'rgba(16,185,129,0.2)' : 'rgba(217,119,6,0.2)';
+            (e.currentTarget as HTMLButtonElement).style.transform = '';
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '13px', fontVariationSettings: "'FILL' 1" }}>
+            {isLTFU ? 'person_check' : 'person_off'}
+          </span>
+          {isLTFU ? 'Recall' : 'LTFU'}
+        </button>
+
+        {/* MORE: three-dot menu (Delete hidden here) */}
+        <div style={{ position: 'relative' }}>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            className={btnBase}
+            style={{
+              background: 'rgba(255,255,255,0.07)',
+              color: 'rgba(255,255,255,0.5)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              paddingLeft: '8px',
+              paddingRight: '8px',
+              minWidth: '32px',
+              justifyContent: 'center',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.13)';
+              (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.8)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)';
+              (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.5)';
+            }}
+            aria-label="More options"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+              more_vert
+            </span>
+          </button>
+
+          {/* Dropdown */}
+          {menuOpen && (
+            <>
+              {/* Backdrop */}
+              <div
+                style={{ position: 'fixed', inset: 0, zIndex: 40 }}
+                onClick={() => setMenuOpen(false)}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 6px)',
+                  right: 0,
+                  zIndex: 50,
+                  background: '#1a2c35',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                  minWidth: '160px',
+                }}
+              >
+                <div style={{
+                  padding: '5px 12px 4px',
+                  fontSize: '9px',
+                  fontFamily: 'Syne, sans-serif',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  color: 'rgba(255,255,255,0.3)',
+                  borderBottom: '1px solid rgba(255,255,255,0.07)',
+                }}>
+                  Danger Zone
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDeleteClick}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '9px 14px',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#fca5a5',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    fontFamily: 'Karla, sans-serif',
+                    textAlign: 'left',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(220,38,38,0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '15px', fontVariationSettings: "'FILL' 1" }}>
+                    delete_forever
+                  </span>
+                  Delete Patient
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PatientDetail() {
   const patient = usePatientStore((s) =>
     s.selectedId !== null ? s.patients.find((p) => p.id === s.selectedId) ?? null : null,
@@ -174,28 +546,13 @@ export default function PatientDetail() {
             ) : null}
           </div>
 
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex gap-2 flex-wrap justify-end">
-              <Button size="xs" variant="primary" label="+ Visit" onClick={() => openVisitModal(patient.id)} />
-              <Button size="xs" variant="ghost" label="Edit Meds" onClick={() => openMedModal(patient.id)} />
-            </div>
-            <div className="flex gap-2 flex-wrap justify-end">
-              <Button
-                size="xs"
-                variant={patient.status === 'ltfu' ? 'amber' : 'ghost'}
-                label={patient.status === 'ltfu' ? 'Recall Active' : 'Mark LTFU'}
-                onClick={() =>
-                  setStatus(patient.id, patient.status === 'ltfu' ? 'active' : 'ltfu')
-                }
-              />
-              <Button
-                size="xs"
-                variant="danger"
-                label="Delete"
-                onClick={() => deletePatient(patient.id)}
-              />
-            </div>
-          </div>
+          <PatientActionBar
+            patient={patient}
+            onVisit={() => openVisitModal(patient.id)}
+            onMeds={() => openMedModal(patient.id)}
+            onToggleLTFU={() => setStatus(patient.id, patient.status === 'ltfu' ? 'active' : 'ltfu')}
+            onDelete={() => deletePatient(patient.id)}
+          />
         </div>
 
         {/* Alerts */}
@@ -691,17 +1048,11 @@ export default function PatientDetail() {
         </div>
       </div>
 
-      {/* Status action row (bottom) */}
+      {/* Status action row (bottom) — secondary status actions */}
       <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--cream)] flex gap-2 flex-wrap justify-end">
-        {patient.status !== 'ltfu' ? (
-          <Button size="sm" variant="danger" label="Mark LTFU" onClick={() => setStatus(patient.id, 'ltfu')} />
-        ) : (
-          <Button size="sm" variant="ghost" label="Recall Active" onClick={() => setStatus(patient.id, 'active')} />
-        )}
         {patient.status !== 'completed' ? (
           <Button size="sm" variant="ghost" label="Mark Completed" onClick={() => setStatus(patient.id, 'completed')} />
         ) : null}
-        <Button size="sm" variant="danger" label="Delete" onClick={() => deletePatient(patient.id)} />
       </div>
     </div>
   );
