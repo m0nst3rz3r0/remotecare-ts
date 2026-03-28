@@ -133,15 +133,7 @@ export const COMORBIDITY_MEDS: Record<string, MedGroup> = {
       'Atenolol 25mg','Atenolol 50mg',
     ],
   },
-  // Stroke / cerebrovascular
-  'I63': {
-    label: 'Stroke / Cerebrovascular',
-    meds: [
-      'Aspirin 75mg','Aspirin 100mg','Clopidogrel 75mg',
-      'Dipyridamole 200mg MR','Warfarin 2mg','Warfarin 5mg',
-      'Atorvastatin 40mg','Atorvastatin 80mg',
-    ],
-  },
+  // Stroke / cerebrovascular — expanded entry below (I63)
   // Peripheral artery disease
   'I73': {
     label: 'Peripheral Artery Disease',
@@ -247,18 +239,317 @@ export const COMORBIDITY_MEDS: Record<string, MedGroup> = {
       'Cotrimoxazole 480mg','Cotrimoxazole 960mg',
     ],
   },
+
+  // ── DIABETIC COMPLICATIONS ───────────────────────────────────
+
+  // Diabetic peripheral neuropathy (E11.4 / E13.4)
+  'E11': {
+    label: 'Diabetic Neuropathy',
+    meds: [
+      // First-line neuropathic pain
+      'Amitriptyline 10mg (neuropathy)','Amitriptyline 25mg (neuropathy)',
+      'Gabapentin 100mg','Gabapentin 300mg','Gabapentin 400mg',
+      'Pregabalin 75mg','Pregabalin 150mg','Pregabalin 300mg',
+      // Second-line
+      'Duloxetine 30mg','Duloxetine 60mg',
+      'Carbamazepine 100mg','Carbamazepine 200mg',
+      // Topical
+      'Capsaicin cream 0.075%','Lignocaine gel 2%',
+      // Supportive / vitamin
+      'Vitamin B1 (Thiamine) 100mg','Vitamin B12 1mg','B-complex tablet',
+      'Alpha-lipoic acid 600mg',
+      // Foot care
+      'Clotrimazole cream 1% (tinea)','Gentian violet (wound)',
+    ],
+  },
+
+  // Diabetic retinopathy (E11.3)
+  'E11.3': {
+    label: 'Diabetic Retinopathy',
+    meds: [
+      // Tight glycaemic control is primary — re-emphasise
+      'Metformin 1000mg','Insulin Glargine (long-acting)',
+      // Eye-protective supplements
+      'Vitamin C 500mg','Vitamin E 400IU','Lutein 10mg',
+      // Co-morbid HTN control (retinopathy target <130/80)
+      'Lisinopril 10mg','Losartan 50mg',
+      // Aspirin (if no vitreous haemorrhage)
+      'Aspirin 75mg',
+    ],
+  },
+
+  // Diabetic foot / peripheral vascular disease (E11.5 / L97)
+  'E11.5': {
+    label: 'Diabetic Foot / Wound',
+    meds: [
+      'Amoxicillin 500mg (foot infection)','Co-amoxiclav 625mg (foot infection)',
+      'Clindamycin 300mg','Metronidazole 400mg (anaerobic cover)',
+      'Ciprofloxacin 500mg (gram-negative)','Flucloxacillin 500mg (staph)',
+      'Zinc sulphate 220mg','Vitamin C 500mg (wound healing)',
+      'Clopidogrel 75mg (PAD)','Aspirin 100mg (PAD)',
+      'Pentoxifylline 400mg','Cilostazol 100mg',
+      'Povidone-iodine solution (wound dressing)',
+    ],
+  },
+
+  // ── STROKE & CEREBROVASCULAR ─────────────────────────────────
+
+  // Ischaemic stroke — acute + maintenance (I63)
+  'I63': {
+    label: 'Stroke Maintenance',
+    meds: [
+      // Antiplatelets — maintenance (post-stroke secondary prevention)
+      'Aspirin 75mg (secondary prevention)','Aspirin 100mg',
+      'Clopidogrel 75mg (post-stroke)','Dipyridamole MR 200mg',
+      // Anticoagulation (cardioembolic stroke / AF)
+      'Warfarin 1mg','Warfarin 2mg','Warfarin 5mg',
+      // Statin (mandatory post-stroke)
+      'Atorvastatin 40mg','Atorvastatin 80mg','Rosuvastatin 20mg',
+      // Strict BP control post-stroke (<130/80)
+      'Amlodipine 5mg','Amlodipine 10mg',
+      'Lisinopril 5mg','Lisinopril 10mg','Losartan 50mg','Losartan 100mg',
+      'Indapamide 1.5mg SR',
+      // Spasticity (post-stroke)
+      'Baclofen 5mg','Baclofen 10mg','Diazepam 2mg (spasticity)',
+      // Depression post-stroke
+      'Sertraline 50mg (post-stroke depression)','Fluoxetine 20mg',
+      // Seizure prophylaxis post-stroke
+      'Carbamazepine 200mg','Phenytoin 100mg',
+      // DVT prophylaxis (immobile post-stroke)
+      'Heparin 5000IU SC (DVT prophylaxis)',
+      // Swallowing / aspiration risk
+      'Omeprazole 20mg (aspiration prophylaxis)',
+    ],
+  },
+
+  // TIA (I63.9 / G45)
+  'G45': {
+    label: 'TIA / Mini-Stroke',
+    meds: [
+      'Aspirin 300mg (loading, first 2 weeks)','Aspirin 75mg (maintenance)',
+      'Clopidogrel 75mg','Dipyridamole MR 200mg',
+      'Atorvastatin 40mg','Atorvastatin 80mg',
+      'Amlodipine 5mg','Lisinopril 10mg','Losartan 50mg',
+    ],
+  },
+
+  // Haemorrhagic stroke (I61)
+  'I61': {
+    label: 'Haemorrhagic Stroke',
+    meds: [
+      // Strict BP control — target <140/90 (no antiplatelets)
+      'Amlodipine 5mg','Amlodipine 10mg',
+      'Lisinopril 5mg','Lisinopril 10mg',
+      'Labetalol 100mg','Labetalol 200mg',
+      // Raised ICP / oedema
+      'Mannitol 20% IV (ICP)','Dexamethasone 4mg (vasogenic oedema)',
+      // Seizure
+      'Levetiracetam 500mg','Phenytoin 100mg',
+      // DVT (immobile patient — mechanical first)
+      'Enoxaparin 40mg SC (after 72h)',
+      // Spasticity
+      'Baclofen 5mg','Baclofen 10mg',
+    ],
+  },
+
+  // ── NEUROPATHY (non-diabetic) ────────────────────────────────
+
+  // Peripheral neuropathy — general (G62)
+  'G62': {
+    label: 'Peripheral Neuropathy',
+    meds: [
+      'Amitriptyline 10mg','Amitriptyline 25mg',
+      'Gabapentin 100mg','Gabapentin 300mg','Gabapentin 400mg',
+      'Pregabalin 75mg','Pregabalin 150mg',
+      'Duloxetine 30mg','Duloxetine 60mg',
+      'Carbamazepine 100mg','Carbamazepine 200mg',
+      'Vitamin B1 (Thiamine) 100mg','Vitamin B12 1mg',
+      'Alpha-lipoic acid 600mg',
+      'Tramadol 50mg (breakthrough pain)',
+    ],
+  },
+
+  // ── HEART ────────────────────────────────────────────────────
+
+  // Hypertensive heart disease (I11)
+  'I11': {
+    label: 'Hypertensive Heart Disease',
+    meds: [
+      'Bisoprolol 5mg','Bisoprolol 10mg','Carvedilol 6.25mg','Carvedilol 12.5mg',
+      'Enalapril 10mg','Enalapril 20mg','Lisinopril 10mg','Lisinopril 20mg',
+      'Losartan 50mg','Losartan 100mg',
+      'Spironolactone 25mg','Furosemide 40mg',
+      'Sacubitril/Valsartan 24/26mg','Sacubitril/Valsartan 49/51mg',
+      'Digoxin 0.125mg','Atorvastatin 40mg',
+    ],
+  },
+
+  // Acute myocardial infarction / post-MI (I21 / I22)
+  'I21': {
+    label: 'Post-MI / ACS',
+    meds: [
+      // Mandatory post-MI quadruple therapy
+      'Aspirin 75mg (lifelong)','Clopidogrel 75mg (12 months)',
+      'Atorvastatin 80mg (lifelong)','Bisoprolol 5mg','Bisoprolol 10mg',
+      'Ramipril 2.5mg','Ramipril 5mg','Ramipril 10mg',
+      // SGLT2 — cardioprotective post-MI with HF
+      'Empagliflozin 10mg','Dapagliflozin 10mg',
+      // Nitrates PRN
+      'Nitroglycerine sublingual 0.5mg','Isosorbide Dinitrate 5mg',
+      'Isosorbide Mononitrate SR 30mg',
+      // Aldosterone antagonist if EF reduced
+      'Eplerenone 25mg','Spironolactone 25mg',
+    ],
+  },
+
+  // ── RENAL ────────────────────────────────────────────────────
+
+  // Diabetic nephropathy (E11.2 / N08)
+  'N08': {
+    label: 'Diabetic Nephropathy',
+    meds: [
+      // Renoprotection
+      'Lisinopril 5mg (nephropathy)','Lisinopril 10mg','Losartan 50mg (nephropathy)',
+      'Losartan 100mg','Irbesartan 150mg','Irbesartan 300mg',
+      // SGLT2 (proven renal benefit)
+      'Empagliflozin 10mg (renal protection)','Dapagliflozin 10mg',
+      'Canagliflozin 100mg',
+      // Phosphate control
+      'Calcium Carbonate 500mg (phosphate binder)',
+      'Sevelamer 800mg',
+      // Anaemia of CKD
+      'Ferrous Sulphate 200mg','Erythropoietin (EPO) 2000IU',
+      // Metabolic acidosis
+      'Sodium Bicarbonate 500mg',
+      // Fluid management
+      'Furosemide 40mg','Furosemide 80mg',
+    ],
+  },
+
+  // ── EYES ─────────────────────────────────────────────────────
+
+  // Glaucoma (H40)
+  'H40': {
+    label: 'Glaucoma',
+    meds: [
+      'Timolol 0.5% eye drops','Latanoprost 0.005% eye drops',
+      'Brimonidine 0.2% eye drops','Dorzolamide 2% eye drops',
+      'Acetazolamide 250mg (acute)',
+    ],
+  },
+
+  // ── ENDOCRINE ────────────────────────────────────────────────
+
+  // Obesity / metabolic syndrome (E66)
+  'E66': {
+    label: 'Obesity / Metabolic Syndrome',
+    meds: [
+      'Orlistat 120mg','Metformin 500mg (insulin resistance)',
+      'Semaglutide 0.5mg weekly (weight loss)','Semaglutide 1mg weekly',
+      'Liraglutide 0.6mg',
+      'Topiramate 25mg (adjunct)',
+    ],
+  },
+
+  // Hyperuricaemia without gout (E79)
+  'E79': {
+    label: 'Hyperuricaemia',
+    meds: [
+      'Allopurinol 100mg','Allopurinol 200mg','Allopurinol 300mg',
+      'Febuxostat 40mg','Febuxostat 80mg',
+    ],
+  },
+
+  // ── RESPIRATORY ──────────────────────────────────────────────
+
+  // Tuberculosis (A15) — common NCD comorbidity in Tanzania
+  'A15': {
+    label: 'Tuberculosis (TB)',
+    meds: [
+      // Standard 6-month regimen — refer to TB clinic
+      'Rifampicin 150mg','Rifampicin 300mg',
+      'Isoniazid 100mg','Isoniazid 300mg',
+      'Ethambutol 400mg',
+      'Pyrazinamide 500mg',
+      // Pyridoxine to prevent INH neuropathy
+      'Pyridoxine (Vitamin B6) 25mg',
+      // Note: Rifampicin accelerates warfarin metabolism
+      'Pyridoxine (Vitamin B6) 50mg (high dose if neuropathy)',
+    ],
+  },
+
+  // ── MENTAL HEALTH ────────────────────────────────────────────
+
+  // Anxiety (F41)
+  'F41': {
+    label: 'Anxiety Disorder',
+    meds: [
+      'Sertraline 50mg','Sertraline 100mg',
+      'Fluoxetine 20mg','Escitalopram 10mg','Escitalopram 20mg',
+      'Buspirone 5mg','Buspirone 10mg',
+      'Diazepam 2mg (short-term only)','Diazepam 5mg',
+      'Propranolol 10mg (performance anxiety)',
+    ],
+  },
+
+  // Alcohol use disorder (F10)
+  'F10': {
+    label: 'Alcohol Use Disorder',
+    meds: [
+      'Thiamine (Vitamin B1) 100mg','B-complex tablet',
+      'Chlordiazepoxide 10mg (detox)','Chlordiazepoxide 25mg (detox)',
+      'Diazepam 5mg (detox protocol)',
+      'Naltrexone 50mg (relapse prevention)',
+      'Acamprosate 333mg',
+      'Folic Acid 5mg',
+    ],
+  },
+
+  // ── MUSCULOSKELETAL ──────────────────────────────────────────
+
+  // Osteoarthritis (M15 / M16 / M17)
+  'M15': {
+    label: 'Osteoarthritis',
+    meds: [
+      'Paracetamol 500mg','Paracetamol 1000mg',
+      'Diclofenac 25mg','Diclofenac 50mg (with PPI cover)',
+      'Ibuprofen 200mg','Ibuprofen 400mg',
+      'Celecoxib 100mg','Celecoxib 200mg',
+      'Tramadol 50mg',
+      'Glucosamine 500mg','Chondroitin 400mg',
+      'Omeprazole 20mg (GI protection with NSAIDs)',
+      'Diclofenac gel 1% (topical)','Methyl salicylate cream (topical)',
+    ],
+  },
+
+  // Osteoporosis (M81)
+  'M81': {
+    label: 'Osteoporosis',
+    meds: [
+      'Calcium Carbonate 500mg + Vitamin D3 400IU',
+      'Calcium Carbonate 1000mg','Vitamin D3 800IU','Vitamin D3 1000IU',
+      'Alendronate 70mg weekly','Risedronate 35mg weekly',
+      'Calcitonin nasal spray',
+    ],
+  },
 };
 
 // Helper: get suggested med groups from a list of ICD-10 codes
+// Matches on full code first (e.g. "E11.3"), then 3-char prefix (e.g. "E11")
 export function getMedGroupsForDiagnoses(icdCodes: string[]): MedGroup[] {
   const groups: MedGroup[] = [];
   const seen = new Set<string>();
   for (const code of icdCodes) {
-    // Match on first 3 chars (e.g. "E78" from "E78.5")
+    // Try exact match first (e.g. "E11.3", "E11.5")
+    if (!seen.has(code) && COMORBIDITY_MEDS[code]) {
+      seen.add(code);
+      groups.push({ ...COMORBIDITY_MEDS[code] });
+    }
+    // Then 3-char prefix (e.g. "E11" from "E11.40")
     const prefix = code.slice(0, 3);
     if (!seen.has(prefix) && COMORBIDITY_MEDS[prefix]) {
       seen.add(prefix);
-      groups.push(COMORBIDITY_MEDS[prefix]);
+      groups.push({ ...COMORBIDITY_MEDS[prefix] });
     }
   }
   return groups;
