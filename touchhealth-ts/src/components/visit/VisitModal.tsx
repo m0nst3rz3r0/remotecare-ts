@@ -780,6 +780,8 @@ export default function VisitModal() {
               {/* ── Drug Interaction Alert ─────────────────── */}
               <DrugInteractionAlert
                 medications={meds}
+                diagnosisCodes={comorbidities.map((c) => c.code)}
+                patientCond={patient?.cond ?? ''}
                 onAddLab={(labName) => {
                   const template = INVESTIGATION_TEMPLATES.find(t => t.name === labName);
                   if (!template) return;
