@@ -770,6 +770,7 @@ export default function VisitModal() {
                       med={m}
                       onChange={(next) => setMeds((prev) => prev.map((x, i) => i === idx ? next : x))}
                       onRemove={() => setMeds((prev) => prev.filter((_, i) => i !== idx))}
+                      diagnosisCodes={comorbidities.map((c) => c.code)}
                     />
                   ))}
                   {meds.length === 0 && <div style={{ fontSize: '12px', color: '#516169', textAlign: 'center' }}>No medications added</div>}
