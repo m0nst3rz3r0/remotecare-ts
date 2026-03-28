@@ -348,7 +348,7 @@ function SettingsView() {
       district:    dDistrict,
       createdBy:   currentUser,
     });
-    if (!res.success) { setUErr(res.error); return; }
+    if (!res.success) { setUErr(res.error ?? null); return; }
     setUOk(`${role === 'admin' ? 'Admin' : 'Doctor'} account created successfully.`);
     setUName(''); setUUser(''); setUPass(''); setDRegion(''); setDDistrict(''); setDHospital('');
     refresh();
@@ -379,7 +379,7 @@ function SettingsView() {
     setPwErr(null); setPwOk(null);
     if (!pwTargetId) { setPwErr('Select a user first.'); return; }
     const res: { success: boolean; error?: string } = await updateUserPassword(pwTargetId, pwNew, currentUser);
-    if (!res.success) { setPwErr(res.error); return; }
+    if (!res.success) { setPwErr(res.error ?? null); return; }
     setPwOk('Password updated successfully.');
     setPwTargetId(''); setPwNew('');
   };
