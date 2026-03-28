@@ -19,6 +19,7 @@ import Chip from '../ui/Chip';
 import { HTN_MEDS } from '../../services/clinical';
 import { ICD10_CODES } from '../../data/icd10';
 import { INVESTIGATION_TEMPLATES } from '../../data/investigations';
+import DrugInteractionAlert from './DrugInteractionAlert';
 
 // ── Helpers ──────────────────────────────────────────────────
 function toISODate(d: Date) { return d.toISOString().split('T')[0]; }
@@ -774,6 +775,26 @@ export default function VisitModal() {
                   {meds.length === 0 && <div style={{ fontSize: '12px', color: '#516169', textAlign: 'center' }}>No medications added</div>}
                 </div>
               </SectionCard>
+
+              {/* ── Drug Interaction Alert ─────────────────── */}
+              <DrugInteractionAlert
+                medications={meds}
+                onAddLab={(labName) => {
+                  const template = INVESTIGATION_TEMPLATES.find(t => t.name === labName);
+                  if (!template) return;
+                  const alreadyAdded = investigations.some(i => i.name === labName);
+                  if (alreadyAdded) return;
+                  setInvestigations(prev => [...prev, {
+                    id: 'inv' + Date.now(),
+                    name: template.name,
+                    value: '',
+                    unit: template.unit,
+                    date: visitDate,
+                    interpretation: 'pending',
+                    referenceRange: template.referenceRange,
+                  }]);
+                }}
+              />
 
               {/* ── 8. NEXT APPOINTMENT ────────────────────── */}
               <SectionCard title="7. Next Appointment" color="#2a4a58" defaultOpen={true}>
