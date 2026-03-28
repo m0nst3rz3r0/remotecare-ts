@@ -7,7 +7,6 @@
 import type { Medication } from '../../types';
 import {
   checkInteractions, severityDisplay,
-  type DetectedInteraction,
 } from '../../data/drugInteractions';
 import { useMemo } from 'react';
 
