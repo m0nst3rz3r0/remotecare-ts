@@ -19,22 +19,256 @@ import type {
 // ── CONSTANTS ────────────────────────────────────────────────
 
 export const HTN_MEDS: string[] = [
-  'Amlodipine 5mg','Amlodipine 10mg','Nifedipine SR 20mg',
-  'Atenolol 50mg','Atenolol 100mg','Hydrochlorothiazide 25mg',
-  'Enalapril 5mg','Enalapril 10mg','Losartan 50mg','Losartan 100mg',
-  'Lisinopril 5mg','Lisinopril 10mg','Methyldopa 250mg','Methyldopa 500mg',
-  'Hydralazine 25mg','Hydralazine 50mg',
+  // CCBs
+  'Amlodipine 5mg','Amlodipine 10mg','Nifedipine SR 20mg','Nifedipine SR 30mg',
+  'Felodipine 5mg','Diltiazem 60mg','Diltiazem 120mg',
+  // Beta-blockers
+  'Atenolol 50mg','Atenolol 100mg','Bisoprolol 2.5mg','Bisoprolol 5mg','Bisoprolol 10mg',
+  'Metoprolol 25mg','Metoprolol 50mg','Carvedilol 3.125mg','Carvedilol 6.25mg','Carvedilol 12.5mg',
+  'Propranolol 40mg','Propranolol 80mg',
+  // Diuretics
+  'Hydrochlorothiazide 25mg','Chlorthalidone 12.5mg','Chlorthalidone 25mg',
+  'Furosemide 20mg','Furosemide 40mg','Spironolactone 25mg','Spironolactone 50mg',
+  'Indapamide 1.5mg SR','Indapamide 2.5mg',
+  // ACE inhibitors
+  'Enalapril 5mg','Enalapril 10mg','Enalapril 20mg',
+  'Lisinopril 5mg','Lisinopril 10mg','Lisinopril 20mg',
+  'Captopril 12.5mg','Captopril 25mg','Captopril 50mg',
+  'Ramipril 2.5mg','Ramipril 5mg','Ramipril 10mg',
+  // ARBs
+  'Losartan 25mg','Losartan 50mg','Losartan 100mg',
+  'Valsartan 80mg','Valsartan 160mg','Irbesartan 150mg','Irbesartan 300mg',
+  'Telmisartan 40mg','Telmisartan 80mg',
+  // Alpha-blockers / central
+  'Methyldopa 250mg','Methyldopa 500mg','Hydralazine 25mg','Hydralazine 50mg',
+  'Prazosin 1mg','Prazosin 2mg','Clonidine 75mcg','Clonidine 150mcg',
 ];
 
 export const DM_MEDS: string[] = [
+  // Biguanides
   'Metformin 500mg','Metformin 850mg','Metformin 1000mg',
-  'Glibenclamide 2.5mg','Glibenclamide 5mg','Glipizide 5mg',
-  'Glimepiride 2mg','Glimepiride 4mg',
-  'Insulin Regular','Insulin NPH','Insulin Glargine','Insulin Mixtard 30/70',
-  'Acarbose 50mg','Sitagliptin 50mg','Empagliflozin 10mg',
+  // Sulphonylureas
+  'Glibenclamide 2.5mg','Glibenclamide 5mg',
+  'Glipizide 5mg','Glipizide 10mg',
+  'Glimepiride 1mg','Glimepiride 2mg','Glimepiride 4mg',
+  'Gliclazide 40mg','Gliclazide MR 30mg','Gliclazide MR 60mg',
+  // Insulins
+  'Insulin Regular (short-acting)','Insulin NPH (intermediate)','Insulin Glargine (long-acting)',
+  'Insulin Detemir','Insulin Mixtard 30/70','Insulin Aspart','Insulin Lispro',
+  // SGLT2 inhibitors
+  'Empagliflozin 10mg','Empagliflozin 25mg','Dapagliflozin 10mg','Canagliflozin 100mg',
+  // DPP-4 inhibitors
+  'Sitagliptin 50mg','Sitagliptin 100mg','Linagliptin 5mg','Saxagliptin 5mg',
+  // GLP-1 agonists
+  'Semaglutide 0.5mg weekly','Semaglutide 1mg weekly','Liraglutide 0.6mg',
+  // Alpha-glucosidase inhibitors
+  'Acarbose 50mg','Acarbose 100mg',
+  // Thiazolidinediones
+  'Pioglitazone 15mg','Pioglitazone 30mg',
 ];
 
-export const ALL_MEDS: string[] = [...HTN_MEDS, ...DM_MEDS];
+// ── Comorbidity-specific drug groups ──────────────────────────
+// Keyed by ICD-10 code prefix — used in MedRow to suggest
+// relevant medications when a comorbidity is diagnosed
+
+export interface MedGroup {
+  label: string;
+  meds: string[];
+}
+
+export const COMORBIDITY_MEDS: Record<string, MedGroup> = {
+  // Dyslipidaemia
+  'E78': {
+    label: 'Lipid-Lowering',
+    meds: [
+      'Atorvastatin 10mg','Atorvastatin 20mg','Atorvastatin 40mg','Atorvastatin 80mg',
+      'Rosuvastatin 5mg','Rosuvastatin 10mg','Rosuvastatin 20mg',
+      'Simvastatin 10mg','Simvastatin 20mg','Simvastatin 40mg',
+      'Fenofibrate 145mg','Fenofibrate 200mg',
+      'Ezetimibe 10mg',
+    ],
+  },
+  // Diabetic nephropathy / CKD
+  'N18': {
+    label: 'CKD / Renal Protection',
+    meds: [
+      'Folic Acid 5mg','Sodium Bicarbonate 500mg','Calcium Carbonate 500mg',
+      'Ferrous Sulphate 200mg','Erythropoietin (EPO) 2000IU',
+      'Furosemide 40mg','Furosemide 80mg','Phosphate binder (Sevelamer 800mg)',
+    ],
+  },
+  // Heart failure
+  'I50': {
+    label: 'Heart Failure',
+    meds: [
+      'Bisoprolol 2.5mg','Bisoprolol 5mg','Bisoprolol 10mg',
+      'Carvedilol 3.125mg','Carvedilol 6.25mg','Carvedilol 12.5mg',
+      'Spironolactone 25mg','Spironolactone 50mg','Eplerenone 25mg',
+      'Furosemide 20mg','Furosemide 40mg','Furosemide 80mg',
+      'Digoxin 0.0625mg','Digoxin 0.125mg','Digoxin 0.25mg',
+      'Sacubitril/Valsartan 24/26mg','Sacubitril/Valsartan 49/51mg',
+      'Empagliflozin 10mg','Dapagliflozin 10mg',
+    ],
+  },
+  // Ischaemic heart disease / angina
+  'I25': {
+    label: 'Ischaemic Heart Disease',
+    meds: [
+      'Aspirin 75mg','Aspirin 100mg','Aspirin 150mg',
+      'Clopidogrel 75mg','Ticagrelor 90mg',
+      'Nitroglycerine sublingual 0.5mg','Isosorbide Dinitrate 5mg','Isosorbide Dinitrate 10mg',
+      'Isosorbide Mononitrate SR 30mg','Isosorbide Mononitrate SR 60mg',
+      'Atorvastatin 40mg','Atorvastatin 80mg',
+      'Ranolazine 500mg','Ranolazine 1000mg',
+    ],
+  },
+  // Atrial fibrillation
+  'I48': {
+    label: 'Atrial Fibrillation',
+    meds: [
+      'Warfarin 1mg','Warfarin 2mg','Warfarin 5mg',
+      'Digoxin 0.125mg','Digoxin 0.25mg',
+      'Amiodarone 100mg','Amiodarone 200mg',
+      'Bisoprolol 2.5mg','Bisoprolol 5mg',
+      'Atenolol 25mg','Atenolol 50mg',
+    ],
+  },
+  // Stroke / cerebrovascular
+  'I63': {
+    label: 'Stroke / Cerebrovascular',
+    meds: [
+      'Aspirin 75mg','Aspirin 100mg','Clopidogrel 75mg',
+      'Dipyridamole 200mg MR','Warfarin 2mg','Warfarin 5mg',
+      'Atorvastatin 40mg','Atorvastatin 80mg',
+    ],
+  },
+  // Peripheral artery disease
+  'I73': {
+    label: 'Peripheral Artery Disease',
+    meds: [
+      'Aspirin 75mg','Aspirin 100mg','Clopidogrel 75mg',
+      'Cilostazol 50mg','Cilostazol 100mg',
+      'Pentoxifylline 400mg',
+      'Atorvastatin 40mg','Atorvastatin 80mg',
+    ],
+  },
+  // Thyroid disorders
+  'E03': {
+    label: 'Hypothyroidism',
+    meds: [
+      'Levothyroxine 25mcg','Levothyroxine 50mcg','Levothyroxine 75mcg',
+      'Levothyroxine 100mcg','Levothyroxine 125mcg','Levothyroxine 150mcg',
+    ],
+  },
+  'E05': {
+    label: 'Hyperthyroidism',
+    meds: [
+      'Carbimazole 5mg','Carbimazole 10mg','Carbimazole 20mg',
+      'Propylthiouracil 50mg','Propylthiouracil 100mg',
+      'Propranolol 40mg','Propranolol 80mg',
+    ],
+  },
+  // Gout / hyperuricaemia
+  'M10': {
+    label: 'Gout',
+    meds: [
+      'Allopurinol 100mg','Allopurinol 200mg','Allopurinol 300mg',
+      'Colchicine 0.5mg','Colchicine 1mg',
+      'Indomethacin 25mg','Indomethacin 50mg',
+      'Febuxostat 40mg','Febuxostat 80mg',
+    ],
+  },
+  // Depression
+  'F32': {
+    label: 'Depression / Mental Health',
+    meds: [
+      'Amitriptyline 10mg','Amitriptyline 25mg','Amitriptyline 50mg',
+      'Fluoxetine 20mg','Sertraline 50mg','Sertraline 100mg',
+      'Mirtazapine 15mg','Mirtazapine 30mg',
+    ],
+  },
+  // Asthma / COPD
+  'J45': {
+    label: 'Asthma',
+    meds: [
+      'Salbutamol inhaler 100mcg','Beclometasone inhaler 100mcg','Beclometasone inhaler 200mcg',
+      'Budesonide inhaler 200mcg','Fluticasone inhaler 125mcg',
+      'Formoterol 12mcg inhaler','Salmeterol 25mcg inhaler',
+      'Montelukast 10mg','Theophylline SR 200mg','Theophylline SR 300mg',
+      'Prednisolone 5mg','Prednisolone 10mg',
+    ],
+  },
+  'J44': {
+    label: 'COPD',
+    meds: [
+      'Salbutamol inhaler 100mcg','Ipratropium inhaler 20mcg',
+      'Tiotropium 18mcg inhaler','Formoterol 12mcg inhaler',
+      'Beclometasone inhaler 200mcg','Roflumilast 500mcg',
+      'Prednisolone 5mg','Prednisolone 10mg','N-Acetylcysteine 600mg',
+    ],
+  },
+  // Peptic ulcer / GERD
+  'K25': {
+    label: 'Peptic Ulcer / GERD',
+    meds: [
+      'Omeprazole 20mg','Omeprazole 40mg','Pantoprazole 20mg','Pantoprazole 40mg',
+      'Ranitidine 150mg','Ranitidine 300mg','Lansoprazole 15mg','Lansoprazole 30mg',
+      'Antacid suspension','Sucralfate 1g',
+    ],
+  },
+  // Anaemia
+  'D50': {
+    label: 'Iron-deficiency Anaemia',
+    meds: [
+      'Ferrous Sulphate 200mg','Ferrous Fumarate 200mg','Ferrous Gluconate 300mg',
+      'Folic Acid 5mg','Vitamin B12 (Cyanocobalamin) 1mg',
+      'Iron sucrose IV 100mg/5ml',
+    ],
+  },
+  // Pain / musculoskeletal
+  'M79': {
+    label: 'Pain / Musculoskeletal',
+    meds: [
+      'Paracetamol 500mg','Paracetamol 1000mg',
+      'Ibuprofen 200mg','Ibuprofen 400mg','Diclofenac 25mg','Diclofenac 50mg',
+      'Naproxen 250mg','Naproxen 500mg',
+      'Tramadol 50mg','Tramadol SR 100mg',
+      'Gabapentin 100mg','Gabapentin 300mg','Pregabalin 75mg','Pregabalin 150mg',
+      'Amitriptyline 10mg (neuropathic)',
+    ],
+  },
+  // Infections / antibiotics (common in NCD comorbidity)
+  'A09': {
+    label: 'Antibiotics / Infections',
+    meds: [
+      'Amoxicillin 250mg','Amoxicillin 500mg','Co-amoxiclav 375mg','Co-amoxiclav 625mg',
+      'Doxycycline 100mg','Azithromycin 250mg','Azithromycin 500mg',
+      'Ciprofloxacin 250mg','Ciprofloxacin 500mg','Metronidazole 200mg','Metronidazole 400mg',
+      'Cotrimoxazole 480mg','Cotrimoxazole 960mg',
+    ],
+  },
+};
+
+// Helper: get suggested med groups from a list of ICD-10 codes
+export function getMedGroupsForDiagnoses(icdCodes: string[]): MedGroup[] {
+  const groups: MedGroup[] = [];
+  const seen = new Set<string>();
+  for (const code of icdCodes) {
+    // Match on first 3 chars (e.g. "E78" from "E78.5")
+    const prefix = code.slice(0, 3);
+    if (!seen.has(prefix) && COMORBIDITY_MEDS[prefix]) {
+      seen.add(prefix);
+      groups.push(COMORBIDITY_MEDS[prefix]);
+    }
+  }
+  return groups;
+}
+
+export const ALL_MEDS: string[] = [
+  ...HTN_MEDS,
+  ...DM_MEDS,
+  ...Object.values(COMORBIDITY_MEDS).flatMap((g) => g.meds),
+];
 
 export const MONTHS: string[] = [
   'Jan','Feb','Mar','Apr','May','Jun',
