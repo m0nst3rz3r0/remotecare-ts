@@ -68,7 +68,8 @@ export function saveHospitals(hospitals: Hospital[]): void {
 // ── Clinic Settings ───────────────────────────────────
 
 export function loadClinicSettings(): ClinicSettings {
-  return load<ClinicSettings>(KEYS.CLINIC, { days: [1, 3, 5], interval: 4 });
+  const saved = load<Partial<ClinicSettings>>(KEYS.CLINIC, {});
+  return { days: [1,3,5], interval: 30, openHour: 7, closeHour: 18, autoLtfuDays: 21, ...saved };
 }
 
 export function saveClinicSettings(cfg: ClinicSettings): void {
