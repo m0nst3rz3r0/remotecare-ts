@@ -43,6 +43,138 @@ function statusGradient(status: Patient['status']) {
 
 
 // ═══════════════════════════════════════════════════════════════
+// NotesDxCard — collapsible visit card for the Hx & Dx tab
+// Most recent visit (index 0) opens by default; others collapsed.
+// ═══════════════════════════════════════════════════════════════
+
+function NotesDxCard({
+  defaultOpen,
+  header,
+  summary,
+  hasWarnings,
+  warningCount,
+  diagCount,
+  labCount,
+  children,
+}: {
+  defaultOpen: boolean;
+  header: string;
+  summary: string;
+  hasWarnings: boolean;
+  warningCount: number;
+  diagCount: number;
+  labCount: number;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div style={{
+      border: '1px solid rgba(191,200,205,.35)',
+      borderRadius: 8,
+      overflow: 'hidden',
+      boxShadow: open ? '0 2px 8px rgba(15,31,38,.06)' : '0 1px 3px rgba(15,31,38,.04)',
+      transition: 'box-shadow .15s',
+    }}>
+      {/* ── Clickable header ── */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+          padding: '10px 12px',
+          background: open
+            ? 'linear-gradient(135deg,#0f1f26 0%,#005469 100%)'
+            : '#0f1f26',
+          border: 'none',
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        {/* Left: date + badges */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: 'Syne, sans-serif', fontWeight: 800,
+            fontSize: 12, color: '#fff',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {header}
+          </div>
+
+          {/* Collapsed summary line */}
+          {!open && (
+            <div style={{
+              fontSize: 10, color: 'rgba(255,255,255,.55)',
+              fontFamily: 'Karla, sans-serif',
+              marginTop: 2,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {summary}
+            </div>
+          )}
+        </div>
+
+        {/* Right: badge row + chevron */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+          {hasWarnings && (
+            <span style={{
+              fontSize: 8, fontWeight: 800,
+              fontFamily: 'Syne, sans-serif',
+              textTransform: 'uppercase', letterSpacing: '.3px',
+              padding: '1px 6px', borderRadius: 9999,
+              background: '#fee2e2', color: '#7f1d1d',
+            }}>
+              ⚠️ {warningCount}
+            </span>
+          )}
+          {diagCount > 0 && (
+            <span style={{
+              fontSize: 8, fontWeight: 800,
+              fontFamily: 'Syne, sans-serif',
+              textTransform: 'uppercase', letterSpacing: '.3px',
+              padding: '1px 6px', borderRadius: 9999,
+              background: 'rgba(13,110,135,.25)', color: '#e0f7fa',
+            }}>
+              Dx {diagCount}
+            </span>
+          )}
+          {labCount > 0 && (
+            <span style={{
+              fontSize: 8, fontWeight: 800,
+              fontFamily: 'Syne, sans-serif',
+              textTransform: 'uppercase', letterSpacing: '.3px',
+              padding: '1px 6px', borderRadius: 9999,
+              background: 'rgba(22,163,74,.25)', color: '#bbf7d0',
+            }}>
+              Labs {labCount}
+            </span>
+          )}
+          <span style={{
+            fontSize: 12, color: 'rgba(255,255,255,.5)',
+            transition: 'transform .2s',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            display: 'inline-block',
+          }}>
+            ▼
+          </span>
+        </div>
+      </button>
+
+      {/* ── Collapsible body ── */}
+      {open && (
+        <div style={{ background: '#fff' }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // PatientActionBar — Clinical action buttons with safe delete
 // ═══════════════════════════════════════════════════════════════
 
@@ -923,7 +1055,7 @@ export default function PatientDetail() {
                 {(patient.visits ?? [])
                   .filter(v => v.att && (v.presentingComplaint || v.notes || v.physicalExam || (v.diagnoses?.length ?? 0) > 0 || (v.investigations?.length ?? 0) > 0))
                   .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .map((v) => {
+                  .map((v, visitIdx) => {
                     // ── Drug warnings for this visit's meds ──
                     const medNames = (v.meds ?? []).map(m => m.name).filter(Boolean);
                     const dxCodes  = (v.diagnoses ?? []).map(d => d.code);
@@ -931,14 +1063,25 @@ export default function PatientDetail() {
                     const dxWarnings     = checkDiagnosisWarnings(medNames, dxCodes, patient.cond);
                     const hasWarnings    = ddInteractions.length > 0 || dxWarnings.length > 0;
 
+                    // Build a compact summary line for collapsed state
+                    const summaryParts: string[] = [];
+                    if (v.presentingComplaint) summaryParts.push(v.presentingComplaint.slice(0, 50) + (v.presentingComplaint.length > 50 ? '…' : ''));
+                    if ((v.diagnoses?.length ?? 0) > 0) summaryParts.push(v.diagnoses!.map(d => d.code).join(', '));
+                    if ((v.investigations?.length ?? 0) > 0) summaryParts.push(`${v.investigations!.length} lab${v.investigations!.length > 1 ? 's' : ''}`);
+                    if ((v.meds?.length ?? 0) > 0) summaryParts.push(`${v.meds.length} med${v.meds.length > 1 ? 's' : ''}`);
+                    const summary = summaryParts.join(' · ') || 'No summary';
+
                     return (
-                      <div key={v.id} className="border border-[var(--border)] rounded-[var(--r)] overflow-hidden">
-
-                        {/* Card header */}
-                        <div className="px-3 py-2 bg-[var(--ink)] text-white">
-                          <div className="font-syne font-extrabold text-[14px]">{formatDateLong(v.date)} — Month {v.month}</div>
-                        </div>
-
+                      <NotesDxCard
+                        key={v.id}
+                        defaultOpen={visitIdx === 0}
+                        header={`${formatDateLong(v.date)} — Month ${v.month}`}
+                        summary={summary}
+                        hasWarnings={hasWarnings}
+                        warningCount={ddInteractions.length + dxWarnings.length}
+                        diagCount={(v.diagnoses?.length ?? 0)}
+                        labCount={(v.investigations?.length ?? 0)}
+                      >
                         <div className="p-3 space-y-3">
 
                           {/* ── Medication Warning Banner ── */}
@@ -1193,7 +1336,7 @@ export default function PatientDetail() {
                           )}
 
                         </div>
-                      </div>
+                      </NotesDxCard>
                     );
                   })}
 
