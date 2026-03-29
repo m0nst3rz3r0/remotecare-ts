@@ -136,6 +136,9 @@ export interface Visit {
     footExamination?: 'normal' | 'abnormal' | 'ulcer' | 'amputation';
     otherFindings?: string;
   };
+  diagnoses?: Diagnosis[];
+  investigations?: InvestigationResult[];
+  drugWarnings?: string[];  // medication warning summaries saved at time of visit
 }
 
 // ── DIAGNOSIS ────────────────────────────────────────────────
