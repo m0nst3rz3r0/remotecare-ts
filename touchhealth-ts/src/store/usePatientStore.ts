@@ -66,6 +66,9 @@ interface PatientState {
   clearSchedule: (patientId: number) => void;
   confirmAllPredicted: (settings: ClinicSettings, by: string) => void;
 
+  // Auto-LTFU engine
+  runAutoLtfu: (settings: ClinicSettings) => string[]; // returns codes marked LTFU
+
   // UI actions
   selectPatient: (id: number | null) => void;
   setFilter: (filter: PatientFilter) => void;
@@ -158,6 +161,32 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     );
     savePatients(updated);
     set({ patients: updated });
+  },
+
+  runAutoLtfu: (settings) => {
+    const { patients } = get();
+    const now = new Date();
+    const todayMidnight = new Date(now); todayMidnight.setHours(0,0,0,0);
+    const autoLtfuDays = settings.autoLtfuDays ?? 21;
+    const marked: string[] = [];
+
+    const updated = patients.map((p) => {
+      if (p.status !== 'active') return p;
+      const nextD = getPatientNextVisitDate(p, settings);
+      nextD.setHours(0,0,0,0);
+      const daysOverdue = Math.round((todayMidnight.getTime() - nextD.getTime()) / 86400000);
+      if (daysOverdue >= autoLtfuDays) {
+        marked.push(p.code);
+        return { ...p, status: 'ltfu' as PatientStatus };
+      }
+      return p;
+    });
+
+    if (marked.length > 0) {
+      savePatients(updated);
+      set({ patients: updated });
+    }
+    return marked;
   },
 
   selectPatient: (id) => set({ selectedId: id }),
