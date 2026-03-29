@@ -80,6 +80,7 @@ export interface Medication {
   name: string;
   dose?: string;
   freq?: string;
+  instructions?: string;
 }
 
 export interface MedicationRecord {
@@ -219,6 +220,9 @@ export interface GlucoseClassification {
 export interface ClinicSettings {
   days: ClinicDayIndex[];
   interval: number;
+  openHour: number;     // 0-23, default 8  (clinic opens)
+  closeHour: number;    // 0-23, default 17 (clinic closes — after this, today→overdue)
+  autoLtfuDays: number; // days overdue before auto-LTFU, default 21
 }
 
 // ── PATIENT CODE GENERATION ───────────────────────────────────
