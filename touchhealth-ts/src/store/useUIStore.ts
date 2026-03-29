@@ -10,14 +10,18 @@ import type { PageId, ClinicSettings, ClinicDayIndex } from '../types';
 
 const CLINIC_KEY = 'th_clinic';
 
+const CLINIC_DEFAULTS: ClinicSettings = {
+  days: [1, 3, 5], interval: 30,
+  openHour: 8, closeHour: 17, autoLtfuDays: 21,
+};
+
 function loadClinicSettings(): ClinicSettings {
   try {
     const raw = localStorage.getItem(CLINIC_KEY);
-    return raw
-      ? (JSON.parse(raw) as ClinicSettings)
-      : { days: [1, 3, 5], interval: 30 }; // Mon, Wed, Fri default
+    const saved = raw ? (JSON.parse(raw) as Partial<ClinicSettings>) : {};
+    return { ...CLINIC_DEFAULTS, ...saved };
   } catch {
-    return { days: [1, 3, 5], interval: 30 };
+    return { ...CLINIC_DEFAULTS };
   }
 }
 
@@ -53,8 +57,10 @@ interface UIState {
   closeStockoutModal:() => void;
 
   // Actions — clinic settings
-  toggleClinicDay:   (day: ClinicDayIndex) => void;
-  setClinicInterval: (days: number) => void;
+  toggleClinicDay:      (day: ClinicDayIndex) => void;
+  setClinicInterval:    (days: number) => void;
+  updateClinicHours:    (openHour: number, closeHour: number) => void;
+  updateAutoLtfuDays:   (days: number) => void;
 }
 
 // ── STORE ─────────────────────────────────────────────────────
@@ -98,6 +104,20 @@ export const useUIStore = create<UIState>((set, get) => ({
   setClinicInterval: (interval) => {
     const { clinicSettings } = get();
     const updated = { ...clinicSettings, interval };
+    saveClinicSettings(updated);
+    set({ clinicSettings: updated });
+  },
+
+  updateClinicHours: (openHour, closeHour) => {
+    const { clinicSettings } = get();
+    const updated = { ...clinicSettings, openHour, closeHour };
+    saveClinicSettings(updated);
+    set({ clinicSettings: updated });
+  },
+
+  updateAutoLtfuDays: (days) => {
+    const { clinicSettings } = get();
+    const updated = { ...clinicSettings, autoLtfuDays: days };
     saveClinicSettings(updated);
     set({ clinicSettings: updated });
   },
