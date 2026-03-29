@@ -32,8 +32,10 @@ function isAdminPage(p: PageId) {
 export default function App() {
   const { init, currentUser, isLoading } = useAuthStore();
   const loadFromStorage = usePatientStore((s) => s.loadFromStorage);
-  const activePage = useUIStore((s) => s.activePage);
-  const navigateTo = useUIStore((s) => s.navigateTo);
+  const runAutoLtfu    = usePatientStore((s) => s.runAutoLtfu);
+  const activePage     = useUIStore((s) => s.activePage);
+  const navigateTo     = useUIStore((s) => s.navigateTo);
+  const clinicSettings = useUIStore((s) => s.clinicSettings);
 
   useEffect(() => {
     init();
@@ -47,6 +49,14 @@ export default function App() {
     const cleanup = startAutoBackupScheduler(currentUser.displayName);
     return cleanup;
   }, [currentUser]);
+
+  // ── Auto-LTFU engine — runs on load + every 60s ──────────────
+  useEffect(() => {
+    if (!currentUser) return;
+    runAutoLtfu(clinicSettings);
+    const timer = setInterval(() => runAutoLtfu(clinicSettings), 60_000);
+    return () => clearInterval(timer);
+  }, [currentUser, clinicSettings, runAutoLtfu]);
 
   useEffect(() => {
     if (!currentUser) return;
