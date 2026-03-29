@@ -14,6 +14,7 @@ import {
   formatDateLong,
 } from '../../services/clinical';
 import { usePatientStore } from '../../store/usePatientStore';
+import { checkInteractions, checkDiagnosisWarnings, severityDisplay } from '../../data/drugInteractions';
 import { useUIStore } from '../../store/useUIStore';
 import AdherenceGrid from './AdherenceGrid';
 import Chip from '../ui/Chip';
@@ -884,160 +885,320 @@ export default function PatientDetail() {
 
             {tab === 'notesDx' ? (
               <div className="space-y-4">
-                {/* History Summary */}
+
+                {/* ── History Summary Stats ── */}
                 <div className="rounded-[var(--r)] border border-[var(--border)] p-3" style={{ background: 'var(--teal-ultra)' }}>
                   <div className="font-syne font-extrabold text-[14px] text-[var(--teal)] mb-3">History Summary</div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[12px]">
                     <div>
-                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                        Total Visits
-                      </div>
-                      <div className="mono font-extrabold">
-                        {(patient.visits ?? []).filter(v => v.att).length}
-                      </div>
+                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Total Visits</div>
+                      <div className="mono font-extrabold">{(patient.visits ?? []).filter(v => v.att).length}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                        First Visit
-                      </div>
-                      <div className="mono font-extrabold">
-                        {patient.enrol ? formatDate(patient.enrol) : '—'}
-                      </div>
+                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">First Visit</div>
+                      <div className="mono font-extrabold">{patient.enrol ? formatDate(patient.enrol) : '—'}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                        Avg BP
-                      </div>
-                      <div className="mono font-extrabold">
-                        {(() => {
-                          const bpVisits = (patient.visits ?? []).filter(v => v.att && v.sbp && v.dbp);
-                          if (bpVisits.length === 0) return '—';
-                          const avgSbp = bpVisits.reduce((sum, v) => sum + v.sbp!, 0) / bpVisits.length;
-                          const avgDbp = bpVisits.reduce((sum, v) => sum + v.dbp!, 0) / bpVisits.length;
-                          return `${Math.round(avgSbp)}/${Math.round(avgDbp)}`;
-                        })()}
-                      </div>
+                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Avg BP</div>
+                      <div className="mono font-extrabold">{(() => {
+                        const bpVisits = (patient.visits ?? []).filter(v => v.att && v.sbp && v.dbp);
+                        if (!bpVisits.length) return '—';
+                        const avgSbp = bpVisits.reduce((s,v) => s + v.sbp!, 0) / bpVisits.length;
+                        const avgDbp = bpVisits.reduce((s,v) => s + v.dbp!, 0) / bpVisits.length;
+                        return `${Math.round(avgSbp)}/${Math.round(avgDbp)}`;
+                      })()}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                        Avg Glucose
-                      </div>
-                      <div className="mono font-extrabold">
-                        {(() => {
-                          const sugarVisits = (patient.visits ?? []).filter(v => v.att && v.sugar);
-                          if (sugarVisits.length === 0) return '—';
-                          const avgSugar = sugarVisits.reduce((sum, v) => sum + v.sugar!, 0) / sugarVisits.length;
-                          return avgSugar.toFixed(1);
-                        })()}
-                      </div>
+                      <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Avg Glucose</div>
+                      <div className="mono font-extrabold">{(() => {
+                        const sv = (patient.visits ?? []).filter(v => v.att && v.sugar);
+                        if (!sv.length) return '—';
+                        return (sv.reduce((s,v) => s + v.sugar!, 0) / sv.length).toFixed(1);
+                      })()}</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Clinical Visit Cards */}
+                {/* ── Clinical Visit Cards ── */}
                 {(patient.visits ?? [])
-                  .filter(v => v.att && (v.presentingComplaint || v.notes || v.physicalExam))
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .map((v) => (
-                    <div key={v.id} className="border border-[var(--border)] rounded-[var(--r)] overflow-hidden">
-                      {/* Card Header */}
-                      <div className="px-3 py-2 bg-[var(--ink)] text-white">
-                        <div className="font-syne font-extrabold text-[14px]">
-                          {formatDateLong(v.date)} - Month {v.month}
+                  .filter(v => v.att && (v.presentingComplaint || v.notes || v.physicalExam || (v.diagnoses?.length ?? 0) > 0 || (v.investigations?.length ?? 0) > 0))
+                  .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map((v) => {
+                    // ── Drug warnings for this visit's meds ──
+                    const medNames = (v.meds ?? []).map(m => m.name).filter(Boolean);
+                    const dxCodes  = (v.diagnoses ?? []).map(d => d.code);
+                    const ddInteractions = checkInteractions(medNames);
+                    const dxWarnings     = checkDiagnosisWarnings(medNames, dxCodes, patient.cond);
+                    const hasWarnings    = ddInteractions.length > 0 || dxWarnings.length > 0;
+
+                    return (
+                      <div key={v.id} className="border border-[var(--border)] rounded-[var(--r)] overflow-hidden">
+
+                        {/* Card header */}
+                        <div className="px-3 py-2 bg-[var(--ink)] text-white">
+                          <div className="font-syne font-extrabold text-[14px]">{formatDateLong(v.date)} — Month {v.month}</div>
+                        </div>
+
+                        <div className="p-3 space-y-3">
+
+                          {/* ── Medication Warning Banner ── */}
+                          {hasWarnings && (
+                            <div style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(220,38,38,.2)' }}>
+                              <div style={{ background: '#7f1d1d', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 13 }}>⚠️</span>
+                                <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+                                  Medication Alerts — {ddInteractions.length + dxWarnings.length} warning{ddInteractions.length + dxWarnings.length > 1 ? 's' : ''} at time of visit
+                                </span>
+                              </div>
+                              <div style={{ background: '#fff9f9', padding: '8px 12px' }}>
+                                {dxWarnings.map((w) => {
+                                  const disp = severityDisplay(w.warning.severity);
+                                  return (
+                                    <div key={w.warning.id} style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid rgba(220,38,38,.08)' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
+                                        <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: disp.bg, color: disp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+                                          {disp.icon} {disp.label}
+                                        </span>
+                                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 700, background: 'rgba(124,58,237,.08)', color: '#7c3aed', padding: '1px 6px', borderRadius: 4 }}>{w.drugName}</span>
+                                        <span style={{ fontSize: 9, color: '#6f797d' }}>in {w.warning.diagnosisPatterns[0]} patient</span>
+                                      </div>
+                                      <div style={{ fontSize: 11, color: '#7f1d1d', fontWeight: 600 }}>{w.warning.clinicalEffect}</div>
+                                      <div style={{ fontSize: 10, color: '#516169', marginTop: 2 }}>{w.warning.management}</div>
+                                    </div>
+                                  );
+                                })}
+                                {ddInteractions.map((i) => {
+                                  const disp = severityDisplay(i.interaction.severity);
+                                  return (
+                                    <div key={i.interaction.id} style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid rgba(220,38,38,.08)' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
+                                        <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: disp.bg, color: disp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+                                          {disp.icon} {disp.label}
+                                        </span>
+                                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 700, background: 'rgba(124,58,237,.08)', color: '#7c3aed', padding: '1px 6px', borderRadius: 4 }}>{i.drug1Name}</span>
+                                        {i.drug2Name && <><span style={{ fontSize: 9, color: '#6f797d' }}>+</span><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 700, background: 'rgba(124,58,237,.08)', color: '#7c3aed', padding: '1px 6px', borderRadius: 4 }}>{i.drug2Name}</span></>}
+                                      </div>
+                                      <div style={{ fontSize: 11, color: '#7f1d1d', fontWeight: 600 }}>{i.interaction.clinicalEffect}</div>
+                                      <div style={{ fontSize: 10, color: '#516169', marginTop: 2 }}>{i.interaction.management}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── Presenting Complaint ── */}
+                          {v.presentingComplaint && (
+                            <div>
+                              <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Presenting Complaint</div>
+                              <div className="text-[12px] text-[var(--ink)]">{v.presentingComplaint}</div>
+                            </div>
+                          )}
+
+                          {/* ── Clinical Notes ── */}
+                          {v.notes && (
+                            <div>
+                              <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Clinical Notes</div>
+                              <div className="text-[12px] text-[var(--ink)]">{v.notes}</div>
+                            </div>
+                          )}
+
+                          {/* ── Diagnoses (ICD-10) ── */}
+                          {(v.diagnoses?.length ?? 0) > 0 && (
+                            <div>
+                              <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-2">Diagnoses</div>
+                              <div className="flex flex-wrap gap-2">
+                                {v.diagnoses!.map((d) => (
+                                  <span key={d.code} style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                                    padding: '3px 10px', borderRadius: 9999,
+                                    background: d.isPrimary ? 'rgba(13,110,135,.12)' : 'rgba(191,200,205,.2)',
+                                    border: d.isPrimary ? '1px solid rgba(13,110,135,.3)' : '1px solid rgba(191,200,205,.4)',
+                                    fontSize: 11, fontWeight: 700,
+                                    color: d.isPrimary ? '#005469' : '#516169',
+                                    fontFamily: 'Karla, sans-serif',
+                                  }}>
+                                    {d.isPrimary && <span style={{ fontSize: 9 }}>★</span>}
+                                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10 }}>{d.code}</span>
+                                    <span>{d.description}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── Physical Examination with WHO interpretation ── */}
+                          {v.physicalExam && (
+                            <div>
+                              <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-2">Physical Examination</div>
+                              <div className="grid grid-cols-2 gap-2">
+
+                                {v.physicalExam.generalAppearance && (
+                                  <div className="col-span-2" style={{ fontSize: 12 }}>
+                                    <strong>General:</strong> {v.physicalExam.generalAppearance}
+                                  </div>
+                                )}
+
+                                {v.physicalExam.pulseRate && (() => {
+                                  const hr = v.physicalExam!.pulseRate!;
+                                  const interp = hr < 60 ? { label: 'Bradycardia', bg: '#dbeafe', color: '#1e3a8a' }
+                                               : hr > 100 ? { label: 'Tachycardia', bg: '#fee2e2', color: '#7f1d1d' }
+                                               : { label: 'Normal', bg: '#dcfce7', color: '#14532d' };
+                                  return (
+                                    <div style={{ fontSize: 12 }}>
+                                      <strong>Pulse:</strong> {hr} bpm
+                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                                        {interp.label}
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
+
+                                {v.physicalExam.respiratoryRate && (() => {
+                                  const rr = v.physicalExam!.respiratoryRate!;
+                                  const interp = rr < 12 ? { label: 'Bradypnoea', bg: '#dbeafe', color: '#1e3a8a' }
+                                               : rr > 20  ? { label: 'Tachypnoea', bg: '#fee2e2', color: '#7f1d1d' }
+                                               : { label: 'Normal', bg: '#dcfce7', color: '#14532d' };
+                                  return (
+                                    <div style={{ fontSize: 12 }}>
+                                      <strong>RR:</strong> {rr} /min
+                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                                        {interp.label}
+                                      </span>
+                                      {rr > 20 && <span style={{ display: 'block', fontSize: 10, color: '#dc2626', marginTop: 2 }}>WHO: RR &gt;20 — consider respiratory cause, heart failure, acidosis</span>}
+                                    </div>
+                                  );
+                                })()}
+
+                                {v.physicalExam.temperature && (() => {
+                                  const t = v.physicalExam!.temperature!;
+                                  const interp = t < 35.0 ? { label: 'Hypothermia', bg: '#dbeafe', color: '#1e3a8a' }
+                                               : t < 36.0 ? { label: 'Low-normal', bg: '#e0f2fe', color: '#0369a1' }
+                                               : t <= 37.2 ? { label: 'Afebrile', bg: '#dcfce7', color: '#14532d' }
+                                               : t <= 38.0 ? { label: 'Low-grade fever', bg: '#fef3c7', color: '#78350f' }
+                                               : t <= 39.0 ? { label: 'Fever', bg: '#fee2e2', color: '#7f1d1d' }
+                                               : { label: 'High fever', bg: '#7f1d1d', color: '#fff' };
+                                  return (
+                                    <div style={{ fontSize: 12 }}>
+                                      <strong>Temp:</strong> {t}°C
+                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                                        {interp.label}
+                                      </span>
+                                      {t > 38.0 && <span style={{ display: 'block', fontSize: 10, color: '#dc2626', marginTop: 2 }}>WHO: Investigate source of fever — check for infection, sepsis</span>}
+                                      {t < 35.0 && <span style={{ display: 'block', fontSize: 10, color: '#1e3a8a', marginTop: 2 }}>WHO: Hypothermia — check for sepsis, hypothyroidism, exposure</span>}
+                                    </div>
+                                  );
+                                })()}
+
+                                {v.physicalExam.oxygenSaturation && (() => {
+                                  const spo2 = v.physicalExam!.oxygenSaturation!;
+                                  const interp = spo2 < 90 ? { label: 'Critical hypoxia', bg: '#7f1d1d', color: '#fff' }
+                                               : spo2 < 94 ? { label: 'Hypoxia', bg: '#fee2e2', color: '#7f1d1d' }
+                                               : spo2 < 96 ? { label: 'Low-normal', bg: '#fef3c7', color: '#78350f' }
+                                               : { label: 'Normal', bg: '#dcfce7', color: '#14532d' };
+                                  return (
+                                    <div style={{ fontSize: 12 }}>
+                                      <strong>O₂ Sat:</strong> {spo2}%
+                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                                        {interp.label}
+                                      </span>
+                                      {spo2 < 94 && <span style={{ display: 'block', fontSize: 10, color: '#dc2626', marginTop: 2 }}>WHO: SpO₂ &lt;94% — supplemental oxygen required</span>}
+                                    </div>
+                                  );
+                                })()}
+
+                                {v.physicalExam.oedema && v.physicalExam.oedema !== 'none' && (
+                                  <div style={{ fontSize: 12 }}>
+                                    <strong>Oedema:</strong>
+                                    <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase',
+                                      background: v.physicalExam.oedema === 'severe' ? '#fee2e2' : v.physicalExam.oedema === 'moderate' ? '#fef3c7' : '#fef9c3',
+                                      color: v.physicalExam.oedema === 'severe' ? '#7f1d1d' : '#78350f',
+                                    }}>
+                                      {v.physicalExam.oedema}
+                                    </span>
+                                    {(v.physicalExam.oedema === 'moderate' || v.physicalExam.oedema === 'severe') && (
+                                      <span style={{ display: 'block', fontSize: 10, color: '#dc2626', marginTop: 2 }}>Consider heart failure, nephrotic syndrome, hypoalbuminaemia</span>
+                                    )}
+                                  </div>
+                                )}
+
+                                {v.physicalExam.fundoscopy && (
+                                  <div style={{ fontSize: 12 }}><strong>Fundoscopy:</strong> {v.physicalExam.fundoscopy}</div>
+                                )}
+                                {v.physicalExam.footExamination && v.physicalExam.footExamination !== 'normal' && (
+                                  <div style={{ fontSize: 12 }}>
+                                    <strong>Foot:</strong>
+                                    <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: '#fee2e2', color: '#7f1d1d', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                                      {v.physicalExam.footExamination}
+                                    </span>
+                                  </div>
+                                )}
+                                {v.physicalExam.otherFindings && (
+                                  <div className="col-span-2" style={{ fontSize: 12 }}><strong>Other:</strong> {v.physicalExam.otherFindings}</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── Lab Investigations ── */}
+                          {(v.investigations?.length ?? 0) > 0 && (
+                            <div>
+                              <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-2">Lab Investigations</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+                                {v.investigations!.map((inv) => {
+                                  const lvl = inv.interpretation?.level;
+                                  const chipBg    = lvl === 'critical' ? '#7f1d1d' : lvl === 'high' ? '#fee2e2' : lvl === 'low' ? '#dbeafe' : '#dcfce7';
+                                  const chipColor = lvl === 'critical' ? '#fff'    : lvl === 'high' ? '#7f1d1d' : lvl === 'low' ? '#1e3a8a' : '#14532d';
+                                  return (
+                                    <div key={inv.id} style={{
+                                      border: `1.5px solid ${lvl && lvl !== 'normal' ? (lvl === 'critical' || lvl === 'high' ? '#fca5a5' : '#93c5fd') : 'rgba(191,200,205,.4)'}`,
+                                      borderRadius: 6, padding: '8px 10px',
+                                      background: lvl === 'critical' ? 'rgba(127,29,29,.04)' : lvl === 'high' ? 'rgba(220,38,38,.03)' : '#fff',
+                                    }}>
+                                      <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 10, color: '#516169', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>
+                                        {inv.name}
+                                      </div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 14, color: '#0f1f26' }}>
+                                          {inv.value || '—'}
+                                        </span>
+                                        <span style={{ fontSize: 10, color: '#6f797d' }}>{inv.unit}</span>
+                                        {inv.interpretation && (
+                                          <span style={{ fontSize: 8, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: chipBg, color: chipColor, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.3px' }}>
+                                            {inv.interpretation.text}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div style={{ fontSize: 9, color: '#6f797d', marginTop: 3 }}>Ref: {inv.reference}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── Medications Prescribed ── */}
+                          {(v.meds?.length ?? 0) > 0 && (
+                            <div>
+                              <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-2">Medications Prescribed</div>
+                              <div className="flex flex-wrap gap-2">
+                                {v.meds.map((med, idx) => (
+                                  <span key={idx} className="px-3 py-1 rounded-full text-[12px] font-extrabold"
+                                    style={{ background: 'var(--violet-pale)', color: 'var(--violet)' }}>
+                                    {med.name}{med.dose && ` ${med.dose}`}{med.freq && ` · ${med.freq}`}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                         </div>
                       </div>
-                      
-                      {/* Card Content */}
-                      <div className="p-3 space-y-3">
-                        {/* Presenting Complaint */}
-                        {v.presentingComplaint && (
-                          <div>
-                            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                              Presenting Complaint
-                            </div>
-                            <div className="text-[12px] text-[var(--ink)]">
-                              {v.presentingComplaint}
-                            </div>
-                          </div>
-                        )}
+                    );
+                  })}
 
-                        {/* Clinical Notes */}
-                        {v.notes && (
-                          <div>
-                            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                              Clinical Notes
-                            </div>
-                            <div className="text-[12px] text-[var(--ink)]">
-                              {v.notes}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Physical Examination */}
-                        {v.physicalExam && (
-                          <div>
-                            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                              Physical Examination
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 text-[12px]">
-                              {v.physicalExam.generalAppearance && (
-                                <div><strong>General:</strong> {v.physicalExam.generalAppearance}</div>
-                              )}
-                              {v.physicalExam.pulseRate && (
-                                <div><strong>Pulse:</strong> {v.physicalExam.pulseRate} bpm</div>
-                              )}
-                              {v.physicalExam.respiratoryRate && (
-                                <div><strong>RR:</strong> {v.physicalExam.respiratoryRate} /min</div>
-                              )}
-                              {v.physicalExam.temperature && (
-                                <div><strong>Temp:</strong> {v.physicalExam.temperature}°C</div>
-                              )}
-                              {v.physicalExam.oxygenSaturation && (
-                                <div><strong>O₂ Sat:</strong> {v.physicalExam.oxygenSaturation}%</div>
-                              )}
-                              {v.physicalExam.oedema && v.physicalExam.oedema !== 'none' && (
-                                <div><strong>Oedema:</strong> {v.physicalExam.oedema}</div>
-                              )}
-                              {v.physicalExam.fundoscopy && (
-                                <div><strong>Fundoscopy:</strong> {v.physicalExam.fundoscopy}</div>
-                              )}
-                              {v.physicalExam.footExamination && v.physicalExam.footExamination !== 'normal' && (
-                                <div><strong>Foot:</strong> {v.physicalExam.footExamination}</div>
-                              )}
-                              {v.physicalExam.otherFindings && (
-                                <div className="col-span-2"><strong>Other:</strong> {v.physicalExam.otherFindings}</div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Medications */}
-                        {v.meds && v.meds.length > 0 && (
-                          <div>
-                            <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
-                              Medications Prescribed
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {v.meds.map((med, idx) => (
-                                <span
-                                  key={idx}
-                                  className="px-3 py-1 rounded-full text-[12px] font-extrabold"
-                                  style={{ background: 'var(--violet-pale)', color: 'var(--violet)' }}
-                                >
-                                  {med.name}
-                                  {med.dose && ` ${med.dose}`}
-                                  {med.freq && ` ${med.freq}`}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-
-                {/* No clinical data message */}
-                {!(patient.visits ?? []).some(v => v.att && (v.presentingComplaint || v.notes || v.physicalExam)) && (
+                {/* ── Empty state ── */}
+                {!(patient.visits ?? []).some(v => v.att && (v.presentingComplaint || v.notes || v.physicalExam || (v.diagnoses?.length ?? 0) > 0 || (v.investigations?.length ?? 0) > 0)) && (
                   <div className="text-[var(--slate)] text-[13px] text-center py-8">
                     No clinical notes recorded yet — add via + Visit
                   </div>
