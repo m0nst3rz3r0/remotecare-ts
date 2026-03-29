@@ -287,6 +287,7 @@ export interface RecordVisitParams {
   differentialDx?: string;
   diagnoses?: Diagnosis[];
   investigations?: InvestigationResult[];
+  drugWarnings?: string[];
   presentingComplaint?: string;
   physicalExam?: {
     generalAppearance?: string;
@@ -318,6 +319,7 @@ export function recordVisit(
       nextDate, nextNote, scheduledBy,
       hba1cValue, hba1cQuarter, hba1cYear,
       presentingComplaint, physicalExam,
+      diagnoses, investigations, drugWarnings,
     } = params;
 
     // Build visit record
@@ -337,7 +339,10 @@ export function recordVisit(
       notes:     att ? notes ?? '' : '',
       meds:      att ? meds : [],
       presentingComplaint: att ? presentingComplaint ?? undefined : undefined,
-      physicalExam: att ? physicalExam ?? undefined : undefined,
+      physicalExam:        att ? physicalExam        ?? undefined : undefined,
+      diagnoses:           att ? diagnoses            ?? undefined : undefined,
+      investigations:      att ? investigations       ?? undefined : undefined,
+      drugWarnings:        att ? drugWarnings         ?? undefined : undefined,
     };
 
     // Remove existing entry for same month, then add new
