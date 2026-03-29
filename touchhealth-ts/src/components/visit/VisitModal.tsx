@@ -392,6 +392,24 @@ export default function VisitModal() {
         footExamination,
         otherFindings:      otherFindings || undefined,
       } : undefined,
+      diagnoses: attended ? comorbidities.map(d => ({
+        id: `dx-${d.code}`, code: d.code, description: d.description, isPrimary: d.isPrimary ?? false,
+      })) : undefined,
+      investigations: attended && investigations.length > 0 ? investigations.map(inv => ({
+        id: inv.id,
+        name: inv.name,
+        value: inv.value,
+        unit: inv.unit,
+        reference: inv.referenceText ?? `${inv.referenceLow}–${inv.referenceHigh}`,
+        interpretation: inv.value ? (() => {
+          const interp = getInterpretation(inv);
+          if (!interp) return undefined;
+          const v = parseFloat(inv.value);
+          const level = v < inv.referenceLow ? 'low' : v > inv.referenceHigh ? 'high' : 'normal';
+          return { level: level as any, text: interp.label, color: interp.color };
+        })() : undefined,
+      })) : undefined,
+
       ...(isDM && attended && hba1cValue.trim() !== '' && hba1cQuarter
         ? { hba1cValue: Number(hba1cValue), hba1cQuarter, hba1cYear: new Date(visitDate).getFullYear() }
         : {}),
