@@ -11,7 +11,7 @@ export default function PageWrapper({
     <div className="p-3 md:p-5">
       {title ? (
         <div className="mb-3">
-          <h1 className="font-syne text-[18px] font-extrabold text-[var(--ink)]">
+          <h1 className="font-syne text-[18px] font-semibold text-brand-dark">
             {title}
           </h1>
         </div>

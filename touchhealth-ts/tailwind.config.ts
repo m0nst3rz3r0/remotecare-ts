@@ -20,6 +20,11 @@ export default {
           2:       '#005469',
           3:       '#0d6e87',
         },
+        brand: {
+          dark:    '#132b31',
+          emerald: '#10b981',
+          bg:      '#f8fafc',
+        },
       },
       fontFamily: {
         syne:  ['Syne', 'sans-serif'],

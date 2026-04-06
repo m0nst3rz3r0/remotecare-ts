@@ -43,8 +43,8 @@ import { Line } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 // ── Design tokens ────────────────────────────────────────────
-const INK   = '#0f1f26';
-const TEAL  = '#0d6e87';
+const INK   = '#132b31';
+const TEAL  = '#10b981';
 
 function titleForAdminPage(page: string) {
   switch (page) {
@@ -66,8 +66,8 @@ function cssVar(name: string, fallback: string) {
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <div style={{ background: INK, height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center' }}>
-      <span style={{ color: '#fff', fontFamily: 'Syne, sans-serif', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
+    <div style={{ background: '#132b31', height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center' }}>
+      <span style={{ color: '#fff', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         {title}
       </span>
     </div>
@@ -76,7 +76,7 @@ function SectionHeader({ title }: { title: string }) {
 
 function Card({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 12px 32px rgba(15,31,38,0.05)', border: '1px solid rgba(191,200,205,0.15)', marginBottom: '16px' }}>
+    <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: 'none', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
       {title && <SectionHeader title={title} />}
       <div style={{ padding: '20px' }}>{children}</div>
     </div>
@@ -85,22 +85,22 @@ function Card({ title, children }: { title?: string; children: React.ReactNode }
 
 function RiskBadge({ ctrlRate }: { ctrlRate: number | null }) {
   if (ctrlRate === null) return <span style={{ color: '#64748b', fontSize: '12px' }}>—</span>;
-  if (ctrlRate >= 65) return <span style={{ padding: '3px 10px', background: '#d1fae5', color: '#065f46', fontSize: '10px', fontFamily: 'Syne, sans-serif', fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>Stable</span>;
-  if (ctrlRate >= 45) return <span style={{ padding: '3px 10px', background: '#fef3c7', color: '#92400e', fontSize: '10px', fontFamily: 'Syne, sans-serif', fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>Moderate</span>;
-  return <span style={{ padding: '3px 10px', background: '#ffe4e6', color: '#9f1239', fontSize: '10px', fontFamily: 'Syne, sans-serif', fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>High Risk</span>;
+  if (ctrlRate >= 65) return <span style={{ padding: '3px 10px', background: '#d1fae5', color: '#065f46', fontSize: '10px', fontFamily: 'Karla, sans-serif', fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>Stable</span>;
+  if (ctrlRate >= 45) return <span style={{ padding: '3px 10px', background: '#fef3c7', color: '#92400e', fontSize: '10px', fontFamily: 'Karla, sans-serif', fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>Moderate</span>;
+  return <span style={{ padding: '3px 10px', background: '#ffe4e6', color: '#9f1239', fontSize: '10px', fontFamily: 'Karla, sans-serif', fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>High Risk</span>;
 }
 
 function StatCard({ title, value, sub, valueColor }: { title: string; value: number | string; sub?: string; valueColor: string }) {
   return (
-    <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 12px 32px rgba(15,31,38,0.05)', border: '1px solid rgba(191,200,205,0.15)' }}>
-      <div style={{ background: INK, height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center' }}>
-        <span style={{ color: '#fff', fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' }}>{title}</span>
+    <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: 'none', border: '1px solid #e2e8f0' }}>
+      <div style={{ background: '#132b31', height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center' }}>
+        <span style={{ color: '#fff', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</span>
       </div>
       <div style={{ padding: '20px' }}>
         <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '36px', fontWeight: 700, color: valueColor, lineHeight: 1 }}>
           {typeof value === 'number' ? value.toLocaleString() : value}
         </div>
-        {sub && <div style={{ marginTop: '8px', fontSize: '12px', color: '#516169', fontWeight: 600 }}>{sub}</div>}
+        {sub && <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>{sub}</div>}
       </div>
     </div>
   );
@@ -188,33 +188,33 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
 
       <Card title="Glucose Control %"><GlucoseControlChart patients={patients} year={year} /></Card>
 
-      <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 12px 32px rgba(15,31,38,0.05)', border: '1px solid rgba(191,200,205,0.15)' }}>
-        <div style={{ background: INK, height: '44px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ color: '#fff', fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Regional Facility Matrix</span>
-          <span style={{ color: '#85d1ed', fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{scopeLabel}</span>
+      <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: 'none', border: '1px solid #e2e8f0' }}>
+        <div style={{ background: '#132b31', height: '44px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ color: '#fff', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Regional Facility Matrix</span>
+          <span style={{ color: '#6ee7b7', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{scopeLabel}</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #e2e3e1' }}>
+              <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                 {['Facility Name', 'Total Patients', 'Active %', 'Control Rate', 'Risk Status', 'LTFU'].map((h) => (
-                  <th key={h} style={{ padding: '12px 24px', textAlign: 'left', fontSize: '10px', fontFamily: 'Syne, sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#516169', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding: '12px 24px', textAlign: 'left', fontSize: '10px', fontFamily: 'Karla, sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {facilityRows.map((r, idx) => (
-                <tr key={r.h.id} style={{ borderBottom: '1px solid #f4f4f2', background: idx % 2 === 0 ? '#fff' : '#fafaf8' }}>
-                  <td style={{ padding: '16px 24px', fontWeight: 700, fontSize: '14px', color: INK }}>{r.h.name}</td>
-                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', color: '#516169' }}>{r.total.toLocaleString()}</td>
-                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 700, color: TEAL }}>{r.total ? `${r.activeP}%` : '—'}</td>
-                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 700, color: r.ctrlRate !== null && r.ctrlRate >= 65 ? '#16a34a' : r.ctrlRate !== null && r.ctrlRate >= 45 ? '#d97706' : '#ba1a1a' }}>{r.ctrlRate !== null ? `${r.ctrlRate}%` : '—'}</td>
+                <tr key={r.h.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                  <td style={{ padding: '16px 24px', fontWeight: 700, fontSize: '14px', color: '#132b31' }}>{r.h.name}</td>
+                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', color: '#64748b' }}>{r.total.toLocaleString()}</td>
+                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 700, color: '#10b981' }}>{r.total ? `${r.activeP}%` : '—'}</td>
+                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 700, color: r.ctrlRate !== null && r.ctrlRate >= 65 ? '#059669' : r.ctrlRate !== null && r.ctrlRate >= 45 ? '#d97706' : '#dc2626' }}>{r.ctrlRate !== null ? `${r.ctrlRate}%` : '—'}</td>
                   <td style={{ padding: '16px 24px' }}><RiskBadge ctrlRate={r.ctrlRate} /></td>
-                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 700, color: r.ltfu > 0 ? '#ba1a1a' : '#516169' }}>{r.ltfu}</td>
+                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 700, color: r.ltfu > 0 ? '#dc2626' : '#64748b' }}>{r.ltfu}</td>
                 </tr>
               ))}
               {!facilityRows.length && (
-                <tr><td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#516169', fontWeight: 700 }}>No facilities configured. Add hospitals in Settings.</td></tr>
+                <tr><td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#64748b', fontWeight: 700 }}>No facilities configured. Add hospitals in Settings.</td></tr>
               )}
             </tbody>
           </table>
@@ -238,11 +238,11 @@ function DoctorsView({ patients }: { patients: Patient[] }) {
   }), [doctors, patients]);
 
   return (
-    <div className="bg-white border border-[var(--border)] rounded-[var(--r)] p-4 overflow-auto">
-      <div className="font-syne font-extrabold text-[14px] mb-3">Doctor Activity</div>
+    <div className="bg-white border border-slate-200 rounded-xl p-4 overflow-auto">
+      <div className="font-syne font-semibold text-brand-dark text-[14px] mb-3">Doctor Activity</div>
       <table className="w-full text-left">
         <thead>
-          <tr className="text-[10px] uppercase tracking-[0.5px] font-extrabold text-[var(--slate)]">
+          <tr className="text-[10px] uppercase tracking-[0.05em] font-bold text-slate-500">
             <th className="pb-2 px-2">Doctor</th><th className="pb-2 px-2">Hospital</th>
             <th className="pb-2 px-2 text-center">Patients</th><th className="pb-2 px-2 text-center">Attended</th>
             <th className="pb-2 px-2 text-center">Missed</th><th className="pb-2 px-2 text-center">Attend %</th>
@@ -250,21 +250,21 @@ function DoctorsView({ patients }: { patients: Patient[] }) {
         </thead>
         <tbody>
           {rows.map((r, idx) => (
-            <tr key={r.doc.id} style={{ background: idx % 2 ? 'var(--cream)' : undefined }}>
-              <td className="px-2 py-2 font-extrabold text-[12px]">{r.doc.displayName}</td>
-              <td className="px-2 py-2 text-[12px] text-[var(--slate)]">{r.doc.hospital || '—'}</td>
-              <td className="px-2 py-2 text-center font-extrabold text-[12px] text-[var(--teal)]">{r.patients}</td>
-              <td className="px-2 py-2 text-center font-extrabold text-[12px] text-[var(--emerald)]">{r.attended}</td>
-              <td className="px-2 py-2 text-center font-extrabold text-[12px] text-[var(--rose)]">{r.missed}</td>
+            <tr key={r.doc.id} style={{ background: idx % 2 ? '#f8fafc' : undefined }}>
+              <td className="px-2 py-2 font-semibold text-brand-dark text-[12px]">{r.doc.displayName}</td>
+              <td className="px-2 py-2 text-[12px] text-slate-500">{r.doc.hospital || '—'}</td>
+              <td className="px-2 py-2 text-center font-semibold text-[12px] text-brand-emerald">{r.patients}</td>
+              <td className="px-2 py-2 text-center font-semibold text-[12px] text-brand-emerald">{r.attended}</td>
+              <td className="px-2 py-2 text-center font-semibold text-[12px] text-rose-500">{r.missed}</td>
               <td className="px-2 py-2 text-center">
-                <div className="font-extrabold text-[12px] text-[var(--teal)]">{r.pct}%</div>
-                <div className="mt-1 h-[8px] rounded-[999px] bg-[var(--border)] overflow-hidden">
-                  <div className="h-full" style={{ width: `${r.pct}%`, background: 'var(--teal)' }} />
+                <div className="font-semibold text-[12px] text-brand-emerald">{r.pct}%</div>
+                <div className="mt-1 h-[8px] rounded-[999px] bg-slate-200 overflow-hidden">
+                  <div className="h-full bg-brand-emerald" style={{ width: `${r.pct}%` }} />
                 </div>
               </td>
             </tr>
           ))}
-          {!rows.length ? <tr><td colSpan={6} className="px-2 py-4 text-center text-[var(--slate)] font-bold">No doctors registered.</td></tr> : null}
+          {!rows.length ? <tr><td colSpan={6} className="px-2 py-4 text-center text-slate-500 font-semibold">No doctors registered.</td></tr> : null}
         </tbody>
       </table>
     </div>
@@ -384,15 +384,15 @@ function SettingsView() {
     setPwTargetId(''); setPwNew('');
   };
 
-  const inputCls = "w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white";
-  const labelCls = "text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1";
+  const inputCls = "w-full rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald";
+  const labelCls = "text-xs uppercase font-bold tracking-wider text-slate-500 mb-1";
 
   return (
     <div className="space-y-4">
 
       {/* ── Hospital Management ─────────────────────────── */}
-      <div className="bg-white border border-[var(--border)] rounded-[var(--r)] p-4">
-        <div className="font-syne font-extrabold text-[14px] mb-2">Hospital Management</div>
+      <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="font-syne font-semibold text-brand-dark text-[14px] mb-2">Hospital Management</div>
         {hErr ? <Alert variant="red">Could not add hospital: {hErr}</Alert> : null}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
           <div>
@@ -418,31 +418,31 @@ function SettingsView() {
         <div className="mt-4 overflow-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="text-[10px] uppercase tracking-[0.5px] font-extrabold text-[var(--slate)]">
+              <tr className="text-[10px] uppercase tracking-[0.05em] font-bold text-slate-500">
                 <th className="pb-2 px-2">Name</th><th className="pb-2 px-2">Region</th><th className="pb-2 px-2">District</th><th className="pb-2 px-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {hospitals.map((h) => (
-                <tr key={h.id} style={{ background: 'var(--cream)' }}>
-                  <td className="px-2 py-2 font-extrabold text-[12px]">{h.name}</td>
-                  <td className="px-2 py-2 text-[12px] text-[var(--slate)]">{h.region}</td>
-                  <td className="px-2 py-2 text-[12px] text-[var(--slate)]">{h.district}</td>
+                <tr key={h.id} style={{ background: '#f8fafc' }}>
+                  <td className="px-2 py-2 font-semibold text-brand-dark text-[12px]">{h.name}</td>
+                  <td className="px-2 py-2 text-[12px] text-slate-500">{h.region}</td>
+                  <td className="px-2 py-2 text-[12px] text-slate-500">{h.district}</td>
                   <td className="px-2 py-2 text-right"><Button size="sm" variant="danger" label="Delete" onClick={() => onDeleteHospital(h.id)} /></td>
                 </tr>
               ))}
-              {!hospitals.length ? <tr><td colSpan={4} className="px-2 py-4 text-center text-[var(--slate)] font-bold">No hospitals configured.</td></tr> : null}
+              {!hospitals.length ? <tr><td colSpan={4} className="px-2 py-4 text-center text-slate-500 font-semibold">No hospitals configured.</td></tr> : null}
             </tbody>
           </table>
         </div>
       </div>
 
       {/* ── Add User — scoped by role ───────────────────── */}
-      <div className="bg-white border border-[var(--border)] rounded-[var(--r)] p-4">
-        <div className="font-syne font-extrabold text-[14px] mb-1">
+      <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="font-syne font-semibold text-brand-dark text-[14px] mb-1">
           {superAdmin ? 'Add Admin Account' : 'Add Doctor Account'}
         </div>
-        <div className="text-[12px] text-[var(--slate)] mb-3">
+        <div className="text-[12px] text-slate-500 mb-3">
           {superAdmin
             ? 'As superadmin you can create admin accounts. Admins manage doctors within their district.'
             : 'As admin you can create doctor accounts assigned to hospitals in your district.'}
@@ -520,38 +520,38 @@ function SettingsView() {
         <div className="mt-4 overflow-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="text-[10px] uppercase tracking-[0.5px] font-extrabold text-[var(--slate)]">
+              <tr className="text-[10px] uppercase tracking-[0.05em] font-bold text-slate-500">
                 <th className="pb-2 px-2">User</th><th className="pb-2 px-2">Role</th><th className="pb-2 px-2">Hospital</th><th className="pb-2 px-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} style={{ background: 'var(--cream)' }}>
+                <tr key={u.id} style={{ background: '#f8fafc' }}>
                   <td className="px-2 py-2">
-                    <div className="font-extrabold text-[12px]">{u.displayName}</div>
-                    <div className="text-[11px] text-[var(--slate)] font-bold">@{u.username}</div>
+                    <div className="font-semibold text-brand-dark text-[12px]">{u.displayName}</div>
+                    <div className="text-[11px] text-slate-500 font-semibold">@{u.username}</div>
                   </td>
                   <td className="px-2 py-2">
                     <Chip cls="chip-gray">{u.isSuperAdmin ? 'superadmin' : u.role}</Chip>
                   </td>
-                  <td className="px-2 py-2 text-[12px] text-[var(--slate)]">{u.hospital || '—'}</td>
+                  <td className="px-2 py-2 text-[12px] text-slate-500">{u.hospital || '—'}</td>
                   <td className="px-2 py-2 text-right">
                     {canDeleteUser(u)
                       ? <Button size="sm" variant="danger" label="Delete" onClick={() => onDeleteUser(u.id)} />
-                      : <span className="text-[11px] font-bold text-[var(--slate)]">Protected</span>}
+                      : <span className="text-[11px] font-semibold text-slate-500">Protected</span>}
                   </td>
                 </tr>
               ))}
-              {!users.length ? <tr><td colSpan={4} className="px-2 py-4 text-center text-[var(--slate)] font-bold">No users.</td></tr> : null}
+              {!users.length ? <tr><td colSpan={4} className="px-2 py-4 text-center text-slate-500 font-semibold">No users.</td></tr> : null}
             </tbody>
           </table>
         </div>
       </div>
 
       {/* ── Password Reset ──────────────────────────────── */}
-      <div className="bg-white border border-[var(--border)] rounded-[var(--r)] p-4">
-        <div className="font-syne font-extrabold text-[14px] mb-1">Reset Password</div>
-        <div className="text-[12px] text-[var(--slate)] mb-3">
+      <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="font-syne font-semibold text-brand-dark text-[14px] mb-1">Reset Password</div>
+        <div className="text-[12px] text-slate-500 mb-3">
           {superAdmin
             ? 'Reset passwords for admin accounts.'
             : 'Reset passwords for doctor accounts in your district.'}
@@ -580,9 +580,9 @@ function SettingsView() {
 
       {/* ── Superadmin: Change Own Password ──────────────── */}
       {superAdmin && (
-        <div className="bg-white border border-[var(--border)] rounded-[var(--r)] p-4">
-          <div className="font-syne font-extrabold text-[14px] mb-1">Change My Password</div>
-          <div className="text-[12px] text-[var(--slate)] mb-3">
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <div className="font-syne font-semibold text-brand-dark text-[14px] mb-1">Change My Password</div>
+          <div className="text-[12px] text-slate-500 mb-3">
             Update your own superadmin password.
           </div>
           {selfPwErr ? <Alert variant="red">{selfPwErr}</Alert> : null}
@@ -710,17 +710,17 @@ export default function AdminPage() {
 
       {activePage === 'trends' && (
         <div className="space-y-4">
-          <div className="bg-white border border-[var(--border)] rounded-[var(--r)] p-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-4">
             <div className="flex items-end justify-between gap-3 flex-wrap">
               <div>
-                <div className="font-syne font-extrabold text-[16px] text-[var(--ink)]">Trends</div>
-                <div className="text-[12px] text-[var(--slate)] mt-1">
+                <div className="font-syne font-semibold text-brand-dark text-[16px]">Trends</div>
+                <div className="text-[12px] text-slate-500 mt-1">
                   Monthly enrolment, BP control, attendance · <strong>{scopeLabel}</strong>
                 </div>
               </div>
               <div>
-                <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Year</div>
-                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white">
+                <div className="text-xs uppercase font-bold tracking-wider text-slate-500 mb-1">Year</div>
+                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald">
                   {Array.from({ length: 6 }).map((_, i) => new Date().getFullYear() - i).map((y) => (
                     <option key={y} value={y}>{y}</option>
                   ))}

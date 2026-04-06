@@ -34,8 +34,8 @@ export default function BPControlChart({
   );
 
   const data = useMemo(() => {
-    const teal = cssVar('--teal', '#0d6e87');
-    const tealPale = cssVar('--teal-pale', '#e4f6fb');
+    const emerald = cssVar('--emerald', '#10b981');
+    const emeraldPale = cssVar('--emerald-pale', '#d1fae5');
 
     // Use all patients, but compute monthly stats based on visit.month only.
     const monthly = labels.map((_, idx) => {
@@ -54,8 +54,8 @@ export default function BPControlChart({
         {
           label: 'BP Control %',
           data: monthly,
-          borderColor: teal,
-          backgroundColor: tealPale,
+          borderColor: emerald,
+          backgroundColor: emeraldPale,
           fill: false,
           tension: 0.25,
           spanGaps: true,

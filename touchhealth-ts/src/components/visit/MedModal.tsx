@@ -47,14 +47,14 @@ export default function MedModal() {
       />
 
       <div
-        className="absolute right-0 top-0 h-full w-full max-w-[520px] bg-white border-l border-[var(--border)] shadow-[var(--shadow)]"
+        className="absolute right-0 top-0 h-full w-full max-w-[520px] bg-white border-l border-slate-200 shadow-lg"
       >
-        <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between gap-3">
+        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
           <div>
-            <div className="font-syne font-extrabold text-[16px] text-[var(--ink)]">
+            <div className="font-syne font-semibold text-[16px] text-brand-dark">
               Edit Medications
             </div>
-            <div className="text-[12px] text-[var(--slate)]">
+            <div className="text-[12px] text-slate-500">
               {patient.code}
             </div>
           </div>
@@ -62,7 +62,7 @@ export default function MedModal() {
         </div>
 
         <div className="p-4 overflow-auto">
-          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-2">
+          <div className="text-xs uppercase font-bold tracking-wider text-slate-500 mb-2">
             Current meds (saved on “Today”)
           </div>
 

@@ -8,9 +8,9 @@ export default function Card({
   children: ReactNode;
 }) {
   return (
-    <section className="bg-white border border-[var(--border)] rounded-[var(--r)] shadow-[var(--shadow)]">
+    <section className="bg-white border border-slate-200 rounded-xl">
       {header ? (
-        <div className="border-b border-[var(--border)] px-4 py-3">
+        <div className="border-b border-slate-200 px-4 py-3">
           {header}
         </div>
       ) : null}

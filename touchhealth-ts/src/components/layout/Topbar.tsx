@@ -19,8 +19,8 @@ export default function Topbar() {
       position: 'sticky', top: 0, zIndex: 200,
       height: '52px', padding: '0 24px',
       display: 'flex', alignItems: 'center', gap: '10px',
-      background: 'linear-gradient(90deg, #0f1f26 0%, #005469 100%)',
-      boxShadow: '0 2px 20px rgba(0,0,0,.3)',
+      background: '#132b31',
+      boxShadow: '0 1px 3px rgba(0,0,0,.1)',
     }}>
       <img src={LOGO} alt="RemoteCare" style={{ width: 34, height: 34, objectFit: 'contain', flexShrink: 0 }} />
       <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 16, color: '#fff', letterSpacing: '-.3px', whiteSpace: 'nowrap' }}>
@@ -40,8 +40,8 @@ export default function Topbar() {
           ].map(({ label, val, warn }) => (
             <div key={label} style={{
               padding: '5px 12px',
-              background: warn ? 'rgba(220,38,38,.2)' : 'rgba(255,255,255,.12)',
-              border: `1px solid ${warn ? 'rgba(220,38,38,.3)' : 'rgba(255,255,255,.15)'}`,
+              background: warn ? 'rgba(220,38,38,.15)' : 'rgba(255,255,255,.1)',
+              border: `1px solid ${warn ? 'rgba(220,38,38,.25)' : 'rgba(255,255,255,.15)'}`,
               borderRadius: 9999,
               fontSize: 10, fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '.5px',
@@ -58,7 +58,7 @@ export default function Topbar() {
         <div style={{ marginLeft: 8 }}>
           <div style={{
             padding: '5px 12px',
-            background: 'rgba(255,255,255,.12)',
+            background: 'rgba(255,255,255,.1)',
             border: '1px solid rgba(255,255,255,.15)',
             borderRadius: 9999,
             fontSize: 10, fontWeight: 700,
@@ -78,7 +78,7 @@ export default function Topbar() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{
           width: 32, height: 32, borderRadius: '50%',
-          background: isSuperAdmin ? 'rgba(220,38,38,.3)' : role === 'admin' ? 'rgba(13,110,135,.3)' : 'rgba(22,163,74,.3)',
+          background: isSuperAdmin ? 'rgba(220,38,38,.25)' : 'rgba(16,185,129,.25)',
           border: '2px solid rgba(255,255,255,.15)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 11, color: '#fff',
@@ -92,8 +92,8 @@ export default function Topbar() {
           <span style={{
             fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.5px',
             padding: '2px 8px', borderRadius: 9999, marginTop: 2, display: 'inline-block',
-            background: isSuperAdmin ? 'rgba(220,38,38,.25)' : role === 'admin' ? 'rgba(13,110,135,.25)' : 'rgba(22,163,74,.25)',
-            color: isSuperAdmin ? '#fca5a5' : role === 'admin' ? '#7dd3fc' : '#86efac',
+            background: isSuperAdmin ? 'rgba(220,38,38,.25)' : 'rgba(16,185,129,.2)',
+            color: isSuperAdmin ? '#fca5a5' : '#6ee7b7',
           }}>
             {isSuperAdmin ? 'Super Admin' : role === 'admin' ? 'Admin' : 'Doctor'}
           </span>

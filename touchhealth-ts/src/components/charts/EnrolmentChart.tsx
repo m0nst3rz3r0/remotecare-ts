@@ -26,8 +26,8 @@ export default function EnrolmentChart({ patients, year }: { patients: Patient[]
   );
 
   const data = useMemo(() => {
-    const teal = cssVar('--teal', '#0d6e87');
-    const tealPale = cssVar('--teal-pale', '#e4f6fb');
+    const emerald = cssVar('--emerald', '#10b981');
+    const emeraldPale = cssVar('--emerald-pale', '#d1fae5');
 
     const counts = labels.map((_, idx) => {
       const m = idx + 1;
@@ -44,8 +44,8 @@ export default function EnrolmentChart({ patients, year }: { patients: Patient[]
         {
           label: 'New registrations',
           data: counts,
-          backgroundColor: tealPale,
-          borderColor: teal,
+          backgroundColor: emeraldPale,
+          borderColor: emerald,
           borderWidth: 1,
           borderRadius: 6,
         },

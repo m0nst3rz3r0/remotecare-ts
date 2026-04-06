@@ -13,14 +13,14 @@ import PatientDetail from '../components/patient/PatientDetail';
 import type { Patient, SMSConfig } from '../types';
 
 // ── Design tokens ─────────────────────────────────────────────
-const INK  = '#0f1f26';
-const TEAL = '#0d6e87';
-const BG   = '#f4f4f2';
+const INK  = '#132b31';
+const TEAL = '#10b981';
+const BG   = '#f8fafc';
 
 function SectionHeader({ title, right }: { title: string; right?: React.ReactNode }) {
   return (
-    <div style={{ background: INK, height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <span style={{ color: '#fff', fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>{title}</span>
+    <div style={{ background: '#132b31', height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span style={{ color: '#fff', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</span>
       {right}
     </div>
   );
@@ -28,13 +28,13 @@ function SectionHeader({ title, right }: { title: string; right?: React.ReactNod
 
 function StatusBadge({ status, days }: { status: string; days?: number }) {
   if (status === 'ltfu') return (
-    <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '9px', fontWeight: 700, background: '#fee2e2', color: '#7f1d1d', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>LTFU</span>
+    <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '9px', fontWeight: 700, background: '#fee2e2', color: '#7f1d1d', fontFamily: 'Karla, sans-serif', textTransform: 'uppercase' }}>LTFU</span>
   );
   if (days !== undefined && days < 0) return (
-    <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '9px', fontWeight: 700, background: '#fef3c7', color: '#92400e', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Overdue {Math.abs(days)}d</span>
+    <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '9px', fontWeight: 700, background: '#fef3c7', color: '#92400e', fontFamily: 'Karla, sans-serif', textTransform: 'uppercase' }}>Overdue {Math.abs(days)}d</span>
   );
   return (
-    <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '9px', fontWeight: 700, background: '#fef3c7', color: '#92400e', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Due in {days}d</span>
+    <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '9px', fontWeight: 700, background: '#fef3c7', color: '#92400e', fontFamily: 'Karla, sans-serif', textTransform: 'uppercase' }}>Due in {days}d</span>
   );
 }
 
@@ -136,9 +136,9 @@ export default function LTFUPage() {
   };
 
   const inputCls: React.CSSProperties = {
-    width: '100%', border: '1.5px solid rgba(191,200,205,.55)', borderRadius: '4px',
+    width: '100%', border: '1px solid #cbd5e1', borderRadius: '6px',
     padding: '8px 10px', fontSize: '12px', fontFamily: 'Karla, sans-serif',
-    color: INK, background: '#fff', outline: 'none',
+    color: '#132b31', background: '#fff', outline: 'none',
   };
 
   const tabCounts = {
@@ -169,10 +169,10 @@ export default function LTFUPage() {
 
         {/* Mass SMS actions */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ display: 'flex', background: '#e0e0de', borderRadius: '4px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '6px', overflow: 'hidden' }}>
             {(['en', 'sw'] as const).map((l) => (
               <button key={l} onClick={() => setLang(l)}
-                style={{ padding: '6px 14px', border: 'none', background: lang === l ? TEAL : 'transparent', color: lang === l ? '#fff' : '#516169', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                style={{ padding: '6px 14px', border: 'none', background: lang === l ? TEAL : 'transparent', color: lang === l ? '#fff' : '#64748b', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Karla, sans-serif', textTransform: 'uppercase' }}>
                 {l.toUpperCase()}
               </button>
             ))}
@@ -181,7 +181,7 @@ export default function LTFUPage() {
           <button
             onClick={() => handleMassSMS(reminderPatients.filter((p) => !!p.phone), 'reminder')}
             disabled={massSending || reminderPatients.length === 0}
-            style={{ padding: '7px 14px', borderRadius: '4px', border: 'none', background: reminderPatients.length ? '#0d6e87' : '#e0e0de', color: reminderPatients.length ? '#fff' : '#516169', fontSize: '11px', fontWeight: 700, cursor: reminderPatients.length ? 'pointer' : 'not-allowed', fontFamily: 'Syne, sans-serif', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            style={{ padding: '7px 14px', borderRadius: '6px', border: 'none', background: reminderPatients.length ? '#10b981' : '#e2e8f0', color: reminderPatients.length ? '#fff' : '#64748b', fontSize: '11px', fontWeight: 700, cursor: reminderPatients.length ? 'pointer' : 'not-allowed', fontFamily: 'Karla, sans-serif', display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
             {massSending ? 'Sending…' : <><Calendar size={12} /> Remind Tomorrow ({reminderPatients.filter(p=>p.phone).length})</>}
           </button>
@@ -189,14 +189,14 @@ export default function LTFUPage() {
           <button
             onClick={() => handleMassSMS(ltfuPatients, 'LTFU')}
             disabled={massSending || ltfuPatients.length === 0}
-            style={{ padding: '7px 14px', borderRadius: '4px', border: 'none', background: ltfuPatients.length ? '#dc2626' : '#e0e0de', color: ltfuPatients.length ? '#fff' : '#516169', fontSize: '11px', fontWeight: 700, cursor: ltfuPatients.length ? 'pointer' : 'not-allowed', fontFamily: 'Syne, sans-serif', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            style={{ padding: '7px 14px', borderRadius: '6px', border: 'none', background: ltfuPatients.length ? '#dc2626' : '#e2e8f0', color: ltfuPatients.length ? '#fff' : '#64748b', fontSize: '11px', fontWeight: 700, cursor: ltfuPatients.length ? 'pointer' : 'not-allowed', fontFamily: 'Karla, sans-serif', display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
             {massSending ? 'Sending…' : <><AlertTriangle size={12} /> LTFU Mass SMS ({ltfuPatients.length})</>}
           </button>
 
           <button
             onClick={() => setConfigOpen(!configOpen)}
-            style={{ padding: '7px 14px', borderRadius: '4px', border: `1.5px solid ${TEAL}`, background: '#fff', color: TEAL, fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Syne, sans-serif', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            style={{ padding: '7px 14px', borderRadius: '6px', border: `1px solid ${TEAL}`, background: '#fff', color: TEAL, fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Karla, sans-serif', display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
             <Settings size={12} /> SMS Config
           </button>

@@ -47,10 +47,10 @@ export default function NavTabs() {
               padding: '0 16px',
               fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '.5px',
-              color: active ? '#0d6e87' : '#516169',
+              color: active ? '#10b981' : '#94a3b8',
               background: 'transparent',
               border: 'none',
-              borderBottom: active ? '2.5px solid #0d6e87' : '2.5px solid transparent',
+              borderBottom: active ? '2.5px solid #10b981' : '2.5px solid transparent',
               marginBottom: -1,
               cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap',
             }}
@@ -63,7 +63,7 @@ export default function NavTabs() {
               <span style={{
                 minWidth: 18, height: 18, padding: '0 5px',
                 borderRadius: 9999, fontSize: 9, fontWeight: 800,
-                background: '#dc2626', color: '#fff',
+                background: '#ef4444', color: '#fff',
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 {(t as any).badge}

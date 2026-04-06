@@ -32,8 +32,8 @@ function parseNumber(v: string) {
 }
 
 // ── Section card matching Stitch design ──────────────────────
-const INK  = '#0f1f26';
-const TEAL = '#0d6e87';
+const INK  = '#132b31';
+const TEAL = '#10b981';
 
 function SectionCard({
   title, color = INK, bg = '#fff', children, defaultOpen = true,
@@ -437,7 +437,7 @@ export default function VisitModal() {
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0" onClick={close} style={{ background: 'rgba(0,0,0,.45)' }} />
 
-      <div className="absolute inset-y-0 right-0 w-full max-w-[760px] bg-white border-l border-[var(--border)] flex flex-col" style={{ boxShadow: '-8px 0 48px rgba(15,31,38,.2)' }}>
+      <div className="absolute inset-y-0 right-0 w-full max-w-[760px] bg-white border-l border-slate-200 flex flex-col" style={{ boxShadow: '-8px 0 48px rgba(15,31,38,.2)' }}>
 
         {/* ── Header ──────────────────────────────────────── */}
         <div style={{ background: INK, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

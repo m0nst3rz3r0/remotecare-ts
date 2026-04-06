@@ -62,7 +62,7 @@ const STATUS_CFG: Record<SlotStatus, { label: string; bg: string; color: string;
 
 function condStyle(cond: Patient['cond']): React.CSSProperties {
   if (cond === 'DM+HTN') return { background: 'rgba(217,119,6,.12)', color: '#d97706' };
-  if (cond === 'DM')     return { background: 'rgba(13,110,135,.12)', color: '#0d6e87' };
+  if (cond === 'DM')     return { background: 'rgba(16,185,129,.12)', color: '#10b981' };
   return                        { background: 'rgba(220,38,38,.12)',  color: '#dc2626' };
 }
 
@@ -113,7 +113,7 @@ function StatCard({ label, value, sub, color, ring, total }: {
         <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 26, color, lineHeight: 1 }}>
           {value}
         </div>
-        <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.5px', color: '#516169', marginTop: 2 }}>
+        <div style={{ fontFamily: 'Karla, sans-serif', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginTop: 2 }}>
           {label}
         </div>
         {sub && <div style={{ fontSize: 10, color: '#6f797d', marginTop: 1 }}>{sub}</div>}
@@ -402,7 +402,7 @@ export default function ClinicPage() {
 
   // ══════════════════════════════════════════════════════════
   return (
-    <div style={{ padding: '24px 28px', background: '#f9f9f7', minHeight: '100vh' }}>
+    <div style={{ padding: '24px 28px', background: '#f8fafc', minHeight: '100vh' }}>
 
       {/* ── Header + live clock ── */}
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -410,10 +410,10 @@ export default function ClinicPage() {
           <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.6px', color: '#6f797d', marginBottom: 3 }}>
             Registry › Clinic Day
           </div>
-          <h1 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 28, color: '#0f1f26', margin: 0 }}>
+          <h1 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 28, color: '#132b31', margin: 0 }}>
             Today's Clinic
           </h1>
-          <div style={{ fontSize: 12, color: '#516169', marginTop: 3 }}>{dateStr}</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>{dateStr}</div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>

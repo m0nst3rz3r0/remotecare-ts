@@ -85,16 +85,15 @@ export default function SyncBar() {
 
   return (
     <div
-      className="h-auto px-3 py-2 border-b border-[var(--border)]"
-      style={{ background: 'linear-gradient(135deg,var(--teal-ultra),rgba(250,250,248,.85))' }}
+      className="h-auto px-3 py-2 border-b border-slate-200 bg-slate-50"
     >
       <div className="flex items-center gap-3">
         {conn === 'online' ? (
-          <span className="w-2.5 h-2.5 rounded-full bg-[var(--emerald)]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-brand-emerald" />
         ) : conn === 'offline' ? (
-          <span className="w-2.5 h-2.5 rounded-full bg-[var(--amber)]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
         ) : (
-          <span className="w-2.5 h-2.5 rounded-full border-2 border-[var(--teal)] border-t-transparent animate-spin" />
+          <span className="w-2.5 h-2.5 rounded-full border-2 border-brand-emerald border-t-transparent animate-spin" />
         )}
 
         <div className="flex-1 min-w-0">
@@ -109,7 +108,7 @@ export default function SyncBar() {
               Connected · Last synced: {formatLastSync(lastSyncAt)}
             </div>
           )}
-          <div className="text-[10px] uppercase tracking-[0.5px] text-[var(--slate)]">
+          <div className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
             Offline-first NCD management
           </div>
         </div>

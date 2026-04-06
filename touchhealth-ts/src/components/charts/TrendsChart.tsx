@@ -29,8 +29,8 @@ export default function TrendsChart({ patients, year }: { patients: Patient[]; y
   );
 
   const attendanceSeries = useMemo(() => {
-    const teal = cssVar('--teal', '#0d6e87');
-    const tealPale = cssVar('--teal-pale', '#e4f6fb');
+    const emerald = cssVar('--emerald', '#10b981');
+    const emeraldPale = cssVar('--emerald-pale', '#d1fae5');
 
     const series = labels.map((_, idx) => {
       const m = idx + 1;
@@ -42,7 +42,7 @@ export default function TrendsChart({ patients, year }: { patients: Patient[]; y
       return total ? Math.round((attended / total) * 100) : null;
     });
 
-    return { series, teal, tealPale };
+    return { series, emerald, emeraldPale };
   }, [labels, patients, year]);
 
   const drugUsageSeries = useMemo(() => {
@@ -85,8 +85,8 @@ export default function TrendsChart({ patients, year }: { patients: Patient[]; y
         {
           label: 'Attendance %',
           data: attendanceSeries.series,
-          borderColor: attendanceSeries.teal,
-          backgroundColor: attendanceSeries.tealPale,
+          borderColor: attendanceSeries.emerald,
+          backgroundColor: attendanceSeries.emeraldPale,
           fill: false,
           tension: 0.25,
           spanGaps: true,
@@ -119,22 +119,22 @@ export default function TrendsChart({ patients, year }: { patients: Patient[]; y
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white border border-[var(--border)] rounded-[var(--r)] p-4">
-          <div className="font-syne font-extrabold text-[14px] mb-2">Monthly Enrolment</div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <div className="font-syne font-semibold text-[14px] mb-2">Monthly Enrolment</div>
           <EnrolmentChart patients={patients} year={year} />
         </div>
-        <div className="bg-white border border-[var(--border)] rounded-[var(--r)] p-4">
-          <div className="font-syne font-extrabold text-[14px] mb-2">BP Control %</div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <div className="font-syne font-semibold text-[14px] mb-2">BP Control %</div>
           <BPControlChart patients={patients} year={year} />
         </div>
-        <div className="bg-white border border-[var(--border)] rounded-[var(--r)] p-4">
-          <div className="font-syne font-extrabold text-[14px] mb-2">Attendance %</div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <div className="font-syne font-semibold text-[14px] mb-2">Attendance %</div>
           <div className="w-full h-[240px]">
             <Line data={attendanceData as any} options={lineOptions as any} />
           </div>
         </div>
-        <div className="bg-white border border-[var(--border)] rounded-[var(--r)] p-4">
-          <div className="font-syne font-extrabold text-[14px] mb-2">Drug Usage %</div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <div className="font-syne font-semibold text-[14px] mb-2">Drug Usage %</div>
           <div className="w-full h-[240px]">
             <Line data={drugUsageData as any} options={lineOptions as any} />
           </div>

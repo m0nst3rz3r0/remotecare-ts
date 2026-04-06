@@ -73,7 +73,7 @@ export default function App() {
       <div style={{
         position: 'fixed', inset: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'linear-gradient(135deg,#0f1f26 0%,#005469 60%,#0d6e87 100%)',
+        background: '#132b31',
       }}>
         <div style={{ textAlign: 'center', color: '#fff' }}>
           <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
@@ -90,7 +90,7 @@ export default function App() {
   const role = currentUser.role;
 
   return (
-    <div className="min-h-screen bg-[var(--cream)]">
+    <div className="min-h-screen bg-brand-bg">
       <Topbar />
       <SyncBar />
       <NavTabs />

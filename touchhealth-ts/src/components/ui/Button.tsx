@@ -11,15 +11,15 @@ const sizeCls: Record<ButtonSize, string> = {
 
 const variantCls: Record<ButtonVariant, string> = {
   primary:
-    'bg-[var(--teal)] text-white border border-[var(--teal)] hover:bg-[var(--teal2)]',
+    'bg-brand-emerald text-white border border-brand-emerald hover:bg-emerald-600',
   teal:
-    'bg-[var(--teal2)] text-white border border-[var(--teal2)] hover:bg-[var(--teal3)]',
+    'bg-brand-emerald text-white border border-brand-emerald hover:bg-emerald-600',
   amber:
-    'bg-[var(--amber)] text-white border border-[var(--amber)] hover:bg-[var(--amber)]/90',
+    'bg-amber-500 text-white border border-amber-500 hover:bg-amber-600',
   ghost:
-    'bg-transparent text-[var(--teal)] border border-[var(--border)] hover:bg-[var(--teal-ultra)]',
+    'bg-transparent text-brand-dark border border-slate-200 hover:bg-slate-50',
   danger:
-    'bg-[var(--rose)] text-white border border-[var(--rose)] hover:bg-[var(--rose)]/90',
+    'bg-rose-500 text-white border border-rose-500 hover:bg-rose-600',
 };
 
 export default function Button({
@@ -43,7 +43,7 @@ export default function Button({
     <button
       type={type}
       className={[
-        'inline-flex items-center justify-center gap-2 rounded-[var(--r-sm)] font-bold',
+        'inline-flex items-center justify-center gap-2 rounded-md font-semibold',
         'transition-colors select-none',
         sizeCls[size],
         variantCls[variant],

@@ -29,9 +29,9 @@ export default function HbA1cBox({
   })();
 
   return (
-    <div className="rounded-[var(--r)] border border-[var(--border)] p-3" style={{ background: 'var(--amber-pale)' }}>
+    <div className="rounded-xl border border-slate-200 p-3" style={{ background: '#fef3c7' }}>
       <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-        <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)]">
+        <div className="text-xs uppercase font-bold tracking-wider text-slate-500">
           HbA1c (DM only)
         </div>
         <Chip cls={classification ? classification.cls : 'chip-gray'} title="Control status">
@@ -39,13 +39,13 @@ export default function HbA1cBox({
         </Chip>
       </div>
 
-      <div className="mb-3 text-[12px] font-extrabold text-[var(--ink2)]">
+      <div className="mb-3 text-[12px] font-semibold text-brand-dark">
         {lastBadge}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
         <div>
-          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+          <div className="text-xs uppercase font-bold tracking-wider text-slate-500 mb-1">
             HbA1c %
           </div>
           <input
@@ -56,19 +56,19 @@ export default function HbA1cBox({
             max="15"
             value={value}
             onChange={(e) => onValueChange(e.target.value)}
-            className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald"
             placeholder="e.g. 7.8"
           />
         </div>
 
         <div>
-          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+          <div className="text-xs uppercase font-bold tracking-wider text-slate-500 mb-1">
             Quarter
           </div>
           <select
             value={quarter}
             onChange={(e) => onQuarterChange(e.target.value as HbA1cQuarter)}
-            className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald"
           >
             {(['Q1', 'Q2', 'Q3', 'Q4'] as HbA1cQuarter[]).map((q) => (
               <option key={q} value={q}>
@@ -78,23 +78,23 @@ export default function HbA1cBox({
           </select>
         </div>
 
-        <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)]">
+        <div className="text-xs uppercase font-bold tracking-wider text-slate-500">
           Target ≤ 8%
         </div>
       </div>
 
       {/* Reference thresholds */}
       <div className="mt-4">
-        <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-2">
+        <div className="text-xs uppercase font-bold tracking-wider text-slate-500 mb-2">
           Threshold reference
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-3 rounded bg-[var(--emerald-pale)]" />
-          <div className="flex-1 h-3 rounded bg-[var(--amber-pale)]" />
-          <div className="flex-1 h-3 rounded bg-[var(--teal-pale)]" />
-          <div className="flex-1 h-3 rounded bg-[var(--rose-pale)]" />
+          <div className="flex-1 h-3 rounded bg-emerald-100" />
+          <div className="flex-1 h-3 rounded bg-amber-100" />
+          <div className="flex-1 h-3 rounded bg-blue-100" />
+          <div className="flex-1 h-3 rounded bg-rose-100" />
         </div>
-        <div className="mt-2 text-[10px] font-extrabold text-[var(--slate)] flex items-center justify-between">
+        <div className="mt-2 text-[10px] font-semibold text-slate-500 flex items-center justify-between">
           <span>Normal</span>
           <span>Pre-DM</span>
           <span>Target</span>
@@ -102,7 +102,7 @@ export default function HbA1cBox({
         </div>
       </div>
 
-      <div className="mt-3 text-[11px] text-[var(--slate)] font-bold">
+      <div className="mt-3 text-[11px] text-slate-500 font-semibold">
         Leave blank if not tested this quarter.
       </div>
     </div>

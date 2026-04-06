@@ -6,14 +6,14 @@ const VARIANT: Record<
   AlertVariant,
   { bg: string; border: string; text: string }
 > = {
-  red: { bg: 'var(--rose-pale)', border: 'var(--rose)', text: 'var(--rose)' },
-  amber: { bg: 'var(--amber-pale)', border: 'var(--amber)', text: 'var(--amber)' },
+  red: { bg: '#fee2e2', border: '#ef4444', text: '#dc2626' },
+  amber: { bg: '#fef3c7', border: '#f59e0b', text: '#d97706' },
   green: {
-    bg: 'var(--emerald-pale)',
-    border: 'var(--emerald)',
-    text: 'var(--emerald)',
+    bg: '#d1fae5',
+    border: '#10b981',
+    text: '#059669',
   },
-  blue: { bg: 'var(--teal-pale)', border: 'var(--teal)', text: 'var(--teal)' },
+  blue: { bg: '#f0f9ff', border: '#0ea5e9', text: '#0284c7' },
 };
 
 export default function Alert({
@@ -28,7 +28,7 @@ export default function Alert({
   const v = VARIANT[variant];
   return (
     <div
-      className="flex items-start gap-3 border rounded-[var(--r)] px-4 py-3"
+      className="flex items-start gap-3 border rounded-xl px-4 py-3"
       style={{
         background: v.bg,
         borderColor: v.border,
@@ -37,7 +37,7 @@ export default function Alert({
       }}
     >
       {icon ? <div className="pt-0.5">{icon}</div> : null}
-      <div className="text-sm font-bold">{children}</div>
+      <div className="text-sm font-semibold">{children}</div>
     </div>
   );
 }

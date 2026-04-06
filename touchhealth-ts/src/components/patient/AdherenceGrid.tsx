@@ -16,12 +16,12 @@ export default function AdherenceGrid({ patient }: { patient: Patient }) {
   const adherenceScore = Math.round((attendedCount / 12) * 100);
 
   return (
-    <div style={{ background: '#f4f4f2', padding: '16px', borderRadius: '10px' }}>
+    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px' }}>
       <div className="flex items-center justify-between mb-4">
-        <div className="text-[10px] uppercase font-extrabold tracking-[0.5px]" style={{ color: '#516169' }}>
+        <div className="text-xs uppercase font-bold tracking-wider text-slate-500">
           12-month adherence (Jan–Dec)
         </div>
-        <div className="font-mono text-sm font-bold" style={{ color: '#0d6e87' }}>
+        <div className="font-mono text-sm font-semibold" style={{ color: '#10b981' }}>
           {adherenceScore}%
         </div>
       </div>
@@ -51,7 +51,7 @@ export default function AdherenceGrid({ patient }: { patient: Patient }) {
             icon = 'close';
           } else {
             bg = '#e8e8e6';
-            fg = '#516169';
+            fg = '#64748b';
             icon = 'schedule';
           }
 
@@ -65,7 +65,7 @@ export default function AdherenceGrid({ patient }: { patient: Patient }) {
                 background: bg, 
                 opacity,
                 height: '48px',
-                borderColor: 'rgba(191,200,205,.2)'
+                borderColor: '#e2e8f0'
               }}
             >
               {icon && (

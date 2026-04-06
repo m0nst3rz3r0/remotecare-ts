@@ -512,15 +512,15 @@ export default function PatientSidebar() {
       />
 
       {/* ── Search + filters — IDENTICAL to before ── */}
-      <div className="rounded-[var(--r)] bg-white border border-[var(--border)] p-3">
-        <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+      <div className="rounded-xl bg-white border border-slate-200 p-3">
+        <div className="text-xs uppercase font-bold tracking-wider text-slate-500 mb-1">
           Search
         </div>
         <input
           value={searchQuery}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search code, phone or address"
-          className="w-full rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald"
         />
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -532,10 +532,10 @@ export default function PatientSidebar() {
                 type="button"
                 onClick={() => setFilter(f.id)}
                 className={[
-                  'px-2 py-1 rounded-full border text-[10px] uppercase font-extrabold tracking-[0.5px]',
+                  'px-2 py-1 rounded-full border text-[10px] uppercase font-bold tracking-wider',
                   isActive
-                    ? 'bg-[var(--teal-ultra)] border-[var(--teal)] text-[var(--teal)]'
-                    : 'bg-white border-[var(--border)] text-[var(--ink)]',
+                    ? 'bg-emerald-50 border-brand-emerald text-brand-emerald'
+                    : 'bg-white border-slate-200 text-brand-dark',
                 ].join(' ')}
               >
                 {f.label}
@@ -546,9 +546,9 @@ export default function PatientSidebar() {
       </div>
 
       {/* ── Patient list — IDENTICAL to before ── */}
-      <div className="rounded-[var(--r)] bg-white border border-[var(--border)] overflow-hidden">
-        <div className="px-3 py-2 border-b border-[var(--border)]">
-          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)]">
+      <div className="rounded-xl bg-white border border-slate-200 overflow-hidden">
+        <div className="px-3 py-2 border-b border-slate-200">
+          <div className="text-xs uppercase font-bold tracking-wider text-slate-500">
             Patients ({filteredPatients.length})
           </div>
         </div>
@@ -563,7 +563,7 @@ export default function PatientSidebar() {
               />
             ))
           ) : (
-            <div className="p-4 text-[var(--slate)] text-[13px] text-center">
+            <div className="p-4 text-slate-500 text-[13px] text-center">
               No patients match your filters.
             </div>
           )}

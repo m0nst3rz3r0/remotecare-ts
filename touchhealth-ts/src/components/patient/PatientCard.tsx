@@ -37,13 +37,13 @@ export default function PatientCard({
       className={[
         'w-full text-left rounded-lg transition p-3',
         selected
-          ? 'bg-[rgba(13,110,135,.08)]'
-          : 'bg-white hover:bg-[rgba(13,110,135,.04)]',
+          ? 'bg-emerald-50'
+          : 'bg-white hover:bg-slate-50',
       ].join(' ')}
       style={{ 
         border: 'none',
-        borderLeft: selected ? '3px solid #0d6e87' : '3px solid transparent',
-        boxShadow: selected ? '0 2px 8px rgba(13,110,135,.1)' : '0 1px 3px rgba(15,31,38,.06)'
+        borderLeft: selected ? '3px solid #10b981' : '3px solid transparent',
+        boxShadow: selected ? '0 1px 3px rgba(16,185,129,.1)' : '0 1px 3px rgba(15,31,38,.06)'
       }}
     >
       <div className="flex items-start gap-3">
@@ -54,20 +54,20 @@ export default function PatientCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-2">
             <span className={[
-              'px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-[0.5px]',
+              'px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider',
               conditionChipCls(patient.cond)
             ].join(' ')}>
               {patient.cond}
             </span>
             <span className={[
-              'px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-[0.5px]',
+              'px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider',
               statusChipCls(patient.status)
             ].join(' ')}>
               {patient.status === 'ltfu' ? 'LTFU' : patient.status.toUpperCase()}
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-xs" style={{ color: '#516169' }}>
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span style={{ fontFamily: 'Karla, sans-serif' }}>
               {patient.age}y · {patient.sex}
             </span>

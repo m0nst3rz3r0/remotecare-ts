@@ -147,13 +147,13 @@ export default function ReportsPage() {
     <PageWrapper title="Reports">
       <div className="flex flex-wrap items-end gap-3 justify-between mb-3">
         <div>
-          <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">
+          <div className="text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-1">
             Month
           </div>
           <select
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}
-            className="rounded-[var(--r-sm)] border border-[var(--border)] px-3 py-2 outline-none bg-white"
+            className="rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald"
           >
             {MONTHS.map((m, idx) => (
               <option key={m} value={idx + 1}>
@@ -169,9 +169,9 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="rounded-[var(--r)] border border-[var(--border)] bg-white overflow-hidden">
-        <div className="px-4 py-4" style={{ background: 'linear-gradient(135deg,var(--ink),var(--ink2))', color: '#fff' }}>
-          <div className="font-syne font-extrabold text-[20px]">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <div className="px-4 py-4 bg-brand-dark" style={{ color: '#fff' }}>
+          <div className="font-syne font-semibold text-brand-dark text-[20px]">
             Monthly Report — {monthName} {year}
           </div>
           <div className="mt-1 text-[12px]" style={{ opacity: 0.7 }}>
@@ -185,7 +185,7 @@ export default function ReportsPage() {
             <div className="overflow-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)]">
+                  <tr className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
                     <th className="pb-2 pr-2">Card No</th>
                     <th className="pb-2 pr-2">Attend</th>
                     <th className="pb-2 pr-2">BP</th>
@@ -196,7 +196,7 @@ export default function ReportsPage() {
                 <tbody>
                   {visitRows.map((r) => (
                     <tr key={`${r.patient.id}-${r.visit.id}`}>
-                      <td className="py-2 pr-2 font-extrabold mono text-[12px] text-[var(--ink)]">
+                      <td className="py-2 pr-2 font-semibold mono text-[12px] text-brand-dark">
                         {r.patient.code}
                       </td>
                       <td className="py-2 pr-2">
@@ -204,7 +204,7 @@ export default function ReportsPage() {
                           {r.visit.att ? 'Attended' : 'Missed'}
                         </Chip>
                       </td>
-                      <td className="py-2 pr-2 text-[12px] text-[var(--slate)]">
+                      <td className="py-2 pr-2 text-[12px] text-slate-500">
                         {r.bp && r.visit.sbp && r.visit.dbp ? (
                           <span>
                             {r.visit.sbp}/{r.visit.dbp} {r.bp.lbl}
@@ -213,7 +213,7 @@ export default function ReportsPage() {
                           '—'
                         )}
                       </td>
-                      <td className="py-2 pr-2 text-[12px] text-[var(--slate)]">
+                      <td className="py-2 pr-2 text-[12px] text-slate-500">
                         {r.sg && r.visit.sugar && r.visit.sugarType ? (
                           <span>
                             {r.visit.sugar} {r.visit.sugarType} {r.sg.lbl}
@@ -222,7 +222,7 @@ export default function ReportsPage() {
                           '—'
                         )}
                       </td>
-                      <td className="py-2 pr-2 text-[12px] text-[var(--slate)]">
+                      <td className="py-2 pr-2 text-[12px] text-slate-500">
                         {(r.visit.meds ?? []).length
                           ? r.visit.meds.map((m) => m.name).join(', ')
                           : '—'}
@@ -234,7 +234,7 @@ export default function ReportsPage() {
             </div>
           ) : (
             <div className="text-center py-12">
-              <div className="text-[var(--slate)] font-extrabold">
+              <div className="text-slate-500 font-semibold">
                 No visits recorded for {monthName} {year}.
               </div>
             </div>
