@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Calendar, AlertTriangle, Check, Smartphone, ClipboardList, Settings } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePatientStore, selectVisiblePatients, selectSelectedPatient } from '../store/usePatientStore';
 import { isDue } from '../services/clinical';
@@ -180,31 +181,31 @@ export default function LTFUPage() {
           <button
             onClick={() => handleMassSMS(reminderPatients.filter((p) => !!p.phone), 'reminder')}
             disabled={massSending || reminderPatients.length === 0}
-            style={{ padding: '7px 14px', borderRadius: '4px', border: 'none', background: reminderPatients.length ? '#0d6e87' : '#e0e0de', color: reminderPatients.length ? '#fff' : '#516169', fontSize: '11px', fontWeight: 700, cursor: reminderPatients.length ? 'pointer' : 'not-allowed', fontFamily: 'Syne, sans-serif' }}
+            style={{ padding: '7px 14px', borderRadius: '4px', border: 'none', background: reminderPatients.length ? '#0d6e87' : '#e0e0de', color: reminderPatients.length ? '#fff' : '#516169', fontSize: '11px', fontWeight: 700, cursor: reminderPatients.length ? 'pointer' : 'not-allowed', fontFamily: 'Syne, sans-serif', display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
-            {massSending ? 'Sending…' : `📅 Remind Tomorrow (${reminderPatients.filter(p=>p.phone).length})`}
+            {massSending ? 'Sending…' : <><Calendar size={12} /> Remind Tomorrow ({reminderPatients.filter(p=>p.phone).length})</>}
           </button>
 
           <button
             onClick={() => handleMassSMS(ltfuPatients, 'LTFU')}
             disabled={massSending || ltfuPatients.length === 0}
-            style={{ padding: '7px 14px', borderRadius: '4px', border: 'none', background: ltfuPatients.length ? '#dc2626' : '#e0e0de', color: ltfuPatients.length ? '#fff' : '#516169', fontSize: '11px', fontWeight: 700, cursor: ltfuPatients.length ? 'pointer' : 'not-allowed', fontFamily: 'Syne, sans-serif' }}
+            style={{ padding: '7px 14px', borderRadius: '4px', border: 'none', background: ltfuPatients.length ? '#dc2626' : '#e0e0de', color: ltfuPatients.length ? '#fff' : '#516169', fontSize: '11px', fontWeight: 700, cursor: ltfuPatients.length ? 'pointer' : 'not-allowed', fontFamily: 'Syne, sans-serif', display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
-            {massSending ? 'Sending…' : `⚠ LTFU Mass SMS (${ltfuPatients.length})`}
+            {massSending ? 'Sending…' : <><AlertTriangle size={12} /> LTFU Mass SMS ({ltfuPatients.length})</>}
           </button>
 
           <button
             onClick={() => setConfigOpen(!configOpen)}
-            style={{ padding: '7px 14px', borderRadius: '4px', border: `1.5px solid ${TEAL}`, background: '#fff', color: TEAL, fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}
+            style={{ padding: '7px 14px', borderRadius: '4px', border: `1.5px solid ${TEAL}`, background: '#fff', color: TEAL, fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Syne, sans-serif', display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
-            ⚙ SMS Config
+            <Settings size={12} /> SMS Config
           </button>
         </div>
       </div>
 
       {massResult && (
-        <div style={{ marginBottom: '12px', padding: '10px 16px', background: '#dcfce7', border: '1.5px solid #16a34a', borderRadius: '6px', color: '#14532d', fontSize: '13px', fontWeight: 700 }}>
-          ✓ {massResult}
+        <div style={{ marginBottom: '12px', padding: '10px 16px', background: '#dcfce7', border: '1.5px solid #16a34a', borderRadius: '6px', color: '#14532d', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Check size={14} /> {massResult}
         </div>
       )}
 
@@ -242,7 +243,7 @@ export default function LTFUPage() {
               <button onClick={handleSaveConfig} style={{ padding: '8px 20px', borderRadius: '4px', border: 'none', background: TEAL, color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}>
                 Save Configuration
               </button>
-              {configSaved && <span style={{ color: '#16a34a', fontSize: '12px', fontWeight: 700 }}>✓ Saved</span>}
+              {configSaved && <span style={{ color: '#16a34a', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Saved</span>}
               <span style={{ fontSize: '11px', color: '#516169' }}>Supported: Africa's Talking, Twilio · No API key = demo mode</span>
             </div>
           </div>
@@ -322,15 +323,16 @@ export default function LTFUPage() {
                         fontWeight: 700, fontFamily: 'Syne, sans-serif', cursor: p.phone ? 'pointer' : 'not-allowed',
                         background: p.phone ? TEAL : '#e0e0de', color: p.phone ? '#fff' : '#516169',
                         opacity: isSending ? 0.6 : 1,
+                        display: 'inline-flex', alignItems: 'center', gap: 4
                       }}
                     >
-                      {isSending ? 'Sending…' : '📱 Send SMS'}
+                      {isSending ? 'Sending…' : <><Smartphone size={10} /> Send SMS</>}
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setSelectedLogPt(selectedLogPt === p.code ? null : p.code); }}
-                      style={{ padding: '4px 8px', borderRadius: '4px', border: `1px solid rgba(191,200,205,.5)`, background: selectedLogPt === p.code ? '#f4f4f2' : '#fff', fontSize: '10px', fontWeight: 700, cursor: 'pointer', color: '#516169', fontFamily: 'Syne, sans-serif' }}
+                      style={{ padding: '4px 8px', borderRadius: '4px', border: `1px solid rgba(191,200,205,.5)`, background: selectedLogPt === p.code ? '#f4f4f2' : '#fff', fontSize: '10px', fontWeight: 700, cursor: 'pointer', color: '#516169', fontFamily: 'Syne, sans-serif', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                     >
-                      📋 Log
+                      <ClipboardList size={10} /> Log
                     </button>
                   </div>
                 </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Check, ChevronDown, Star, X } from 'lucide-react';
 import type { HbA1cQuarter, Medication, Patient, SugarTestType } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
 import { usePatientStore } from '../../store/usePatientStore';
@@ -48,7 +49,7 @@ function SectionCard({
           {title}
         </span>
         <span style={{ color: 'rgba(255,255,255,.7)', fontSize: '16px', lineHeight: 1, transition: 'transform .2s', display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-          ▾
+          <ChevronDown size={16} />
         </span>
       </div>
       {open && <div style={{ padding: '14px' }}>{children}</div>}
@@ -116,13 +117,13 @@ function DiagnosisSearch({
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: d.isPrimary ? TEAL : '#516169', fontWeight: 700, padding: '0 2px' }}
                   title={d.isPrimary ? 'Primary diagnosis' : 'Set as primary'}
                 >
-                  {d.isPrimary ? '★' : '☆'}
+                  {d.isPrimary ? <Star size={10} fill={TEAL} /> : <Star size={10} />}
                 </button>
               )}
               <button
                 onClick={() => onRemove(d.code)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '14px', lineHeight: 1, padding: '0 2px' }}
-              >×</button>
+              ><X size={14} /></button>
             </div>
           ))}
         </div>
@@ -739,7 +740,7 @@ export default function VisitModal() {
                               opacity: already ? 0.7 : 1,
                             }}
                           >
-                            {already ? '✓ ' : '+ '}{t.name}
+                            {already ? <><Check size={12} /> </> : '+ '}{t.name}
                           </button>
                         );
                       })}

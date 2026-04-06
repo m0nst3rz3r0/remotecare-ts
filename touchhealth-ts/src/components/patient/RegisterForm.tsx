@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Check } from 'lucide-react';
 import { TZ_GEO } from '../../utils/geo';
 import { useAuthStore } from '../../store/useAuthStore';
 import { usePatientStore } from '../../store/usePatientStore';
@@ -309,13 +310,13 @@ export default function RegisterForm() {
 
       {/* ── Error / Success ────────────────────────────────── */}
       {error && (
-        <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#ffdad6', border: '1.5px solid #ba1a1a', borderRadius: '6px', color: '#93000a', fontSize: '13px', fontWeight: 700 }}>
-          ⚠ {error}
+        <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#ffdad6', border: '1.5px solid #ba1a1a', borderRadius: '6px', color: '#93000a', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <AlertTriangle size={14} /> {error}
         </div>
       )}
       {success && (
-        <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#dcfce7', border: '1.5px solid #16a34a', borderRadius: '6px', color: '#14532d', fontSize: '13px', fontWeight: 700 }}>
-          ✓ {success}
+        <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#dcfce7', border: '1.5px solid #16a34a', borderRadius: '6px', color: '#14532d', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Check size={14} /> {success}
         </div>
       )}
 

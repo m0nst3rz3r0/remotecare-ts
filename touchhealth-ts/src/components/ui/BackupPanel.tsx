@@ -4,6 +4,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { useRef, useState } from 'react';
+import { Save, Upload, AlertTriangle, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
   exportBackup, restoreFromFile, backupStatus,
@@ -23,7 +24,7 @@ export default function BackupPanel() {
     const bytes = exportBackup(name);
     setStatus(backupStatus());
     setMeta(loadBackupMeta());
-    setMsg({ type: 'ok', text: `✅ Backup downloaded successfully (${formatBytes(bytes)})` });
+    setMsg({ type: 'ok', text: `Backup downloaded successfully (${formatBytes(bytes)})` });
   }
 
   async function doRestore(e: React.ChangeEvent<HTMLInputElement>) {
@@ -33,10 +34,10 @@ export default function BackupPanel() {
     const result = await restoreFromFile(file);
     setRestoring(false);
     if (result.success) {
-      setMsg({ type: 'ok', text: `✅ ${result.message} · Patients: ${result.counts.patients ?? 0} · Users: ${result.counts.users ?? 0}` });
+      setMsg({ type: 'ok', text: `${result.message} · Patients: ${result.counts.patients ?? 0} · Users: ${result.counts.users ?? 0}` });
       window.location.reload(); // reload to reflect restored data
     } else {
-      setMsg({ type: 'err', text: `❌ ${result.error}` });
+      setMsg({ type: 'err', text: `${result.error}` });
     }
     // Reset file input
     if (fileRef.current) fileRef.current.value = '';
@@ -49,7 +50,7 @@ export default function BackupPanel() {
     <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(191,200,205,.18)', boxShadow: '0 2px 8px rgba(15,31,38,.06)' }}>
       {/* Header */}
       <div style={{ background: '#0f1f26', height: 40, display: 'flex', alignItems: 'center', padding: '0 16px', gap: 8 }}>
-        <span style={{ fontSize: 16 }}>💾</span>
+        <span style={{ fontSize: 16, display: 'inline-flex', alignItems: 'center' }}><Save size={16} /></span>
         <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.7px', color: '#fff' }}>
           Data Backup & Restore
         </span>
@@ -109,12 +110,11 @@ export default function BackupPanel() {
 
         {/* Warning if overdue */}
         {isDue && (
-          <div style={{
-            padding: '10px 14px', borderRadius: 4, marginBottom: 16, fontSize: 12,
+          <div style={{ padding: '10px 14px', borderRadius: 4, marginBottom: 16, fontSize: 12,
             background: 'rgba(217,119,6,.08)', border: '1px solid rgba(217,119,6,.2)', color: '#78350f',
             display: 'flex', alignItems: 'flex-start', gap: 8,
           }}>
-            <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+            <span style={{ fontSize: 16, flexShrink: 0 }}><AlertTriangle size={16} /></span>
             <div>
               <strong>Backup overdue.</strong> Your last backup was {daysSince} day{daysSince !== 1 ? 's' : ''} ago.
               Regular backups protect against data loss. Click "Download Backup" now.
@@ -144,7 +144,7 @@ export default function BackupPanel() {
               boxShadow: '0 4px 12px rgba(0,84,105,.25)',
             }}
           >
-            💾 Download Backup Now
+            <Save size={16} /> Download Backup Now
           </button>
 
           <button
@@ -160,7 +160,7 @@ export default function BackupPanel() {
               fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700,
             }}
           >
-            {restoring ? '⏳ Restoring…' : '📂 Restore from Backup'}
+            {restoring ? <><Loader2 size={16} className="animate-spin" /> Restoring…</> : <><Upload size={16} /> Restore from Backup</>}
           </button>
         </div>
 
@@ -173,8 +173,8 @@ export default function BackupPanel() {
           onChange={doRestore}
         />
 
-        <div style={{ marginTop: 12, fontSize: 10, color: '#6f797d', fontStyle: 'italic' }}>
-          ⚠️ Restoring a backup will replace ALL current data. This cannot be undone.
+        <div style={{ marginTop: 12, fontSize: 10, color: '#6f797d', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <AlertTriangle size={10} /> Restoring a backup will replace ALL current data. This cannot be undone.
         </div>
       </div>
     </div>

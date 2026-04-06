@@ -6,6 +6,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { useRef, useState, useMemo } from 'react';
+import { Pill, Syringe, Pencil, ClipboardList } from 'lucide-react';
 import type { Medication } from '../../types';
 import {
   HTN_MEDS, DM_MEDS, ALL_MEDS, getMedGroupsForDiagnoses,
@@ -31,8 +32,8 @@ const FREQ_OPTIONS = [
 
 // ── Core groups always shown ─────────────────────────────────
 const CORE_GROUPS = [
-  { label: '💊 HTN Medications', meds: HTN_MEDS },
-  { label: '💉 DM Medications',  meds: DM_MEDS  },
+  { label: 'HTN Medications', icon: Pill, meds: HTN_MEDS },
+  { label: 'DM Medications', icon: Syringe, meds: DM_MEDS  },
 ];
 
 // ── Styles ──────────────────────────────────────────────────
@@ -268,9 +269,10 @@ export default function MedRow({
                     fontFamily: 'Karla, sans-serif',
                     cursor: 'pointer', color: TEAL, fontStyle: 'italic',
                     background: '#f0fdf4',
+                    display: 'flex', alignItems: 'center', gap: 4
                   }}
                 >
-                  ✏️ Use: "{query}"
+                  <Pencil size={12} /> Use: "{query}"
                 </div>
               )}
             </div>
@@ -386,8 +388,9 @@ export default function MedRow({
                 paddingLeft: '2px',
                 borderTop: '1.5px solid rgba(0,84,105,.15)',
                 paddingTop: '8px',
+                display: 'flex', alignItems: 'center', gap: 4
               }}>
-                📋 Medications by Diagnosis
+                <ClipboardList size={12} /> Medications by Diagnosis
               </div>
               {dxGroups.map((group, gi) => (
                 <DiagnosisChipSection

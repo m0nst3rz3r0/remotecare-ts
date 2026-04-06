@@ -6,6 +6,7 @@
 // ════════════════════════════════════════════════════════════
 
 import type { Medication } from '../../types';
+import { Microscope, AlertTriangle, Pill } from 'lucide-react';
 import {
   checkInteractions,
   checkDiagnosisWarnings,
@@ -51,8 +52,9 @@ function LabRow({
         fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700,
         textTransform: 'uppercase', letterSpacing: '.4px',
         color: '#15803d', marginBottom: 4,
+        display: 'flex', alignItems: 'center', gap: 4
       }}>
-        🔬 Recommended Monitoring Labs:
+        <Microscope size={12} /> Recommended Monitoring Labs:
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {monitorParams.map((mp) => (
@@ -233,7 +235,7 @@ export default function DrugInteractionAlert({
         background: '#7f1d1d', padding: '8px 14px',
         display: 'flex', alignItems: 'center', gap: 8,
       }}>
-        <span style={{ fontSize: 16 }}>⚠️</span>
+        <span style={{ fontSize: 16, display: 'inline-flex', alignItems: 'center' }}><AlertTriangle size={16} /></span>
         <span style={{
           fontFamily: 'Syne, sans-serif', fontWeight: 700,
           fontSize: 11, color: '#fff', textTransform: 'uppercase', letterSpacing: '.5px',
@@ -250,8 +252,9 @@ export default function DrugInteractionAlert({
             background: 'rgba(234,179,8,.12)',
             fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700,
             textTransform: 'uppercase', letterSpacing: '.4px', color: '#78350f',
+            display: 'flex', alignItems: 'center', gap: 4
           }}>
-            🩺 Drug–Diagnosis Warnings ({dxWarnings.length})
+            <Microscope size={12} /> Drug–Diagnosis Warnings ({dxWarnings.length})
           </div>
           {dxWarnings.map((item, i) => (
             <DiagnosisDrugCard
@@ -274,8 +277,9 @@ export default function DrugInteractionAlert({
               background: 'rgba(220,38,38,.06)',
               fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '.4px', color: '#7f1d1d',
+              display: 'flex', alignItems: 'center', gap: 4
             }}>
-              💊 Drug–Drug Interactions ({interactions.length})
+              <Pill size={12} /> Drug–Drug Interactions ({interactions.length})
             </div>
           )}
           {interactions.map((item, i) => (

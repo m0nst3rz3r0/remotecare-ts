@@ -10,6 +10,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { useMemo, useState, useRef } from 'react';
+import { Check, Calendar, Search, User, PartyPopper } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
   usePatientStore,
@@ -95,14 +96,15 @@ function QueueCard({
           position: 'absolute', top: 4, right: 6,
           fontSize: 9, color: '#16a34a', fontWeight: 800,
           fontFamily: 'Syne, sans-serif',
-        }}>✓</div>
+        }}><Check size={9} /></div>
       )}
       {walkIn && !done && (
         <div style={{
           position: 'absolute', top: 4, right: 6,
           fontSize: 8, color: '#7c3aed', fontWeight: 700,
           fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.3px',
-        }}>walk-in</div>
+          display: 'inline-flex', alignItems: 'center', gap: 2
+        }}><User size={8} /> walk-in</div>
       )}
 
       {/* Code tag */}
@@ -267,7 +269,7 @@ function TodaysQueue({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 14 }}>🗓️</span>
+          <span style={{ fontSize: 14, display: 'inline-flex', alignItems: 'center' }}><Calendar size={14} /></span>
           <div style={{ textAlign: 'left' }}>
             <div style={{
               fontFamily: 'Syne, sans-serif', fontWeight: 800,
@@ -318,8 +320,9 @@ function TodaysQueue({
             <span style={{
               position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
               fontSize: 11, color: '#6f797d', pointerEvents: 'none',
+              display: 'inline-flex', alignItems: 'center'
             }}>
-              🔍
+              <Search size={11} />
             </span>
             <input
               ref={searchRef}
@@ -362,7 +365,7 @@ function TodaysQueue({
                 color: '#7c3aed', marginBottom: 6,
                 display: 'flex', alignItems: 'center', gap: 4,
               }}>
-                <span>🚶</span> Walk-in Match
+                <User size={9} /> Walk-in Match
               </div>
               {walkInResults.length === 0 ? (
                 <div style={{ fontSize: 11, color: '#6f797d', textAlign: 'center', padding: '8px 0', fontStyle: 'italic' }}>
@@ -419,12 +422,13 @@ function TodaysQueue({
               {filteredCompleted.length > 0 && (
                 <div>
                   <div style={{
-                    fontSize: 9, fontFamily: 'Syne, sans-serif', fontWeight: 700,
-                    textTransform: 'uppercase', letterSpacing: '.4px',
-                    color: '#16a34a', marginBottom: 5,
-                  }}>
-                    ✓ Seen · {filteredCompleted.length}
-                  </div>
+                fontSize: 9, fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '.4px',
+                color: '#16a34a', marginBottom: 5,
+                display: 'inline-flex', alignItems: 'center', gap: 4
+              }}>
+                <Check size={9} /> Seen · {filteredCompleted.length}
+              </div>
                   {filteredCompleted.map(p => (
                     <QueueCard
                       key={p.id}
@@ -451,8 +455,9 @@ function TodaysQueue({
                   textAlign: 'center', padding: '6px 0',
                   fontSize: 11, color: '#16a34a', fontWeight: 700,
                   fontFamily: 'Syne, sans-serif',
+                  display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: 'center'
                 }}>
-                  🎉 All patients seen today!
+                  <PartyPopper size={11} /> All patients seen today!
                 </div>
               )}
             </>

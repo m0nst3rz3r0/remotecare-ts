@@ -12,6 +12,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { useMemo, useState, useEffect } from 'react';
+import { Check, AlertTriangle, AlertOctagon, Trophy, ClipboardList, Calendar, Pin } from 'lucide-react';
 import { usePatientStore, selectVisiblePatients } from '../store/usePatientStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUIStore } from '../store/useUIStore';
@@ -53,10 +54,10 @@ function fmt12h(hour: number): string {
 
 // ── Status badge config ───────────────────────────────────────
 const STATUS_CFG: Record<SlotStatus, { label: string; bg: string; color: string; border: string }> = {
-  seen:     { label: '✓ Seen',     bg: '#dcfce7', color: '#14532d', border: '#86efac' },
-  expected: { label: '● Expected', bg: '#fef3c7', color: '#78350f', border: '#fcd34d' },
-  overdue:  { label: '! Overdue',  bg: '#fee2e2', color: '#7f1d1d', border: '#fca5a5' },
-  upcoming: { label: '→ Upcoming', bg: '#e0f2fe', color: '#0369a1', border: '#7dd3fc' },
+  seen:     { label: 'Seen',     bg: '#dcfce7', color: '#14532d', border: '#86efac' },
+  expected: { label: 'Expected', bg: '#fef3c7', color: '#78350f', border: '#fcd34d' },
+  overdue:  { label: 'Overdue',  bg: '#fee2e2', color: '#7f1d1d', border: '#fca5a5' },
+  upcoming: { label: 'Upcoming', bg: '#e0f2fe', color: '#0369a1', border: '#7dd3fc' },
 };
 
 function condStyle(cond: Patient['cond']): React.CSSProperties {
@@ -303,7 +304,7 @@ export default function ClinicPage() {
             {nextDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
           </div>
           <div style={{ fontSize: 10, color: '#6f797d' }}>
-            {p.scheduledNext ? '📌 confirmed' : '≈ predicted'}
+            {p.scheduledNext ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Pin size={10} /> confirmed</span> : '≈ predicted'}
           </div>
         </td>
 
@@ -315,11 +316,12 @@ export default function ClinicPage() {
               color: daysOverdue >= AUTO_LTFU_DAYS ? '#7f1d1d' : '#dc2626',
               background: daysOverdue >= AUTO_LTFU_DAYS ? 'rgba(127,29,29,.1)' : 'rgba(220,38,38,.08)',
               padding: '2px 7px', borderRadius: 4,
+              display: 'inline-flex', alignItems: 'center', gap: 4
             }}>
-              {daysOverdue >= AUTO_LTFU_DAYS ? '🚨' : '⚠️'} {daysOverdue}d late
+              {daysOverdue >= AUTO_LTFU_DAYS ? <AlertOctagon size={12} /> : <AlertTriangle size={12} />} {daysOverdue}d late
             </span>
           ) : slotStatus === 'seen' ? (
-            <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 700 }}>Attended ✓</span>
+            <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Attended</span>
           ) : slotStatus === 'expected' ? (
             <span style={{ fontSize: 10, color: '#d97706', fontWeight: 700 }}>Due today</span>
           ) : (
@@ -346,7 +348,7 @@ export default function ClinicPage() {
         {/* Action */}
         <td style={{ padding: '10px 14px' }}>
           {seenToday ? (
-            <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 700 }}>✓ Done</span>
+            <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Done</span>
           ) : (
             <button
               onClick={() => openVisitModal(p.id)}
@@ -479,7 +481,7 @@ export default function ClinicPage() {
           <div style={{ fontSize: 10, color: '#6f797d', marginTop: 5, textAlign: 'right' }}>
             {Math.round((countSeen / totalToday) * 100)}% complete
             {countExpected > 0 && ` · ${countExpected} still waiting`}
-            {countSeen === totalToday && totalToday > 0 && ' 🎉 All done!'}
+            {countSeen === totalToday && totalToday > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Trophy size={12} /> All done!</span>}
           </div>
         </div>
       )}
@@ -527,7 +529,7 @@ export default function ClinicPage() {
               background: activeTab === tab ? '#0f1f26' : 'rgba(191,200,205,.2)',
               color: activeTab === tab ? '#fff' : '#516169',
             }}>
-              {tab === 'today' ? `📋 Today (${todayRows.length})` : `📅 All Patients (${scheduleRows.length})`}
+              {tab === 'today' ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><ClipboardList size={12} /> Today ({todayRows.length})</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Calendar size={12} /> All Patients ({scheduleRows.length})</span>}
             </button>
           ))}
         </div>
@@ -560,8 +562,8 @@ export default function ClinicPage() {
           {/* Seen */}
           {countSeen > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: '#16a34a', marginBottom: 8 }}>
-                ✓ Seen today · {countSeen}
+              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: '#16a34a', marginBottom: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Check size={12} /> Seen today · {countSeen}
               </div>
               <Table rows={allRows.filter(r => r.slotStatus === 'seen')} empty="" />
             </div>
@@ -580,7 +582,7 @@ export default function ClinicPage() {
           {/* Empty state */}
           {todayRows.length === 0 && (
             <div style={{ background: '#fff', borderRadius: 10, border: '1px solid rgba(191,200,205,.2)', padding: '48px 32px', textAlign: 'center', boxShadow: '0 1px 4px rgba(15,31,38,.06)' }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>🗓️</div>
+              <div style={{ fontSize: 36, marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Calendar size={36} color="#0d6e87" /></div>
               <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14, color: '#0f1f26', marginBottom: 6 }}>
                 No patients scheduled for today
               </div>
@@ -607,8 +609,8 @@ export default function ClinicPage() {
               </span>
             ))}
             {countOverdue > 0 && (
-              <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'Syne, sans-serif', color: '#7f1d1d', padding: '2px 0' }}>
-                🚨 {allRows.filter(r => r.daysOverdue >= AUTO_LTFU_DAYS).length} at {AUTO_LTFU_DAYS}+ days → auto-LTFU
+              <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'Syne, sans-serif', color: '#7f1d1d', padding: '2px 0', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <AlertOctagon size={10} /> {allRows.filter(r => r.daysOverdue >= AUTO_LTFU_DAYS).length} at {AUTO_LTFU_DAYS}+ days → auto-LTFU
               </span>
             )}
           </div>

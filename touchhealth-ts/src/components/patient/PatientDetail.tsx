@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, AlertOctagon, Calendar, FlaskConical } from 'lucide-react';
 import type { HbA1cQuarter, Patient } from '../../types';
 import {
   bpClass,
@@ -127,8 +128,9 @@ function NotesDxCard({
               textTransform: 'uppercase', letterSpacing: '.3px',
               padding: '1px 6px', borderRadius: 9999,
               background: '#fee2e2', color: '#7f1d1d',
+              display: 'inline-flex', alignItems: 'center', gap: 2
             }}>
-              ⚠️ {warningCount}
+              <AlertTriangle size={8} /> {warningCount}
             </span>
           )}
           {diagCount > 0 && (
@@ -691,27 +693,27 @@ export default function PatientDetail() {
         {/* Alerts */}
         <div className="mt-3 flex flex-col gap-2">
           {patient.status === 'ltfu' ? (
-            <Alert variant="red" icon={<span>⚠️</span>}>
+            <Alert variant="red" icon={<AlertTriangle size={16} />}>
               Community tracing recommended
             </Alert>
           ) : null}
           {overdue ? (
-            <Alert variant="amber" icon={<span>📅</span>}>
+            <Alert variant="amber" icon={<Calendar size={16} />}>
               Visit overdue — monthly check-up due
             </Alert>
           ) : null}
           {grade3HTN ? (
-            <Alert variant="red" icon={<span>🚨</span>}>
+            <Alert variant="red" icon={<AlertOctagon size={16} />}>
               Urgent: last BP was {lv?.sbp}/{lv?.dbp} mmHg
             </Alert>
           ) : null}
           {dangerGlucose ? (
-            <Alert variant="red" icon={<span>🚨</span>}>
+            <Alert variant="red" icon={<AlertOctagon size={16} />}>
               Urgent: last glucose was {lv?.sugar} mmol/L
             </Alert>
           ) : null}
           {hbA1cAboveTarget ? (
-            <Alert variant="amber" icon={<span>🧪</span>}>
+            <Alert variant="amber" icon={<FlaskConical size={16} />}>
               HbA1c {latestHbA1c ? latestHbA1c.value.toFixed(1) : '—'}% ({latestHbA1c?.quarter}) — above
               target, review treatment
             </Alert>
