@@ -39,7 +39,7 @@ export default function HbA1cBox({
         </Chip>
       </div>
 
-      <div className="mb-3 text-[12px] font-semibold text-brand-dark">
+      <div className="mb-3 text-[12px] font-semibold text-slate-800">
         {lastBadge}
       </div>
 
@@ -56,7 +56,7 @@ export default function HbA1cBox({
             max="15"
             value={value}
             onChange={(e) => onValueChange(e.target.value)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             placeholder="e.g. 7.8"
           />
         </div>
@@ -68,7 +68,7 @@ export default function HbA1cBox({
           <select
             value={quarter}
             onChange={(e) => onQuarterChange(e.target.value as HbA1cQuarter)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
           >
             {(['Q1', 'Q2', 'Q3', 'Q4'] as HbA1cQuarter[]).map((q) => (
               <option key={q} value={q}>

@@ -19,12 +19,12 @@ export default function PatientsPage() {
     <div className="p-3 border-b border-slate-200 bg-white flex items-center gap-2">
       <button
         type="button"
-        className="px-3 py-2 rounded-md border border-slate-200 font-semibold text-[12px] uppercase tracking-wider text-brand-dark"
+        className="px-3 py-2 rounded-md border border-slate-200 font-semibold text-[12px] uppercase tracking-wider text-slate-800"
         onClick={() => selectPatient(null)}
       >
         ← Back
       </button>
-      <div className="font-syne font-semibold text-brand-dark text-[14px]">
+      <div className="font-syne font-semibold text-slate-800 text-[14px]">
         {selectedPatient?.code ?? 'Patient'}
       </div>
     </div>

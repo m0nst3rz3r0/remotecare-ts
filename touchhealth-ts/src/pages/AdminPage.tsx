@@ -239,7 +239,7 @@ function DoctorsView({ patients }: { patients: Patient[] }) {
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 overflow-auto">
-      <div className="font-syne font-semibold text-brand-dark text-[14px] mb-3">Doctor Activity</div>
+      <div className="font-syne font-semibold text-slate-800 text-[14px] mb-3">Doctor Activity</div>
       <table className="w-full text-left">
         <thead>
           <tr className="text-[10px] uppercase tracking-[0.05em] font-bold text-slate-500">
@@ -251,15 +251,15 @@ function DoctorsView({ patients }: { patients: Patient[] }) {
         <tbody>
           {rows.map((r, idx) => (
             <tr key={r.doc.id} style={{ background: idx % 2 ? '#f8fafc' : undefined }}>
-              <td className="px-2 py-2 font-semibold text-brand-dark text-[12px]">{r.doc.displayName}</td>
+              <td className="px-2 py-2 font-semibold text-slate-800 text-[12px]">{r.doc.displayName}</td>
               <td className="px-2 py-2 text-[12px] text-slate-500">{r.doc.hospital || '—'}</td>
-              <td className="px-2 py-2 text-center font-semibold text-[12px] text-brand-emerald">{r.patients}</td>
-              <td className="px-2 py-2 text-center font-semibold text-[12px] text-brand-emerald">{r.attended}</td>
+              <td className="px-2 py-2 text-center font-semibold text-[12px] text-emerald-600">{r.patients}</td>
+              <td className="px-2 py-2 text-center font-semibold text-[12px] text-emerald-600">{r.attended}</td>
               <td className="px-2 py-2 text-center font-semibold text-[12px] text-rose-500">{r.missed}</td>
               <td className="px-2 py-2 text-center">
-                <div className="font-semibold text-[12px] text-brand-emerald">{r.pct}%</div>
+                <div className="font-semibold text-[12px] text-emerald-600">{r.pct}%</div>
                 <div className="mt-1 h-[8px] rounded-[999px] bg-slate-200 overflow-hidden">
-                  <div className="h-full bg-brand-emerald" style={{ width: `${r.pct}%` }} />
+                  <div className="h-full bg-emerald-600" style={{ width: `${r.pct}%` }} />
                 </div>
               </td>
             </tr>
@@ -384,7 +384,7 @@ function SettingsView() {
     setPwTargetId(''); setPwNew('');
   };
 
-  const inputCls = "w-full rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald";
+  const inputCls = "w-full rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500";
   const labelCls = "text-xs uppercase font-bold tracking-wider text-slate-500 mb-1";
 
   return (
@@ -392,7 +392,7 @@ function SettingsView() {
 
       {/* ── Hospital Management ─────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-xl p-4">
-        <div className="font-syne font-semibold text-brand-dark text-[14px] mb-2">Hospital Management</div>
+        <div className="font-syne font-semibold text-slate-800 text-[14px] mb-2">Hospital Management</div>
         {hErr ? <Alert variant="red">Could not add hospital: {hErr}</Alert> : null}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
           <div>
@@ -425,7 +425,7 @@ function SettingsView() {
             <tbody>
               {hospitals.map((h) => (
                 <tr key={h.id} style={{ background: '#f8fafc' }}>
-                  <td className="px-2 py-2 font-semibold text-brand-dark text-[12px]">{h.name}</td>
+                  <td className="px-2 py-2 font-semibold text-slate-800 text-[12px]">{h.name}</td>
                   <td className="px-2 py-2 text-[12px] text-slate-500">{h.region}</td>
                   <td className="px-2 py-2 text-[12px] text-slate-500">{h.district}</td>
                   <td className="px-2 py-2 text-right"><Button size="sm" variant="danger" label="Delete" onClick={() => onDeleteHospital(h.id)} /></td>
@@ -439,7 +439,7 @@ function SettingsView() {
 
       {/* ── Add User — scoped by role ───────────────────── */}
       <div className="bg-white border border-slate-200 rounded-xl p-4">
-        <div className="font-syne font-semibold text-brand-dark text-[14px] mb-1">
+        <div className="font-syne font-semibold text-slate-800 text-[14px] mb-1">
           {superAdmin ? 'Add Admin Account' : 'Add Doctor Account'}
         </div>
         <div className="text-[12px] text-slate-500 mb-3">
@@ -528,7 +528,7 @@ function SettingsView() {
               {users.map((u) => (
                 <tr key={u.id} style={{ background: '#f8fafc' }}>
                   <td className="px-2 py-2">
-                    <div className="font-semibold text-brand-dark text-[12px]">{u.displayName}</div>
+                    <div className="font-semibold text-slate-800 text-[12px]">{u.displayName}</div>
                     <div className="text-[11px] text-slate-500 font-semibold">@{u.username}</div>
                   </td>
                   <td className="px-2 py-2">
@@ -550,7 +550,7 @@ function SettingsView() {
 
       {/* ── Password Reset ──────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-xl p-4">
-        <div className="font-syne font-semibold text-brand-dark text-[14px] mb-1">Reset Password</div>
+        <div className="font-syne font-semibold text-slate-800 text-[14px] mb-1">Reset Password</div>
         <div className="text-[12px] text-slate-500 mb-3">
           {superAdmin
             ? 'Reset passwords for admin accounts.'
@@ -581,7 +581,7 @@ function SettingsView() {
       {/* ── Superadmin: Change Own Password ──────────────── */}
       {superAdmin && (
         <div className="bg-white border border-slate-200 rounded-xl p-4">
-          <div className="font-syne font-semibold text-brand-dark text-[14px] mb-1">Change My Password</div>
+          <div className="font-syne font-semibold text-slate-800 text-[14px] mb-1">Change My Password</div>
           <div className="text-[12px] text-slate-500 mb-3">
             Update your own superadmin password.
           </div>
@@ -713,14 +713,14 @@ export default function AdminPage() {
           <div className="bg-white border border-slate-200 rounded-xl p-4">
             <div className="flex items-end justify-between gap-3 flex-wrap">
               <div>
-                <div className="font-syne font-semibold text-brand-dark text-[16px]">Trends</div>
+                <div className="font-syne font-semibold text-slate-800 text-[16px]">Trends</div>
                 <div className="text-[12px] text-slate-500 mt-1">
                   Monthly enrolment, BP control, attendance · <strong>{scopeLabel}</strong>
                 </div>
               </div>
               <div>
                 <div className="text-xs uppercase font-bold tracking-wider text-slate-500 mb-1">Year</div>
-                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald">
+                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
                   {Array.from({ length: 6 }).map((_, i) => new Date().getFullYear() - i).map((y) => (
                     <option key={y} value={y}>{y}</option>
                   ))}

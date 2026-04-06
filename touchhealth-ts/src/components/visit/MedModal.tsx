@@ -51,7 +51,7 @@ export default function MedModal() {
       >
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
           <div>
-            <div className="font-syne font-semibold text-[16px] text-brand-dark">
+            <div className="font-syne font-semibold text-[16px] text-slate-800">
               Edit Medications
             </div>
             <div className="text-[12px] text-slate-500">

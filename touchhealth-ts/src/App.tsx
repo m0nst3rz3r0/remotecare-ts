@@ -90,7 +90,7 @@ export default function App() {
   const role = currentUser.role;
 
   return (
-    <div className="min-h-screen bg-brand-bg">
+    <div className="min-h-screen" style={{ background: '#f8fafc' }}>
       <Topbar />
       <SyncBar />
       <NavTabs />

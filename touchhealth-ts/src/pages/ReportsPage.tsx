@@ -153,7 +153,7 @@ export default function ReportsPage() {
           <select
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}
-            className="rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald"
+            className="rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
           >
             {MONTHS.map((m, idx) => (
               <option key={m} value={idx + 1}>
@@ -170,8 +170,8 @@ export default function ReportsPage() {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <div className="px-4 py-4 bg-brand-dark" style={{ color: '#fff' }}>
-          <div className="font-syne font-semibold text-brand-dark text-[20px]">
+        <div className="px-4 py-4" style={{ background: '#132b31', color: '#fff' }}>
+          <div className="font-syne font-semibold text-white text-[20px]">
             Monthly Report — {monthName} {year}
           </div>
           <div className="mt-1 text-[12px]" style={{ opacity: 0.7 }}>
@@ -196,7 +196,7 @@ export default function ReportsPage() {
                 <tbody>
                   {visitRows.map((r) => (
                     <tr key={`${r.patient.id}-${r.visit.id}`}>
-                      <td className="py-2 pr-2 font-semibold mono text-[12px] text-brand-dark">
+                      <td className="py-2 pr-2 font-semibold mono text-[12px] text-slate-800">
                         {r.patient.code}
                       </td>
                       <td className="py-2 pr-2">

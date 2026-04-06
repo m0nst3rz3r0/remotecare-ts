@@ -89,11 +89,11 @@ export default function SyncBar() {
     >
       <div className="flex items-center gap-3">
         {conn === 'online' ? (
-          <span className="w-2.5 h-2.5 rounded-full bg-brand-emerald" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
         ) : conn === 'offline' ? (
           <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
         ) : (
-          <span className="w-2.5 h-2.5 rounded-full border-2 border-brand-emerald border-t-transparent animate-spin" />
+          <span className="w-2.5 h-2.5 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin" />
         )}
 
         <div className="flex-1 min-w-0">

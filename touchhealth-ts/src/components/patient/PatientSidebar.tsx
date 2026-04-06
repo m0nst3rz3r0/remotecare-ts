@@ -520,7 +520,7 @@ export default function PatientSidebar() {
           value={searchQuery}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search code, phone or address"
-          className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
         />
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -534,8 +534,8 @@ export default function PatientSidebar() {
                 className={[
                   'px-2 py-1 rounded-full border text-[10px] uppercase font-bold tracking-wider',
                   isActive
-                    ? 'bg-emerald-50 border-brand-emerald text-brand-emerald'
-                    : 'bg-white border-slate-200 text-brand-dark',
+                    ? 'bg-emerald-50 border-emerald-600 text-emerald-600'
+                    : 'bg-white border-slate-200 text-slate-800',
                 ].join(' ')}
               >
                 {f.label}

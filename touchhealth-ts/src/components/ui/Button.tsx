@@ -11,13 +11,13 @@ const sizeCls: Record<ButtonSize, string> = {
 
 const variantCls: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand-emerald text-white border border-brand-emerald hover:bg-emerald-600',
+    'bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-700',
   teal:
-    'bg-brand-emerald text-white border border-brand-emerald hover:bg-emerald-600',
+    'bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-700',
   amber:
     'bg-amber-500 text-white border border-amber-500 hover:bg-amber-600',
   ghost:
-    'bg-transparent text-brand-dark border border-slate-200 hover:bg-slate-50',
+    'bg-transparent text-slate-700 border border-slate-300 hover:bg-slate-50',
   danger:
     'bg-rose-500 text-white border border-rose-500 hover:bg-rose-600',
 };
