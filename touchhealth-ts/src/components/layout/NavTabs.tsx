@@ -6,6 +6,10 @@ import { loadUsers }    from '../../services/auth';
 
 export default function NavTabs() {
   const currentUser = useAuthStore((s) => s.currentUser);
+
+  // Admin/SuperAdmin use the sidebar instead
+  if (currentUser?.role === 'admin') return null;
+
   const activePage  = useUIStore((s) => s.activePage);
   const navigateTo  = useUIStore((s) => s.navigateTo);
   const patients    = usePatientStore((s) => s.patients);
