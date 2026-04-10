@@ -7,13 +7,11 @@ const LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6e
 export default function Topbar() {
   const currentUser = useAuthStore((s) => s.currentUser);
 
-  // Admin/SuperAdmin use the sidebar — no topbar needed
-  if (currentUser?.role === 'admin') return null;
 
   const signOut     = useAuthStore((s) => s.signOut);
   const patients    = usePatientStore((s) => s.patients);
   const counts      = selectTopbarCounts(patients);
-  if (!currentUser) return null;
+  if (!currentUser || currentUser.role !== 'doctor') return null;
   const initials    = getUserInitials(currentUser.displayName);
   const role        = currentUser.role;
   const isSuperAdmin = currentUser.isSuperAdmin === true;
@@ -58,24 +56,7 @@ export default function Topbar() {
         </div>
       )}
 
-      {role === 'admin' && (
-        <div style={{ marginLeft: 8 }}>
-          <div style={{
-            padding: '5px 12px',
-            background: 'rgba(255,255,255,.1)',
-            border: '1px solid rgba(255,255,255,.15)',
-            borderRadius: 9999,
-            fontSize: 10, fontWeight: 700,
-            textTransform: 'uppercase', letterSpacing: '.5px',
-            color: 'rgba(255,255,255,.9)',
-            whiteSpace: 'nowrap',
-          }}>
-            {isSuperAdmin
-              ? 'All Regions'
-              : `${currentUser.sessionDistrict || 'District'}, ${currentUser.sessionRegion || ''}`}
-          </div>
-        </div>
-      )}
+
 
       <div style={{ flex: 1 }} />
 
@@ -99,7 +80,7 @@ export default function Topbar() {
             background: isSuperAdmin ? 'rgba(220,38,38,.25)' : 'rgba(16,185,129,.2)',
             color: isSuperAdmin ? '#fca5a5' : '#6ee7b7',
           }}>
-            {isSuperAdmin ? 'Super Admin' : role === 'admin' ? 'Admin' : 'Doctor'}
+            'Doctor'
           </span>
         </div>
         <button
