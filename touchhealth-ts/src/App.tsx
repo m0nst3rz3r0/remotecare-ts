@@ -27,7 +27,7 @@ function isDoctorPage(p: PageId) {
 }
 
 function isAdminPage(p: PageId) {
-  return p === 'overview' || p === 'trends' || p === 'doctors' || p === 'settings' || p === 'user-management';
+  return p === 'overview' || p === 'trends' || p === 'doctors' || p === 'settings' || p === 'user-management' || p === 'directory';
 }
 
 export default function App() {
