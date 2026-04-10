@@ -23,7 +23,7 @@ export interface SyncResult {
  */
 export async function syncToCloud(
   patients: Patient[],
-  user: SessionUser | null,
+  _user: SessionUser | null,
 ): Promise<SyncResult> {
   const lastSyncAt = getLastSync();
   const lastCount = getSyncCount();

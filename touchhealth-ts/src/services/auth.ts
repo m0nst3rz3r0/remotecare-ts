@@ -101,7 +101,7 @@ export function validateSession(): SessionUser | null {
 // ── LOGIN ─────────────────────────────────────────────────────
 
 export type LoginResult =
-  | { success: true;  user: SessionUser }
+  | { success: true; user: SessionUser; offline?: boolean }
   | { success: false; error: string };
 
 // CHANGED: Hybrid login - checks Supabase first, caches to localStorage for offline
