@@ -25,10 +25,10 @@ import {
   Filler,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { usePatientStore } from '../../store/usePatientStore';
-import { TZ_GEO }         from '../../utils/geo';
-import { getMonthlyStats } from '../../services/clinical';
-import type { Patient }    from '../../types';
+import { usePatientStore } from '../store/usePatientStore';
+import { TZ_GEO }         from '../utils/geo';
+import { getMonthlyStats } from '../services/clinical';
+import type { Patient, Visit } from '../types';
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
@@ -92,8 +92,8 @@ function computeSeries(
 
       case 'bp_control': {
         const stats = getMonthlyStats(
-          patients.filter((p) =>
-            p.visits?.some((v) => +v.month === m && +(v.year ?? year) === year),
+          patients.filter((p: Patient) =>
+            p.visits?.some((v: Visit) => +v.month === m && +(v.year ?? year) === year),
           ),
           m,
         );
@@ -103,18 +103,18 @@ function computeSeries(
       case 'attendance': {
         const visits = patients
           .flatMap((p) => p.visits ?? [])
-          .filter((v) => +v.month === m && +(v.year ?? year) === year);
+          .filter((v: Visit) => +v.month === m && +(v.year ?? year) === year);
         if (!visits.length) return null;
-        return Math.round((visits.filter((v) => v.att).length / visits.length) * 100);
+        return Math.round((visits.filter((v: Visit) => v.att).length / visits.length) * 100);
       }
 
       case 'drug_usage': {
         const attended = patients
           .flatMap((p) => p.visits ?? [])
-          .filter((v) => +v.month === m && +(v.year ?? year) === year && v.att);
+          .filter((v: Visit) => +v.month === m && +(v.year ?? year) === year && v.att);
         if (!attended.length) return null;
         return Math.round(
-          (attended.filter((v) => (v.meds ?? []).length > 0).length / attended.length) * 100,
+          (attended.filter((v: Visit) => (v.meds ?? []).length > 0).length / attended.length) * 100,
         );
       }
 
@@ -128,17 +128,17 @@ function computeSeries(
       }
 
       case 'dm_patients':
-        return patients.filter((p) =>
+        return patients.filter((p: Patient) =>
           (p.cond === 'DM' || p.cond === 'DM+HTN') &&
           p.status === 'active' &&
-          p.visits?.some((v) => +v.month === m && +(v.year ?? year) === year),
+          p.visits?.some((v: Visit) => +v.month === m && +(v.year ?? year) === year),
         ).length || null;
 
       case 'htn_patients':
-        return patients.filter((p) =>
+        return patients.filter((p: Patient) =>
           (p.cond === 'HTN' || p.cond === 'DM+HTN') &&
           p.status === 'active' &&
-          p.visits?.some((v) => +v.month === m && +(v.year ?? year) === year),
+          p.visits?.some((v: Visit) => +v.month === m && +(v.year ?? year) === year),
         ).length || null;
 
       default:
@@ -231,7 +231,7 @@ export default function AnalyticsBuilder({
   scopeLabel,
   isSuperAdmin,
 }: AnalyticsBuilderProps) {
-  const allPatients = usePatientStore((s) => s.patients);
+  const allPatients = usePatientStore((s: { patients: Patient[] }) => s.patients);
 
   // ── Parameters state ────────────────────────────────────────
   const currentYear = new Date().getFullYear();
@@ -255,7 +255,7 @@ export default function AnalyticsBuilder({
   const patients = useMemo(() => {
     if (!isSuperAdmin) return scopedPatients;
     if (!region && !district) return allPatients;
-    return allPatients.filter((p) =>
+    return allPatients.filter((p: Patient) =>
       (!region   || p.region   === region) &&
       (!district || p.district === district),
     );
@@ -511,7 +511,7 @@ export default function AnalyticsBuilder({
                 <Label>District</Label>
                 <Select value={district} onChange={setDistrict} disabled={!region}>
                   <option value="">All Districts</option>
-                  {districtOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+                  {districtOptions.map((d: string) => <option key={d} value={d}>{d}</option>)}
                 </Select>
               </div>
             </>
