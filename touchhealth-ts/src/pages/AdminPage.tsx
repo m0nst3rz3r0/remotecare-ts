@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import PageWrapper from '../components/layout/PageWrapper';
 import type { Hospital, Patient, User } from '../types';
 import { usePatientStore } from '../store/usePatientStore';
@@ -43,8 +43,15 @@ import { Line } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 // ── Design tokens ────────────────────────────────────────────
-const INK   = '#132b31';
-const TEAL  = '#10b981';
+const INK   = '#1e293b';
+const TEAL  = '#1a56db';
+const CARD_STYLE: React.CSSProperties = {
+  background: '#ffffff',
+  borderRadius: '10px',
+  border: '1px solid #e5e7eb',
+  boxShadow: '0 1px 3px rgba(0,0,0,.06)',
+  marginBottom: '16px',
+};
 
 function titleForAdminPage(page: string) {
   switch (page) {
@@ -66,8 +73,8 @@ function cssVar(name: string, fallback: string) {
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <div style={{ background: '#132b31', height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center' }}>
-      <span style={{ color: '#fff', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+    <div style={{ background: '#f3f4f6', height: '38px', padding: '0 16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid #e5e7eb' }}>
+      <span style={{ color: '#374151', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
         {title}
       </span>
     </div>
@@ -76,7 +83,7 @@ function SectionHeader({ title }: { title: string }) {
 
 function Card({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: 'none', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+    <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
       {title && <SectionHeader title={title} />}
       <div style={{ padding: '20px' }}>{children}</div>
     </div>
@@ -92,15 +99,15 @@ function RiskBadge({ ctrlRate }: { ctrlRate: number | null }) {
 
 function StatCard({ title, value, sub, valueColor }: { title: string; value: number | string; sub?: string; valueColor: string }) {
   return (
-    <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: 'none', border: '1px solid #e2e8f0' }}>
-      <div style={{ background: '#132b31', height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center' }}>
-        <span style={{ color: '#fff', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</span>
+    <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
+      <div style={{ background: '#f3f4f6', height: '38px', padding: '0 16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid #e5e7eb' }}>
+        <span style={{ color: '#374151', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</span>
       </div>
-      <div style={{ padding: '20px' }}>
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '36px', fontWeight: 700, color: valueColor, lineHeight: 1 }}>
+      <div style={{ padding: '18px 20px' }}>
+        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '32px', fontWeight: 700, color: valueColor, lineHeight: 1 }}>
           {typeof value === 'number' ? value.toLocaleString() : value}
         </div>
-        {sub && <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>{sub}</div>}
+        {sub && <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>{sub}</div>}
       </div>
     </div>
   );
@@ -148,10 +155,15 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
   }), [patients, hospitals]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div>
-        <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: '28px', fontWeight: 800, color: INK, marginBottom: '4px' }}>Admin Overview</h2>
-        <p style={{ fontSize: '14px', color: '#516169' }}>Regional clinical performance · <strong>{scopeLabel}</strong></p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: '26px', fontWeight: 800, color: INK, marginBottom: '4px' }}>Admin Overview</h2>
+          <p style={{ fontSize: '13px', color: '#6b7280' }}>Regional clinical performance · <strong>{scopeLabel}</strong></p>
+        </div>
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', color: '#1d4ed8', fontWeight: 600 }}>
+          📊 {patients.length} patients in scope
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
@@ -188,10 +200,10 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
 
       <Card title="Glucose Control %"><GlucoseControlChart patients={patients} year={year} /></Card>
 
-      <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: 'none', border: '1px solid #e2e8f0' }}>
-        <div style={{ background: '#132b31', height: '44px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ color: '#fff', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Regional Facility Matrix</span>
-          <span style={{ color: '#6ee7b7', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{scopeLabel}</span>
+      <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
+        <div style={{ background: '#f3f4f6', height: '44px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb' }}>
+          <span style={{ color: '#374151', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Regional Facility Matrix</span>
+          <span style={{ color: '#1a56db', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{scopeLabel}</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -226,8 +238,23 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
 
 // ── Doctors view ─────────────────────────────────────────────
 function DoctorsView({ patients }: { patients: Patient[] }) {
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const superAdmin  = currentUser?.isSuperAdmin === true;
   const [doctors, setDoctors] = useState<User[]>([]);
-  useEffect(() => { setDoctors(loadUsers().filter((u) => u.role === 'doctor')); }, []);
+  useEffect(() => {
+    const allDoctors = loadUsers().filter((u) => u.role === 'doctor');
+    // Admins can only see doctors in their own district
+    if (superAdmin) {
+      setDoctors(allDoctors);
+    } else {
+      const r = currentUser?.adminRegion   ?? '';
+      const d = currentUser?.adminDistrict ?? '';
+      setDoctors(allDoctors.filter((doc) =>
+        (!r || doc.region   === r) &&
+        (!d || doc.district === d),
+      ));
+    }
+  }, [superAdmin, currentUser]);
   const rows = useMemo(() => doctors.map((doc) => {
     const dp = patients.filter((p) => p.hospital === doc.hospital);
     const allVisits = dp.flatMap((p) => p.visits ?? []);
@@ -238,8 +265,10 @@ function DoctorsView({ patients }: { patients: Patient[] }) {
   }), [doctors, patients]);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 overflow-auto">
-      <div className="font-syne font-semibold text-slate-800 text-[14px] mb-3">Doctor Activity</div>
+    <div style={{ ...CARD_STYLE, padding: '20px', overflow: 'auto' }}>
+      <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, color: INK, fontSize: '14px', marginBottom: '12px' }}>
+        Doctor Activity {!superAdmin && <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>· Your district only</span>}
+      </div>
       <table className="w-full text-left">
         <thead>
           <tr className="text-[10px] uppercase tracking-[0.05em] font-bold text-slate-500">
@@ -311,9 +340,44 @@ function SettingsView() {
   const refresh = () => { setHospitals(loadHospitals()); setUsers(loadUsers()); };
   useEffect(() => { refresh(); }, []); // eslint-disable-line
 
-  const districtOptions    = useMemo(() => hRegion  ? TZ_GEO[hRegion]  ?? [] : [], [hRegion]);
-  const docDistrictOptions = useMemo(() => dRegion  ? TZ_GEO[dRegion]  ?? [] : [], [dRegion]);
-  const docHospitalOptions = useMemo(() => (dRegion && dDistrict) ? getHospitalsByRegionDistrict(dRegion, dDistrict) : [], [dRegion, dDistrict]);
+  // For non-superadmin, lock region/district to their assigned area
+  const adminRegion   = superAdmin ? '' : (currentUser?.adminRegion   ?? '');
+  const adminDistrict = superAdmin ? '' : (currentUser?.adminDistrict ?? '');
+
+  const districtOptions    = useMemo(() => {
+    const region = superAdmin ? hRegion : adminRegion;
+    return region ? TZ_GEO[region] ?? [] : [];
+  }, [hRegion, superAdmin, adminRegion]);
+
+  const docDistrictOptions = useMemo(() => {
+    const region = superAdmin ? dRegion : adminRegion;
+    return region ? TZ_GEO[region] ?? [] : [];
+  }, [dRegion, superAdmin, adminRegion]);
+
+  const docHospitalOptions = useMemo(() => {
+    const r = superAdmin ? dRegion   : adminRegion;
+    const d = superAdmin ? dDistrict : adminDistrict;
+    return (r && d) ? getHospitalsByRegionDistrict(r, d) : [];
+  }, [dRegion, dDistrict, superAdmin, adminRegion, adminDistrict]);
+
+  // Hospitals visible to this admin
+  const visibleHospitals = useMemo(() => {
+    if (superAdmin) return hospitals;
+    return hospitals.filter((h) =>
+      (!adminRegion   || h.region   === adminRegion) &&
+      (!adminDistrict || h.district === adminDistrict),
+    );
+  }, [hospitals, superAdmin, adminRegion, adminDistrict]);
+
+  // Users visible to this admin
+  const visibleUsers = useMemo(() => {
+    if (superAdmin) return users;
+    // Admin sees only doctors in their district
+    return users.filter((u) => u.role === 'doctor' &&
+      (!adminRegion   || u.region   === adminRegion) &&
+      (!adminDistrict || u.district === adminDistrict),
+    );
+  }, [users, superAdmin, adminRegion, adminDistrict]);
 
   // Who can be deleted
   const canDeleteUser = (u: User) => !(u.isSuperAdmin || u.username === 'admin' || u.username === 'alexalpha360');
@@ -327,7 +391,10 @@ function SettingsView() {
 
   const onAddHospital = () => {
     setHErr(null);
-    const res = addHospital({ name: hName.trim(), region: hRegion, district: hDistrict });
+    // For non-superadmin, enforce their region/district
+    const regionToUse   = superAdmin ? hRegion   : adminRegion;
+    const districtToUse = superAdmin ? hDistrict : adminDistrict;
+    const res = addHospital({ name: hName.trim(), region: regionToUse, district: districtToUse });
     if (!res.success) { setHErr(res.error); return; }
     setHRegion(''); setHDistrict(''); setHName(''); refresh();
   };
@@ -337,15 +404,17 @@ function SettingsView() {
   const onAddUser = async () => {
     setUErr(null); setUOk(null);
     const role: 'admin' | 'doctor' = superAdmin ? 'admin' : 'doctor';
+    // For admin creating doctor, enforce their own region/district
+    const regionToUse   = superAdmin ? dRegion   : adminRegion;
+    const districtToUse = superAdmin ? dDistrict : adminDistrict;
     const res: { success: boolean; error?: string } = await addUser({
       displayName: uName.trim(),
       username:    uUser.trim(),
       password:    uPass,
       role,
-      // superadmin assigns region+district to admin; admin assigns region+district+hospital to doctor
       hospital:    role === 'doctor' ? dHospital : '',
-      region:      dRegion,
-      district:    dDistrict,
+      region:      regionToUse,
+      district:    districtToUse,
       createdBy:   currentUser,
     });
     if (!res.success) { setUErr(res.error ?? null); return; }
@@ -423,7 +492,7 @@ function SettingsView() {
               </tr>
             </thead>
             <tbody>
-              {hospitals.map((h) => (
+              {visibleHospitals.map((h) => (
                 <tr key={h.id} style={{ background: '#f8fafc' }}>
                   <td className="px-2 py-2 font-semibold text-slate-800 text-[12px]">{h.name}</td>
                   <td className="px-2 py-2 text-[12px] text-slate-500">{h.region}</td>
@@ -431,7 +500,7 @@ function SettingsView() {
                   <td className="px-2 py-2 text-right"><Button size="sm" variant="danger" label="Delete" onClick={() => onDeleteHospital(h.id)} /></td>
                 </tr>
               ))}
-              {!hospitals.length ? <tr><td colSpan={4} className="px-2 py-4 text-center text-slate-500 font-semibold">No hospitals configured.</td></tr> : null}
+              {!visibleHospitals.length ? <tr><td colSpan={4} className="px-2 py-4 text-center text-slate-500 font-semibold">No hospitals configured{!superAdmin ? ' in your district' : ''}.</td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -485,26 +554,20 @@ function SettingsView() {
           </div>
         )}
 
-        {/* Admin creating doctor: assign region + district + hospital */}
+        {/* Admin creating doctor: region/district locked to their scope */}
         {!superAdmin && (
           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <div className={labelCls}>Region</div>
-              <select value={dRegion} onChange={(e) => { setDRegion(e.target.value); setDDistrict(''); setDHospital(''); }} className={inputCls}>
-                <option value="">-- Select --</option>
-                {regions.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
+              <div className={labelCls}>Region (locked)</div>
+              <input value={adminRegion} readOnly className={`${inputCls} bg-slate-50 cursor-not-allowed opacity-70`} />
             </div>
             <div>
-              <div className={labelCls}>District</div>
-              <select value={dDistrict} onChange={(e) => { setDDistrict(e.target.value); setDHospital(''); }} disabled={!dRegion} className={`${inputCls} disabled:opacity-50`}>
-                <option value="">-- Select --</option>
-                {docDistrictOptions.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
+              <div className={labelCls}>District (locked)</div>
+              <input value={adminDistrict} readOnly className={`${inputCls} bg-slate-50 cursor-not-allowed opacity-70`} />
             </div>
             <div>
               <div className={labelCls}>Hospital</div>
-              <select value={dHospital} onChange={(e) => setDHospital(e.target.value)} disabled={!dRegion || !dDistrict} className={`${inputCls} disabled:opacity-50`}>
+              <select value={dHospital} onChange={(e) => setDHospital(e.target.value)} className={inputCls}>
                 <option value="">-- Select --</option>
                 {docHospitalOptions.map((h) => <option key={h.id} value={h.name}>{h.name}</option>)}
               </select>
@@ -525,7 +588,7 @@ function SettingsView() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
+              {visibleUsers.map((u) => (
                 <tr key={u.id} style={{ background: '#f8fafc' }}>
                   <td className="px-2 py-2">
                     <div className="font-semibold text-slate-800 text-[12px]">{u.displayName}</div>
@@ -542,14 +605,14 @@ function SettingsView() {
                   </td>
                 </tr>
               ))}
-              {!users.length ? <tr><td colSpan={4} className="px-2 py-4 text-center text-slate-500 font-semibold">No users.</td></tr> : null}
+              {!visibleUsers.length ? <tr><td colSpan={4} className="px-2 py-4 text-center text-slate-500 font-semibold">No {superAdmin ? 'users' : 'doctors in your district'}.</td></tr> : null}
             </tbody>
           </table>
         </div>
       </div>
 
       {/* ── Password Reset ──────────────────────────────── */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4">
+      <div style={{ ...CARD_STYLE, padding: '20px' }}>
         <div className="font-syne font-semibold text-slate-800 text-[14px] mb-1">Reset Password</div>
         <div className="text-[12px] text-slate-500 mb-3">
           {superAdmin
@@ -580,7 +643,7 @@ function SettingsView() {
 
       {/* ── Superadmin: Change Own Password ──────────────── */}
       {superAdmin && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div style={{ ...CARD_STYLE, padding: '20px' }}>
           <div className="font-syne font-semibold text-slate-800 text-[14px] mb-1">Change My Password</div>
           <div className="text-[12px] text-slate-500 mb-3">
             Update your own superadmin password.
@@ -669,14 +732,14 @@ export default function AdminPage() {
 
       {/* Superadmin scope filter bar */}
       {superAdmin && (activePage === 'overview' || activePage === 'trends') && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '11px', fontFamily: 'Syne, sans-serif', fontWeight: 700, color: '#516169', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Scope:
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px', flexWrap: 'wrap', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px 14px', boxShadow: '0 1px 2px rgba(0,0,0,.04)' }}>
+          <span style={{ fontSize: '11px', fontFamily: 'Syne, sans-serif', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            🔭 Scope:
           </span>
           <select
             value={scopeRegion}
             onChange={(e) => { setScopeRegion(e.target.value); setScopeDistrict(''); }}
-            style={{ border: '1.5px solid #bfc8cd', borderRadius: '4px', padding: '6px 10px', fontSize: '13px', background: '#fff', outline: 'none', color: '#0f1f26' }}
+            style={{ border: '1px solid #d1d5db', borderRadius: '6px', padding: '5px 10px', fontSize: '13px', background: '#fff', outline: 'none', color: '#1e293b' }}
           >
             <option value="">All Regions</option>
             {allRegions.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -685,7 +748,7 @@ export default function AdminPage() {
             value={scopeDistrict}
             onChange={(e) => setScopeDistrict(e.target.value)}
             disabled={!scopeRegion}
-            style={{ border: '1.5px solid #bfc8cd', borderRadius: '4px', padding: '6px 10px', fontSize: '13px', background: scopeRegion ? '#fff' : '#f4f4f2', outline: 'none', color: '#0f1f26', opacity: scopeRegion ? 1 : 0.5 }}
+            style={{ border: '1px solid #d1d5db', borderRadius: '6px', padding: '5px 10px', fontSize: '13px', background: scopeRegion ? '#fff' : '#f9fafb', outline: 'none', color: '#1e293b', opacity: scopeRegion ? 1 : 0.5 }}
           >
             <option value="">All Districts</option>
             {scopeDistrictOptions.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -693,12 +756,12 @@ export default function AdminPage() {
           {(scopeRegion || scopeDistrict) && (
             <button
               onClick={() => { setScopeRegion(''); setScopeDistrict(''); }}
-              style={{ fontSize: '11px', fontWeight: 700, color: '#ba1a1a', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+              style={{ fontSize: '11px', fontWeight: 700, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
             >
               ✕ Clear
             </button>
           )}
-          <span style={{ fontSize: '11px', color: '#516169', fontFamily: 'JetBrains Mono, monospace' }}>
+          <span style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'JetBrains Mono, monospace', marginLeft: 'auto' }}>
             {scopedPatients.length} patients · {scopedHospitals.length} facilities
           </span>
         </div>
@@ -710,17 +773,17 @@ export default function AdminPage() {
 
       {activePage === 'trends' && (
         <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <div className="flex items-end justify-between gap-3 flex-wrap">
+          <div style={{ ...CARD_STYLE, padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
               <div>
-                <div className="font-syne font-semibold text-slate-800 text-[16px]">Trends</div>
-                <div className="text-[12px] text-slate-500 mt-1">
+                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, color: INK, fontSize: '16px' }}>Trends</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                   Monthly enrolment, BP control, attendance · <strong>{scopeLabel}</strong>
                 </div>
               </div>
               <div>
-                <div className="text-xs uppercase font-bold tracking-wider text-slate-500 mb-1">Year</div>
-                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="rounded-md border border-slate-300 px-3 py-2 outline-none bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
+                <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', color: '#6b7280', marginBottom: '4px' }}>Year</div>
+                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} style={{ border: '1px solid #d1d5db', borderRadius: '6px', padding: '6px 10px', background: '#fff', outline: 'none', fontSize: '13px', color: '#1e293b' }}>
                   {Array.from({ length: 6 }).map((_, i) => new Date().getFullYear() - i).map((y) => (
                     <option key={y} value={y}>{y}</option>
                   ))}
