@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import { useAuthStore }   from '../../store/useAuthStore';
 import { useUIStore }     from '../../store/useUIStore';
-import { usePatientStore, selectTopbarCounts } from '../../store/usePatientStore';
+import { usePatientStore } from '../../store/usePatientStore';
 import { loadUsers }      from '../../services/auth';
 import { getUserInitials } from '../../services/auth';
 
@@ -23,8 +23,6 @@ export default function Sidebar() {
   const signOut      = useAuthStore((s) => s.signOut);
   const activePage   = useUIStore((s) => s.activePage);
   const navigateTo   = useUIStore((s) => s.navigateTo);
-  const patients     = usePatientStore((s) => s.patients);
-  const counts       = selectTopbarCounts(patients);
   const [collapsed, setCollapsed] = useState(false);
 
   // Sync main content margin to sidebar width
