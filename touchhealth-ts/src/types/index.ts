@@ -363,7 +363,8 @@ export type PageId =
   | 'overview'
   | 'trends'
   | 'doctors'
-  | 'settings';
+  | 'settings'
+  | 'user-management';
 
 // ── FILTER STATE ─────────────────────────────────────────────
 
