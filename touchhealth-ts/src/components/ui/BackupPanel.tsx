@@ -12,7 +12,7 @@ import {
 } from '../../services/backup';
 
 export default function BackupPanel() {
-  const currentUser = useAuthStore((s) => s.currentUser);
+  const currentUser = useAuthStore((s: { currentUser: any }) => s.currentUser);
   const [status, setStatus] = useState(() => backupStatus());
   const [meta,   setMeta]   = useState(() => loadBackupMeta());
   const [msg,    setMsg]    = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -51,7 +51,7 @@ export default function BackupPanel() {
       {/* Header */}
       <div style={{ background: '#0f1f26', height: 40, display: 'flex', alignItems: 'center', padding: '0 16px', gap: 8 }}>
         <span style={{ fontSize: 16, display: 'inline-flex', alignItems: 'center' }}><Save size={16} /></span>
-        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.7px', color: '#fff' }}>
+        <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.7px', color: '#fff' }}>
           Data Backup & Restore
         </span>
         {isDue && (
@@ -86,10 +86,10 @@ export default function BackupPanel() {
             },
           ].map((t) => (
             <div key={t.label} style={{ background: '#f9f9f7', borderRadius: 8, padding: 12 }}>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: '#6f797d', marginBottom: 4 }}>
+              <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: '#6f797d', marginBottom: 4 }}>
                 {t.label}
               </div>
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 18, fontWeight: 700, color: t.color }}>
+              <div style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: 18, fontWeight: 700, color: t.color }}>
                 {t.val}
               </div>
             </div>
@@ -140,7 +140,7 @@ export default function BackupPanel() {
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '10px 20px', background: '#005469', color: '#fff',
               border: 'none', borderRadius: 4, cursor: 'pointer',
-              fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700,
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 12, fontWeight: 700,
               boxShadow: '0 4px 12px rgba(0,84,105,.25)',
             }}
           >
@@ -157,7 +157,7 @@ export default function BackupPanel() {
               color: restoring ? '#6f797d' : '#dc2626',
               border: '1.5px solid rgba(220,38,38,.2)', borderRadius: 4,
               cursor: restoring ? 'not-allowed' : 'pointer',
-              fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700,
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 12, fontWeight: 700,
             }}
           >
             {restoring ? <><Loader2 size={16} className="animate-spin" /> Restoring…</> : <><Upload size={16} /> Restore from Backup</>}

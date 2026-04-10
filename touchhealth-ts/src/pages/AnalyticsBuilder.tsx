@@ -25,10 +25,10 @@ import {
   Filler,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { usePatientStore } from '../store/usePatientStore';
-import { TZ_GEO }         from '../utils/geo';
-import { getMonthlyStats } from '../services/clinical';
-import type { Patient }    from '../types';
+import { usePatientStore } from '../../store/usePatientStore';
+import { TZ_GEO }         from '../../utils/geo';
+import { getMonthlyStats } from '../../services/clinical';
+import type { Patient }    from '../../types';
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
