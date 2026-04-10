@@ -116,6 +116,23 @@ CREATE TABLE medications (
 CREATE INDEX idx_medications_visit ON medications(visit_id);
 
 -- ════════════════════════════════════════════════════════════
+-- PATIENT MEDICATIONS TABLE (Patient-level medication history)
+-- ════════════════════════════════════════════════════════════
+CREATE TABLE patient_medications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    name TEXT NOT NULL,
+    dose TEXT,
+    freq TEXT,
+    instructions TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_patient_medications_patient ON patient_medications(patient_id);
+CREATE INDEX idx_patient_medications_date ON patient_medications(date);
+
+-- ════════════════════════════════════════════════════════════
 -- HBA1C TABLE
 -- ════════════════════════════════════════════════════════════
 CREATE TABLE hba1c (
@@ -257,6 +274,7 @@ ALTER TABLE hospitals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE medications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE patient_medications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hba1c ENABLE ROW LEVEL SECURITY;
 ALTER TABLE call_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduled_appointments ENABLE ROW LEVEL SECURITY;
@@ -271,6 +289,7 @@ CREATE POLICY "Allow all" ON hospitals FOR ALL USING (true);
 CREATE POLICY "Allow all" ON patients FOR ALL USING (true);
 CREATE POLICY "Allow all" ON visits FOR ALL USING (true);
 CREATE POLICY "Allow all" ON medications FOR ALL USING (true);
+CREATE POLICY "Allow all" ON patient_medications FOR ALL USING (true);
 CREATE POLICY "Allow all" ON hba1c FOR ALL USING (true);
 CREATE POLICY "Allow all" ON call_logs FOR ALL USING (true);
 CREATE POLICY "Allow all" ON scheduled_appointments FOR ALL USING (true);

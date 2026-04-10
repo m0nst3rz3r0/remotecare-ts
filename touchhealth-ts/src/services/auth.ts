@@ -5,6 +5,7 @@
 
 import type { User, SessionUser, UserRole, Hospital } from '../types';
 import { hashPassword, verifyPassword } from './crypto';
+import { supabase } from './supabase';
 
 // ── STORAGE KEYS ─────────────────────────────────────────────
 
@@ -103,7 +104,7 @@ export type LoginResult =
   | { success: true;  user: SessionUser }
   | { success: false; error: string };
 
-// CHANGED: login is now async to support password hashing
+// CHANGED: Hybrid login - checks Supabase first, caches to localStorage for offline
 export async function login(params: {
   username: string;
   password: string;
@@ -118,76 +119,128 @@ export async function login(params: {
     return { success: false, error: 'Please enter your username and password.' };
   }
 
-  const users = loadUsers();
-  const foundUser = users.find(
-    (u) => u.username.toLowerCase() === username.toLowerCase(),
-  );
+  let foundUser: any = null;
+  let isOffline = false;
+
+  // Try Supabase first (online mode)
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username.toLowerCase())
+      .single();
+
+    if (!error && data) {
+      foundUser = data;
+      // Cache user to localStorage for offline login
+      cacheUserForOffline(foundUser);
+    } else {
+      // If Supabase fails, try localStorage (offline mode)
+      isOffline = true;
+      foundUser = findCachedUser(username);
+    }
+  } catch (e) {
+    // Network error - use localStorage fallback
+    isOffline = true;
+    foundUser = findCachedUser(username);
+  }
 
   if (!foundUser) {
     return { success: false, error: 'Incorrect username or password. Please try again.' };
   }
 
-  // CHANGED: use verifyPassword (supports both plain-text legacy + hashed)
+  // Verify password
   const passwordOk = await verifyPassword(password, foundUser.password);
   if (!passwordOk) {
     return { success: false, error: 'Incorrect username or password. Please try again.' };
   }
 
-  const anyMatch = foundUser;
-
-  if (anyMatch.role !== role) {
-    const correctTab = anyMatch.role === 'admin' ? 'Admin' : 'Doctor';
+  if (foundUser.role !== role) {
+    const correctTab = foundUser.role === 'admin' ? 'Admin' : 'Doctor';
     return {
       success: false,
-      error: `Wrong tab selected. Please click the "${correctTab}" tab — your account is a ${anyMatch.role} account.`,
+      error: `Wrong tab selected. Please click the "${correctTab}" tab — your account is a ${foundUser.role} account.`,
     };
   }
 
   // Doctor: validate hospital assignment
   if (role === 'doctor') {
-    const resolvedHospital = hospital || anyMatch.hospital;
+    const resolvedHospital = hospital || foundUser.hospital;
     if (!resolvedHospital) {
       return { success: false, error: 'Please select your hospital from the list.' };
     }
-    if (anyMatch.hospital && resolvedHospital !== anyMatch.hospital) {
+    if (foundUser.hospital && resolvedHospital !== foundUser.hospital) {
       return {
         success: false,
-        error: `Access Denied: You are not authorised for this facility. Your assigned hospital is: ${anyMatch.hospital}`,
+        error: `Access Denied: You are not authorised for this facility. Your assigned hospital is: ${foundUser.hospital}`,
       };
     }
     const sessionUser: SessionUser = {
-      id:              anyMatch.id,
-      username:        anyMatch.username,
-      displayName:     anyMatch.displayName,
-      role:            anyMatch.role,
-      hospital:        anyMatch.hospital,
+      id:              foundUser.id,
+      username:        foundUser.username,
+      displayName:     foundUser.display_name,
+      role:            foundUser.role,
+      hospital:        foundUser.hospital,
       sessionHospital: resolvedHospital,
-      sessionRegion:   region || anyMatch.region,
-      sessionDistrict: district || anyMatch.district,
+      sessionRegion:   region || foundUser.region,
+      sessionDistrict: district || foundUser.district,
       isSuperAdmin:    false,
       adminRegion:     '',
       adminDistrict:   '',
     };
     saveSession(sessionUser);
-    return { success: true, user: sessionUser };
+    return { success: true, user: sessionUser, offline: isOffline };
   }
 
-  // Admin login — carry region/district and superadmin flag
+  // Admin login
   const sessionUser: SessionUser = {
-    id:              anyMatch.id,
-    username:        anyMatch.username,
-    displayName:     anyMatch.displayName,
-    role:            anyMatch.role,
-    hospital:        anyMatch.hospital,
+    id:              foundUser.id,
+    username:        foundUser.username,
+    displayName:     foundUser.display_name,
+    role:            foundUser.role,
+    hospital:        foundUser.hospital,
     sessionHospital: 'RemoteCare',
-    sessionRegion:   anyMatch.region   ?? '',
-    sessionDistrict: anyMatch.district ?? '',
-    isSuperAdmin:    anyMatch.isSuperAdmin === true,
-    adminRegion:     anyMatch.region   ?? '',
-    adminDistrict:   anyMatch.district ?? '',
+    sessionRegion:   foundUser.region   ?? '',
+    sessionDistrict: foundUser.district ?? '',
+    isSuperAdmin:    foundUser.is_super_admin === true,
+    adminRegion:     foundUser.region   ?? '',
+    adminDistrict:   foundUser.district ?? '',
   };
   saveSession(sessionUser);
-  return { success: true, user: sessionUser };
+  return { success: true, user: sessionUser, offline: isOffline };
+}
+
+// Helper: Cache user credentials for offline login
+function cacheUserForOffline(user: any): void {
+  const cachedUsers = JSON.parse(localStorage.getItem('th_cached_users') || '[]');
+  const existingIndex = cachedUsers.findIndex((u: any) => u.username === user.username);
+  
+  const cacheData = {
+    id: user.id,
+    username: user.username,
+    password: user.password, // Already hashed
+    role: user.role,
+    displayName: user.display_name,
+    hospital: user.hospital,
+    region: user.region,
+    district: user.district,
+    isSuperAdmin: user.is_super_admin,
+    cachedAt: new Date().toISOString()
+  };
+  
+  if (existingIndex >= 0) {
+    cachedUsers[existingIndex] = cacheData;
+  } else {
+    cachedUsers.push(cacheData);
+  }
+  
+  localStorage.setItem('th_cached_users', JSON.stringify(cachedUsers));
+}
+
+// Helper: Find cached user for offline login
+function findCachedUser(username: string): any {
+  const cachedUsers = JSON.parse(localStorage.getItem('th_cached_users') || '[]');
+  return cachedUsers.find((u: any) => u.username.toLowerCase() === username.toLowerCase()) || null;
 }
 
 // ── LOGOUT ────────────────────────────────────────────────────
