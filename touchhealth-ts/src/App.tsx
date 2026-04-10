@@ -88,9 +88,11 @@ export default function App() {
   if (!currentUser) return <AuthPage />;
 
   const role = currentUser.role;
+  // Doctors keep the existing off-white; Admin/SuperAdmin get a clean light grey
+  const pageBg = role === 'doctor' ? '#f8fafc' : '#f0f2f5';
 
   return (
-    <div className="min-h-screen" style={{ background: '#f8fafc' }}>
+    <div className="min-h-screen" style={{ background: pageBg }}>
       <Topbar />
       <SyncBar />
       <NavTabs />
