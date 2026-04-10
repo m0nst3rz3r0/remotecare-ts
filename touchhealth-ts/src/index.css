@@ -1,5 +1,5 @@
 /* v2 - richer colors */
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Karla:ital,wght@0,400;0,500;0,700;1,400&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+/* Inter loaded via index.html */
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 @tailwind base;
@@ -52,16 +52,16 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
-  font-family: 'Karla', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: var(--surface);
   color: var(--ink);
   font-size: 14px; line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
-h1,h2,h3,h4,h5 { font-family: 'Syne', sans-serif; }
-.font-syne  { font-family: 'Syne', sans-serif !important; }
-.font-karla { font-family: 'Karla', sans-serif !important; }
-.mono, .font-mono { font-family: 'JetBrains Mono', monospace !important; }
+h1,h2,h3,h4,h5 { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-weight: 600; }
+.font-syne  { font-family: 'Inter', system-ui, -apple-system, sans-serif !important; }
+.font-karla { font-family: 'Inter', system-ui, -apple-system, sans-serif !important; }
+.mono, .font-mono { font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace !important; }
 
 .card {
   background: #ffffff;
@@ -81,7 +81,7 @@ h1,h2,h3,h4,h5 { font-family: 'Syne', sans-serif; }
   border-radius: 12px 12px 0 0;
 }
 .card-title {
-  font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 10px; font-weight: 600;
   text-transform: uppercase; letter-spacing: .7px; color: #fff;
 }
 .card-body { padding: 16px; }
@@ -115,7 +115,7 @@ h1,h2,h3,h4,h5 { font-family: 'Syne', sans-serif; }
 .on-dark-faint { color: rgba(255,255,255,.35); }
 
 .pt-tag, .tag {
-  font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace; font-size: 11px; font-weight: 600;
   background: rgba(13,110,135,.08); color: #0d6e87;
   padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(13,110,135,.15);
   letter-spacing: .5px;
@@ -136,7 +136,7 @@ h1,h2,h3,h4,h5 { font-family: 'Syne', sans-serif; }
 .field-input {
   width: 100%; padding: 10px 12px;
   border: 1px solid #cbd5e1; border-radius: 6px;
-  font-family: 'Karla', sans-serif; font-size: 14px; color: #132b31;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 14px; color: #132b31;
   background: #ffffff; outline: none;
   transition: border .15s, box-shadow .15s;
 }
@@ -150,7 +150,7 @@ h1,h2,h3,h4,h5 { font-family: 'Syne', sans-serif; }
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 9px 18px; border-radius: 4px;
-  font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 600;
   cursor: pointer; border: none; transition: all .15s; white-space: nowrap;
 }
 .btn:active { transform: scale(.98); }
@@ -183,7 +183,7 @@ h1,h2,h3,h4,h5 { font-family: 'Syne', sans-serif; }
 .autocomplete-item.custom { color: #0d6e87; font-style: italic; }
 
 .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
-.tbl th { background: #132b31; color: #fff; padding: 10px 14px; text-align: left; font-family: 'Karla', sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; font-weight: 700; }
+.tbl th { background: #132b31; color: #fff; padding: 10px 14px; text-align: left; font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; font-weight: 600; }
 .tbl td { padding: 10px 14px; }
 .tbl tr:nth-child(odd)  td { background: #fff; }
 .tbl tr:nth-child(even) td { background: #f4f4f2; }
@@ -193,8 +193,8 @@ h1,h2,h3,h4,h5 { font-family: 'Syne', sans-serif; }
 
 .stat-tile { background: #fff; border-radius: 12px; box-shadow: none; overflow: hidden; border: 1px solid #e2e8f0; }
 .stat-tile-head { height: 40px; background: #132b31; display: flex; align-items: center; padding: 0 16px; }
-.stat-tile-lbl  { font-family: 'Syne', sans-serif; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: #fff; }
-.stat-tile-val  { font-family: 'JetBrains Mono', monospace; font-size: 36px; font-weight: 700; color: #10b981; line-height: 1; }
+.stat-tile-lbl  { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .7px; color: #fff; }
+.stat-tile-val  { font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace; font-size: 36px; font-weight: 700; color: #10b981; line-height: 1; }
 .stat-tile-body { padding: 16px; }
 
 .progress-bar  { height: 5px; background: #e8e8e6; border-radius: 9999px; overflow: hidden; }
@@ -207,7 +207,7 @@ h1,h2,h3,h4,h5 { font-family: 'Syne', sans-serif; }
 
 .scope-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; padding: 2px 8px; border-radius: 9999px; }
 
-.day-pill { padding: 6px 16px; border-radius: 9999px; font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid rgba(191,200,205,.4); background: #fff; color: #516169; transition: all .12s; user-select: none; }
+.day-pill { padding: 6px 16px; border-radius: 9999px; font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid rgba(191,200,205,.4); background: #fff; color: #516169; transition: all .12s; user-select: none; }
 .day-pill.active { background: #10b981; border-color: #10b981; color: #fff; }
 .day-pill:hover:not(.active) { border-color: #10b981; color: #10b981; }
 
