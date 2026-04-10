@@ -45,7 +45,7 @@ function SectionCard({
         onClick={() => setOpen(!open)}
         style={{ background: color, height: '36px', padding: '0 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
       >
-        <span style={{ color: '#fff', fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
+        <span style={{ color: '#fff', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
           {title}
         </span>
         <span style={{ color: 'rgba(255,255,255,.7)', fontSize: '16px', lineHeight: 1, transition: 'transform .2s', display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
@@ -59,7 +59,7 @@ function SectionCard({
 
 function FieldLabel({ text }: { text: string }) {
   return (
-    <div style={{ fontSize: '10px', fontFamily: 'Syne, sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#516169', marginBottom: '4px' }}>
+    <div style={{ fontSize: '10px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#516169', marginBottom: '4px' }}>
       {text}
     </div>
   );
@@ -67,7 +67,7 @@ function FieldLabel({ text }: { text: string }) {
 
 const fieldStyle: React.CSSProperties = {
   width: '100%', border: '1.5px solid rgba(191,200,205,.55)', borderRadius: '4px',
-  padding: '8px 10px', fontSize: '13px', fontFamily: 'Karla, sans-serif',
+  padding: '8px 10px', fontSize: '13px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   color: INK, background: '#fff', outline: 'none',
 };
 
@@ -109,7 +109,7 @@ function DiagnosisSearch({
                 fontSize: '12px', color: d.isPrimary ? '#005469' : INK,
               }}
             >
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '11px' }}>{d.code}</span>
+              <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontWeight: 700, fontSize: '11px' }}>{d.code}</span>
               <span>{d.description}</span>
               {onTogglePrimary && (
                 <button
@@ -146,7 +146,7 @@ function DiagnosisSearch({
                 onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(13,110,135,.05)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#fff'; }}
               >
-                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: TEAL, fontSize: '11px', minWidth: '52px' }}>{r.code}</span>
+                <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontWeight: 700, color: TEAL, fontSize: '11px', minWidth: '52px' }}>{r.code}</span>
                 <span style={{ color: INK }}>{r.description}</span>
                 <span style={{ marginLeft: 'auto', fontSize: '10px', color: '#516169', background: '#f4f4f2', padding: '2px 6px', borderRadius: '3px' }}>{r.category}</span>
               </div>
@@ -202,14 +202,14 @@ function InvestigationRow({ inv, onChange, onRemove }: { inv: InvResult; onChang
         <input
           value={inv.value}
           onChange={(e) => onChange({ ...inv, value: e.target.value })}
-          style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', padding: '6px 8px', textAlign: 'center' }}
+          style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', padding: '6px 8px', textAlign: 'center' }}
           placeholder="—"
           type="number"
           step="0.1"
         />
       )}
       {!isTextBased && (interp ? (
-        <span style={{ padding: '3px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: interp.bg, color: interp.color, whiteSpace: 'nowrap', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+        <span style={{ padding: '3px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: interp.bg, color: interp.color, whiteSpace: 'nowrap', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase' }}>
           {interp.label}
         </span>
       ) : <span />)}
@@ -442,10 +442,10 @@ export default function VisitModal() {
         {/* ── Header ──────────────────────────────────────── */}
         <div style={{ background: INK, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', fontWeight: 800, color: '#fff' }}>Record Visit</div>
-            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: 'rgba(255,255,255,.6)', marginTop: '2px' }}>{patient.code} · {patient.cond} · {patient.sex === 'M' ? 'Male' : 'Female'} {patient.age}y</div>
+            <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '16px', fontWeight: 800, color: '#fff' }}>Record Visit</div>
+            <div style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '12px', color: 'rgba(255,255,255,.6)', marginTop: '2px' }}>{patient.code} · {patient.cond} · {patient.sex === 'M' ? 'Male' : 'Female'} {patient.age}y</div>
           </div>
-          <button onClick={close} style={{ background: 'rgba(255,255,255,.1)', border: 'none', color: '#fff', borderRadius: '6px', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Syne, sans-serif', fontSize: '12px', fontWeight: 700 }}>
+          <button onClick={close} style={{ background: 'rgba(255,255,255,.1)', border: 'none', color: '#fff', borderRadius: '6px', padding: '6px 14px', cursor: 'pointer', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '12px', fontWeight: 700 }}>
             Cancel
           </button>
         </div>
@@ -461,7 +461,7 @@ export default function VisitModal() {
             </div>
             <div>
               <FieldLabel text="Month #" />
-              <div style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>{month}</div>
+              <div style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontWeight: 700 }}>{month}</div>
             </div>
             <div>
               <FieldLabel text="Attendance" />
@@ -480,30 +480,30 @@ export default function VisitModal() {
                   {/* BP */}
                   <div style={{ background: 'rgba(13,110,135,.06)', borderRadius: '6px', padding: '10px', border: '1px solid rgba(13,110,135,.15)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: TEAL, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Blood Pressure</span>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: TEAL, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase' }}>Blood Pressure</span>
                       {liveBP ? <Chip cls={liveBP.cls}>{liveBP.lbl}</Chip> : null}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                       <div>
                         <FieldLabel text="SBP (mmHg)" />
-                        <input type="number" value={sbp} onChange={(e) => setSbp(e.target.value)} style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} placeholder="145" />
+                        <input type="number" value={sbp} onChange={(e) => setSbp(e.target.value)} style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }} placeholder="145" />
                       </div>
                       <div>
                         <FieldLabel text="DBP (mmHg)" />
-                        <input type="number" value={dbp} onChange={(e) => setDbp(e.target.value)} style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} placeholder="95" />
+                        <input type="number" value={dbp} onChange={(e) => setDbp(e.target.value)} style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }} placeholder="95" />
                       </div>
                     </div>
                   </div>
                   {/* Glucose */}
                   <div style={{ background: 'rgba(217,119,6,.06)', borderRadius: '6px', padding: '10px', border: '1px solid rgba(217,119,6,.2)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#d97706', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Glucose</span>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#d97706', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase' }}>Glucose</span>
                       {liveSG ? <Chip cls={liveSG.cls}>{liveSG.lbl}</Chip> : null}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                       <div>
                         <FieldLabel text="Value (mmol/L)" />
-                        <input type="number" step="0.1" value={sugar} onChange={(e) => setSugar(e.target.value)} style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} placeholder="8.2" />
+                        <input type="number" step="0.1" value={sugar} onChange={(e) => setSugar(e.target.value)} style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }} placeholder="8.2" />
                       </div>
                       <div>
                         <FieldLabel text="Type" />
@@ -526,7 +526,7 @@ export default function VisitModal() {
                     return (
                       <div style={{ background: 'rgba(99,102,241,.06)', borderRadius: '6px', padding: '10px', border: '1px solid rgba(99,102,241,.2)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#4f46e5', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>SpO₂ / Oxygen Saturation</span>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#4f46e5', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase' }}>SpO₂ / Oxygen Saturation</span>
                           {spo2Status ? <Chip cls={spo2Status.cls}>{spo2Status.lbl}</Chip> : null}
                         </div>
                         <div>
@@ -535,7 +535,7 @@ export default function VisitModal() {
                             type="number" min="0" max="100" step="1"
                             value={oxygenSaturation}
                             onChange={(e) => setOxygenSaturation(e.target.value)}
-                            style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: '18px', fontWeight: 700, textAlign: 'center', color: spo2N !== null && spo2N < 95 ? '#dc2626' : '#0f1f26' }}
+                            style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '18px', fontWeight: 700, textAlign: 'center', color: spo2N !== null && spo2N < 95 ? '#dc2626' : '#0f1f26' }}
                             placeholder="98"
                           />
                           <div style={{ fontSize: '10px', color: '#516169', marginTop: '4px' }}>Normal: ≥95% · Low: 90–94% · Critical: &lt;90%</div>
@@ -555,7 +555,7 @@ export default function VisitModal() {
                     return (
                       <div style={{ background: 'rgba(239,68,68,.05)', borderRadius: '6px', padding: '10px', border: '1px solid rgba(239,68,68,.2)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#dc2626', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>Pulse Rate</span>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#dc2626', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase' }}>Pulse Rate</span>
                           {prStatus ? <Chip cls={prStatus.cls}>{prStatus.lbl}</Chip> : null}
                         </div>
                         <div>
@@ -564,7 +564,7 @@ export default function VisitModal() {
                             type="number" min="0" max="300" step="1"
                             value={pulseRate}
                             onChange={(e) => setPulseRate(e.target.value)}
-                            style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: '18px', fontWeight: 700, textAlign: 'center', color: prN !== null && (prN < 60 || prN > 100) ? '#dc2626' : '#0f1f26' }}
+                            style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '18px', fontWeight: 700, textAlign: 'center', color: prN !== null && (prN < 60 || prN > 100) ? '#dc2626' : '#0f1f26' }}
                             placeholder="72"
                           />
                           <div style={{ fontSize: '10px', color: '#516169', marginTop: '4px' }}>Normal: 60–100 bpm · &lt;60 bradycardia · &gt;100 tachycardia</div>
@@ -577,15 +577,15 @@ export default function VisitModal() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                   <div>
                     <FieldLabel text="Weight (kg)" />
-                    <input type="number" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} placeholder="70" />
+                    <input type="number" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }} placeholder="70" />
                   </div>
                   <div>
                     <FieldLabel text="Height (cm)" />
-                    <input type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} placeholder="170" />
+                    <input type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }} placeholder="170" />
                   </div>
                   <div>
                     <FieldLabel text="BMI" />
-                    <div style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: TEAL }}>{bmi === null ? '—' : bmi.toFixed(1)}</div>
+                    <div style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontWeight: 700, color: TEAL }}>{bmi === null ? '—' : bmi.toFixed(1)}</div>
                   </div>
                 </div>
                 {/* HbA1c for DM */}
@@ -657,7 +657,7 @@ export default function VisitModal() {
                 <div style={{ background: 'rgba(180,83,9,.07)', border: '1px solid rgba(180,83,9,.2)', borderRadius: '6px', padding: '10px 12px', marginBottom: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                   <span style={{ fontSize: '16px', lineHeight: 1, marginTop: '1px' }}>🩺</span>
                   <div>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#92400e', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '3px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#92400e', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '3px' }}>
                       Registered Condition: {patient.cond}
                     </div>
                     <div style={{ fontSize: '11px', color: '#78350f' }}>
@@ -695,7 +695,7 @@ export default function VisitModal() {
                         onClick={() => setSelectedCategory(active ? '' : cat)}
                         style={{
                           padding: '5px 12px', borderRadius: '999px', fontSize: '11px',
-                          fontFamily: 'Syne, sans-serif', fontWeight: 700, cursor: 'pointer',
+                          fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, cursor: 'pointer',
                           border: `1.5px solid ${active ? c.color : 'rgba(191,200,205,.4)'}`,
                           background: active ? c.bg : '#fff',
                           color: active ? c.color : '#516169',
@@ -711,7 +711,7 @@ export default function VisitModal() {
                 {/* Tests in selected category */}
                 {selectedCategory && (
                   <div style={{ marginBottom: '14px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#516169', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontFamily: 'Syne, sans-serif' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#516169', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
                       {selectedCategory} Tests — click to add
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -733,7 +733,7 @@ export default function VisitModal() {
                             disabled={!!already}
                             style={{
                               padding: '4px 10px', borderRadius: '4px', fontSize: '12px',
-                              fontFamily: 'Karla, sans-serif', cursor: already ? 'default' : 'pointer',
+                              fontFamily: "'Inter', system-ui, -apple-system, sans-serif", cursor: already ? 'default' : 'pointer',
                               border: '1.5px solid rgba(34,197,94,.3)',
                               background: already ? '#dcfce7' : '#fff',
                               color: already ? '#166534' : '#0f1f26',
@@ -751,7 +751,7 @@ export default function VisitModal() {
                 {/* Added investigations with value + WHO interpretation */}
                 {investigations.length > 0 && (
                   <div>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#516169', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontFamily: 'Syne, sans-serif' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#516169', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
                       Enter results
                     </div>
                     {investigations.map((inv, idx) => (
@@ -777,7 +777,7 @@ export default function VisitModal() {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
                   <button
                     onClick={() => setMeds((prev) => [...prev, defaultMed(patient)])}
-                    style={{ background: 'rgba(124,58,237,.1)', border: '1.5px solid rgba(124,58,237,.2)', color: '#7c3aed', borderRadius: '4px', padding: '5px 12px', fontSize: '12px', fontFamily: 'Syne, sans-serif', fontWeight: 700, cursor: 'pointer' }}
+                    style={{ background: 'rgba(124,58,237,.1)', border: '1.5px solid rgba(124,58,237,.2)', color: '#7c3aed', borderRadius: '4px', padding: '5px 12px', fontSize: '12px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, cursor: 'pointer' }}
                   >
                     + Add Medication
                   </button>

@@ -95,21 +95,21 @@ function QueueCard({
         <div style={{
           position: 'absolute', top: 4, right: 6,
           fontSize: 9, color: '#16a34a', fontWeight: 800,
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
         }}><Check size={9} /></div>
       )}
       {walkIn && !done && (
         <div style={{
           position: 'absolute', top: 4, right: 6,
           fontSize: 8, color: '#7c3aed', fontWeight: 700,
-          fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.3px',
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase', letterSpacing: '.3px',
           display: 'inline-flex', alignItems: 'center', gap: 2
         }}><User size={8} /> walk-in</div>
       )}
 
       {/* Code tag */}
       <div style={{
-        fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+        fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontWeight: 700,
         fontSize: 10, color: done ? '#516169' : '#005469',
         background: done ? 'rgba(191,200,205,.2)' : 'rgba(0,84,105,.08)',
         padding: '2px 6px', borderRadius: 4, flexShrink: 0,
@@ -121,7 +121,7 @@ function QueueCard({
       {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: 11, fontFamily: 'Karla, sans-serif',
+          fontSize: 11, fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
           fontWeight: 600, color: done ? '#6f797d' : '#0f1f26',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
@@ -130,14 +130,14 @@ function QueueCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1, flexWrap: 'wrap' }}>
           <span style={{
             fontSize: 8, fontWeight: 800, padding: '1px 5px',
-            borderRadius: 9999, fontFamily: 'Syne, sans-serif',
+            borderRadius: 9999, fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
             textTransform: 'uppercase', letterSpacing: '.3px',
             background: condColor.bg, color: condColor.color,
           }}>
             {patient.cond}
           </span>
           {lv?.sbp && lv?.dbp && (
-            <span style={{ fontSize: 9, fontFamily: 'JetBrains Mono, monospace', color: '#516169' }}>
+            <span style={{ fontSize: 9, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", color: '#516169' }}>
               {lv.sbp}/{lv.dbp}
             </span>
           )}
@@ -155,7 +155,7 @@ function QueueCard({
               ? 'linear-gradient(135deg,#7c3aed,#5b21b6)'
               : 'linear-gradient(135deg,#0d6e87,#005469)',
             color: '#fff', border: 'none', cursor: 'pointer',
-            fontFamily: 'Syne, sans-serif', fontSize: 9,
+            fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 9,
             fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.3px',
             boxShadow: walkIn
               ? '0 2px 6px rgba(124,58,237,.3)'
@@ -272,7 +272,7 @@ function TodaysQueue({
           <span style={{ fontSize: 14, display: 'inline-flex', alignItems: 'center' }}><Calendar size={14} /></span>
           <div style={{ textAlign: 'left' }}>
             <div style={{
-              fontFamily: 'Syne, sans-serif', fontWeight: 800,
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800,
               fontSize: 11, color: '#fff',
               textTransform: 'uppercase', letterSpacing: '.5px',
             }}>
@@ -335,7 +335,7 @@ function TodaysQueue({
                 padding: '7px 10px 7px 26px',
                 border: '1.5px solid rgba(191,200,205,.5)',
                 borderRadius: 6, fontSize: 12,
-                fontFamily: 'JetBrains Mono, monospace',
+                fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace",
                 color: '#0f1f26', outline: 'none',
                 background: '#fafcfd',
               }}
@@ -360,7 +360,7 @@ function TodaysQueue({
           {showWalkin && (
             <div style={{ marginBottom: 10 }}>
               <div style={{
-                fontSize: 9, fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                fontSize: 9, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700,
                 textTransform: 'uppercase', letterSpacing: '.4px',
                 color: '#7c3aed', marginBottom: 6,
                 display: 'flex', alignItems: 'center', gap: 4,
@@ -393,7 +393,7 @@ function TodaysQueue({
               {filteredExpected.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
                   <div style={{
-                    fontSize: 9, fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                    fontSize: 9, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700,
                     textTransform: 'uppercase', letterSpacing: '.4px',
                     color: '#d97706', marginBottom: 5,
                     display: 'flex', alignItems: 'center', gap: 5,
@@ -422,7 +422,7 @@ function TodaysQueue({
               {filteredCompleted.length > 0 && (
                 <div>
                   <div style={{
-                fontSize: 9, fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                fontSize: 9, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700,
                 textTransform: 'uppercase', letterSpacing: '.4px',
                 color: '#16a34a', marginBottom: 5,
                 display: 'inline-flex', alignItems: 'center', gap: 4
@@ -454,7 +454,7 @@ function TodaysQueue({
                 <div style={{
                   textAlign: 'center', padding: '6px 0',
                   fontSize: 11, color: '#16a34a', fontWeight: 700,
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                   display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: 'center'
                 }}>
                   <PartyPopper size={11} /> All patients seen today!

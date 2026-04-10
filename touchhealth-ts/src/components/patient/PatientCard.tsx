@@ -68,10 +68,10 @@ export default function PatientCard({
           </div>
 
           <div className="flex items-center justify-between text-xs text-slate-500">
-            <span style={{ fontFamily: 'Karla, sans-serif' }}>
+            <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
               {patient.age}y · {patient.sex}
             </span>
-            <span style={{ fontFamily: 'Karla, sans-serif' }}>
+            <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
               {lv?.date ? new Date(lv.date).toLocaleDateString('en-GB') : '—'}
             </span>
           </div>

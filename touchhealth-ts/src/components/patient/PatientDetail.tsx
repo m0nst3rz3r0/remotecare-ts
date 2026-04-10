@@ -99,7 +99,7 @@ function NotesDxCard({
         {/* Left: date + badges */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontFamily: 'Syne, sans-serif', fontWeight: 800,
+            fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800,
             fontSize: 12, color: '#fff',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
@@ -110,7 +110,7 @@ function NotesDxCard({
           {!open && (
             <div style={{
               fontSize: 10, color: 'rgba(255,255,255,.55)',
-              fontFamily: 'Karla, sans-serif',
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
               marginTop: 2,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
@@ -124,7 +124,7 @@ function NotesDxCard({
           {hasWarnings && (
             <span style={{
               fontSize: 8, fontWeight: 800,
-              fontFamily: 'Syne, sans-serif',
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
               textTransform: 'uppercase', letterSpacing: '.3px',
               padding: '1px 6px', borderRadius: 9999,
               background: '#fee2e2', color: '#7f1d1d',
@@ -136,7 +136,7 @@ function NotesDxCard({
           {diagCount > 0 && (
             <span style={{
               fontSize: 8, fontWeight: 800,
-              fontFamily: 'Syne, sans-serif',
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
               textTransform: 'uppercase', letterSpacing: '.3px',
               padding: '1px 6px', borderRadius: 9999,
               background: 'rgba(13,110,135,.25)', color: '#e0f7fa',
@@ -147,7 +147,7 @@ function NotesDxCard({
           {labCount > 0 && (
             <span style={{
               fontSize: 8, fontWeight: 800,
-              fontFamily: 'Syne, sans-serif',
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
               textTransform: 'uppercase', letterSpacing: '.3px',
               padding: '1px 6px', borderRadius: 9999,
               background: 'rgba(22,163,74,.25)', color: '#bbf7d0',
@@ -256,7 +256,7 @@ function PatientActionBar({
               </span>
               <div>
                 <div style={{
-                  fontFamily: 'Syne, sans-serif', fontWeight: 800,
+                  fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800,
                   fontSize: '14px', color: '#fff',
                 }}>
                   Permanent Deletion
@@ -277,7 +277,7 @@ function PatientActionBar({
               lineHeight: 1.5,
             }}>
               All visits, medications, and clinical records for{' '}
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#fff' }}>
+              <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontWeight: 700, color: '#fff' }}>
                 {patient.code}
               </span>{' '}
               will be permanently erased. Type the patient code below to confirm.
@@ -285,7 +285,7 @@ function PatientActionBar({
 
             <div style={{ marginBottom: '4px' }}>
               <div style={{
-                fontSize: '9px', fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                fontSize: '9px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700,
                 textTransform: 'uppercase', letterSpacing: '0.5px',
                 color: 'rgba(255,255,255,0.4)', marginBottom: '6px',
               }}>
@@ -307,7 +307,7 @@ function PatientActionBar({
                   border: '1.5px solid rgba(220,38,38,0.35)',
                   borderRadius: '5px',
                   padding: '8px 12px',
-                  fontFamily: 'JetBrains Mono, monospace',
+                  fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace",
                   fontSize: '13px',
                   fontWeight: 700,
                   color: '#fff',
@@ -327,7 +327,7 @@ function PatientActionBar({
                   border: '1px solid rgba(255,255,255,0.12)',
                   color: 'rgba(255,255,255,0.6)',
                   fontSize: '12px', fontWeight: 700, cursor: 'pointer',
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                 }}
               >
                 Cancel
@@ -344,7 +344,7 @@ function PatientActionBar({
                   color: deleteInput.trim().toUpperCase() === patient.code.trim().toUpperCase()
                     ? '#fff' : 'rgba(255,255,255,0.3)',
                   fontSize: '12px', fontWeight: 800, cursor: deleteInput.trim().toUpperCase() === patient.code.trim().toUpperCase() ? 'pointer' : 'not-allowed',
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                   transition: 'all 0.15s',
                 }}
               >
@@ -498,7 +498,7 @@ function PatientActionBar({
                 <div style={{
                   padding: '5px 12px 4px',
                   fontSize: '9px',
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
@@ -522,7 +522,7 @@ function PatientActionBar({
                     color: '#fca5a5',
                     fontSize: '12px',
                     fontWeight: 700,
-                    fontFamily: 'Karla, sans-serif',
+                    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                     textAlign: 'left',
                     transition: 'background 0.1s',
                   }}
@@ -1022,7 +1022,7 @@ export default function PatientDetail() {
 
                 {/* ── History Summary Stats ── */}
                 <div className="rounded-[var(--r)] border border-[var(--border)] p-3" style={{ background: 'var(--teal-ultra)' }}>
-                  <div className="font-syne font-extrabold text-[14px] text-[var(--teal)] mb-3">History Summary</div>
+                  <div className="font-sans font-extrabold text-[14px] text-[var(--teal)] mb-3">History Summary</div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[12px]">
                     <div>
                       <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-1">Total Visits</div>
@@ -1091,7 +1091,7 @@ export default function PatientDetail() {
                             <div style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(220,38,38,.2)' }}>
                               <div style={{ background: '#7f1d1d', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <span style={{ fontSize: 13 }}>⚠️</span>
-                                <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+                                <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '.5px' }}>
                                   Medication Alerts — {ddInteractions.length + dxWarnings.length} warning{ddInteractions.length + dxWarnings.length > 1 ? 's' : ''} at time of visit
                                 </span>
                               </div>
@@ -1101,10 +1101,10 @@ export default function PatientDetail() {
                                   return (
                                     <div key={w.warning.id} style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid rgba(220,38,38,.08)' }}>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
-                                        <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: disp.bg, color: disp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+                                        <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: disp.bg, color: disp.color, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase', letterSpacing: '.4px' }}>
                                           {disp.icon} {disp.label}
                                         </span>
-                                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 700, background: 'rgba(124,58,237,.08)', color: '#7c3aed', padding: '1px 6px', borderRadius: 4 }}>{w.drugName}</span>
+                                        <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: 10, fontWeight: 700, background: 'rgba(124,58,237,.08)', color: '#7c3aed', padding: '1px 6px', borderRadius: 4 }}>{w.drugName}</span>
                                         <span style={{ fontSize: 9, color: '#6f797d' }}>in {w.warning.diagnosisPatterns[0]} patient</span>
                                       </div>
                                       <div style={{ fontSize: 11, color: '#7f1d1d', fontWeight: 600 }}>{w.warning.clinicalEffect}</div>
@@ -1117,11 +1117,11 @@ export default function PatientDetail() {
                                   return (
                                     <div key={i.interaction.id} style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid rgba(220,38,38,.08)' }}>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
-                                        <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: disp.bg, color: disp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+                                        <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: disp.bg, color: disp.color, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase', letterSpacing: '.4px' }}>
                                           {disp.icon} {disp.label}
                                         </span>
-                                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 700, background: 'rgba(124,58,237,.08)', color: '#7c3aed', padding: '1px 6px', borderRadius: 4 }}>{i.drug1Name}</span>
-                                        {i.drug2Name && <><span style={{ fontSize: 9, color: '#6f797d' }}>+</span><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 700, background: 'rgba(124,58,237,.08)', color: '#7c3aed', padding: '1px 6px', borderRadius: 4 }}>{i.drug2Name}</span></>}
+                                        <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: 10, fontWeight: 700, background: 'rgba(124,58,237,.08)', color: '#7c3aed', padding: '1px 6px', borderRadius: 4 }}>{i.drug1Name}</span>
+                                        {i.drug2Name && <><span style={{ fontSize: 9, color: '#6f797d' }}>+</span><span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: 10, fontWeight: 700, background: 'rgba(124,58,237,.08)', color: '#7c3aed', padding: '1px 6px', borderRadius: 4 }}>{i.drug2Name}</span></>}
                                       </div>
                                       <div style={{ fontSize: 11, color: '#7f1d1d', fontWeight: 600 }}>{i.interaction.clinicalEffect}</div>
                                       <div style={{ fontSize: 10, color: '#516169', marginTop: 2 }}>{i.interaction.management}</div>
@@ -1161,10 +1161,10 @@ export default function PatientDetail() {
                                     border: d.isPrimary ? '1px solid rgba(13,110,135,.3)' : '1px solid rgba(191,200,205,.4)',
                                     fontSize: 11, fontWeight: 700,
                                     color: d.isPrimary ? '#005469' : '#516169',
-                                    fontFamily: 'Karla, sans-serif',
+                                    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                                   }}>
                                     {d.isPrimary && <span style={{ fontSize: 9 }}>★</span>}
-                                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10 }}>{d.code}</span>
+                                    <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: 10 }}>{d.code}</span>
                                     <span>{d.description}</span>
                                   </span>
                                 ))}
@@ -1192,7 +1192,7 @@ export default function PatientDetail() {
                                   return (
                                     <div style={{ fontSize: 12 }}>
                                       <strong>Pulse:</strong> {hr} bpm
-                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase' }}>
                                         {interp.label}
                                       </span>
                                     </div>
@@ -1207,7 +1207,7 @@ export default function PatientDetail() {
                                   return (
                                     <div style={{ fontSize: 12 }}>
                                       <strong>RR:</strong> {rr} /min
-                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase' }}>
                                         {interp.label}
                                       </span>
                                       {rr > 20 && <span style={{ display: 'block', fontSize: 10, color: '#dc2626', marginTop: 2 }}>WHO: RR &gt;20 — consider respiratory cause, heart failure, acidosis</span>}
@@ -1226,7 +1226,7 @@ export default function PatientDetail() {
                                   return (
                                     <div style={{ fontSize: 12 }}>
                                       <strong>Temp:</strong> {t}°C
-                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase' }}>
                                         {interp.label}
                                       </span>
                                       {t > 38.0 && <span style={{ display: 'block', fontSize: 10, color: '#dc2626', marginTop: 2 }}>WHO: Investigate source of fever — check for infection, sepsis</span>}
@@ -1244,7 +1244,7 @@ export default function PatientDetail() {
                                   return (
                                     <div style={{ fontSize: 12 }}>
                                       <strong>O₂ Sat:</strong> {spo2}%
-                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: interp.bg, color: interp.color, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase' }}>
                                         {interp.label}
                                       </span>
                                       {spo2 < 94 && <span style={{ display: 'block', fontSize: 10, color: '#dc2626', marginTop: 2 }}>WHO: SpO₂ &lt;94% — supplemental oxygen required</span>}
@@ -1255,7 +1255,7 @@ export default function PatientDetail() {
                                 {v.physicalExam.oedema && v.physicalExam.oedema !== 'none' && (
                                   <div style={{ fontSize: 12 }}>
                                     <strong>Oedema:</strong>
-                                    <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase',
+                                    <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase',
                                       background: v.physicalExam.oedema === 'severe' ? '#fee2e2' : v.physicalExam.oedema === 'moderate' ? '#fef3c7' : '#fef9c3',
                                       color: v.physicalExam.oedema === 'severe' ? '#7f1d1d' : '#78350f',
                                     }}>
@@ -1273,7 +1273,7 @@ export default function PatientDetail() {
                                 {v.physicalExam.footExamination && v.physicalExam.footExamination !== 'normal' && (
                                   <div style={{ fontSize: 12 }}>
                                     <strong>Foot:</strong>
-                                    <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: '#fee2e2', color: '#7f1d1d', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase' }}>
+                                    <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: '#fee2e2', color: '#7f1d1d', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase' }}>
                                       {v.physicalExam.footExamination}
                                     </span>
                                   </div>
@@ -1300,16 +1300,16 @@ export default function PatientDetail() {
                                       borderRadius: 6, padding: '8px 10px',
                                       background: lvl === 'critical' ? 'rgba(127,29,29,.04)' : lvl === 'high' ? 'rgba(220,38,38,.03)' : '#fff',
                                     }}>
-                                      <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 10, color: '#516169', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>
+                                      <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, fontSize: 10, color: '#516169', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>
                                         {inv.name}
                                       </div>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 14, color: '#0f1f26' }}>
+                                        <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontWeight: 800, fontSize: 14, color: '#0f1f26' }}>
                                           {inv.value || '—'}
                                         </span>
                                         <span style={{ fontSize: 10, color: '#6f797d' }}>{inv.unit}</span>
                                         {inv.interpretation && (
-                                          <span style={{ fontSize: 8, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: chipBg, color: chipColor, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.3px' }}>
+                                          <span style={{ fontSize: 8, fontWeight: 800, padding: '1px 6px', borderRadius: 9999, background: chipBg, color: chipColor, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase', letterSpacing: '.3px' }}>
                                             {inv.interpretation.text}
                                           </span>
                                         )}

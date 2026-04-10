@@ -47,7 +47,7 @@ const fieldStyle: React.CSSProperties = {
   borderRadius: '4px',
   padding: '7px 10px',
   fontSize: '13px',
-  fontFamily: 'Karla, sans-serif',
+  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   color: INK,
   background: '#fff',
   outline: 'none',
@@ -56,7 +56,7 @@ const fieldStyle: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = {
   fontSize: '10px',
-  fontFamily: 'Syne, sans-serif',
+  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '.5px',
@@ -117,7 +117,7 @@ function DiagnosisChipSection({
       >
         <span style={{
           fontSize: '10px',
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
           fontWeight: 700,
           textTransform: 'uppercase',
           letterSpacing: '.5px',
@@ -148,7 +148,7 @@ function DiagnosisChipSection({
                 onClick={() => onSelect(active ? '' : med)}
                 style={{
                   fontSize: '11px',
-                  fontFamily: 'Karla, sans-serif',
+                  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                   fontWeight: active ? 700 : 500,
                   padding: '3px 9px',
                   borderRadius: '9999px',
@@ -251,7 +251,7 @@ export default function MedRow({
                   onMouseDown={() => selectMed(m)}
                   style={{
                     padding: '7px 12px', fontSize: '12px',
-                    fontFamily: 'Karla, sans-serif',
+                    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                     cursor: 'pointer', color: INK,
                     borderBottom: '1px solid rgba(191,200,205,.3)',
                   }}
@@ -266,7 +266,7 @@ export default function MedRow({
                   onMouseDown={() => selectMed(query)}
                   style={{
                     padding: '7px 12px', fontSize: '11px',
-                    fontFamily: 'Karla, sans-serif',
+                    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                     cursor: 'pointer', color: TEAL, fontStyle: 'italic',
                     background: '#f0fdf4',
                     display: 'flex', alignItems: 'center', gap: 4
@@ -342,7 +342,7 @@ export default function MedRow({
         onClick={() => setShowPicker((p) => !p)}
         style={{
           fontSize: '11px',
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
           fontWeight: 700,
           textTransform: 'uppercase',
           letterSpacing: '.4px',
@@ -379,7 +379,7 @@ export default function MedRow({
             <>
               <div style={{
                 fontSize: '10px',
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '.5px',

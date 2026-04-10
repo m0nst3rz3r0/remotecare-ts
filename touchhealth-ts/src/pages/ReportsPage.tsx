@@ -89,7 +89,7 @@ export default function ReportsPage() {
   const onPrint = () => {
     const printHtml = `
       <div>
-        <h2 style="margin:0 0 8px;font-family:Syne,sans-serif;">Monthly Report — ${monthName} ${year}</h2>
+        <h2 style="margin:0 0 8px;font-family:Inter,system-ui,-apple-system,sans-serif;">Monthly Report — ${monthName} ${year}</h2>
         <div style="margin-bottom:14px;color:#64748b;">${currentUser?.sessionHospital ?? 'RemoteCare'} · Generated ${new Date().toLocaleDateString('en-GB')}</div>
       </div>
       ${
@@ -171,7 +171,7 @@ export default function ReportsPage() {
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div className="px-4 py-4" style={{ background: '#132b31', color: '#fff' }}>
-          <div className="font-syne font-semibold text-white text-[20px]">
+          <div className="font-sans font-semibold text-white text-[20px]">
             Monthly Report — {monthName} {year}
           </div>
           <div className="mt-1 text-[12px]" style={{ opacity: 0.7 }}>

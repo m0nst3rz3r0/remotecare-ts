@@ -77,7 +77,7 @@ export default function App() {
         background: '#132b31',
       }}>
         <div style={{ textAlign: 'center', color: '#fff' }}>
-          <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
+          <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
             RemoteCare
           </div>
           <div style={{ fontSize: 12, opacity: 0.5 }}>Loading…</div>

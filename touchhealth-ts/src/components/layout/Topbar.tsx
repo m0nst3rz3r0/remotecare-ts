@@ -25,7 +25,7 @@ export default function Topbar() {
       boxShadow: '0 1px 3px rgba(0,0,0,.1)',
     }}>
       <img src={LOGO} alt="RemoteCare" style={{ width: 34, height: 34, objectFit: 'contain', flexShrink: 0 }} />
-      <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 16, color: '#fff', letterSpacing: '-.3px', whiteSpace: 'nowrap' }}>
+      <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800, fontSize: 16, color: '#fff', letterSpacing: '-.3px', whiteSpace: 'nowrap' }}>
         RemoteCare
       </span>
       <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.7px', color: 'rgba(255,255,255,.4)', paddingLeft: 8, borderLeft: '1px solid rgba(255,255,255,.15)', whiteSpace: 'nowrap' }}>
@@ -66,12 +66,12 @@ export default function Topbar() {
           background: isSuperAdmin ? 'rgba(220,38,38,.25)' : 'rgba(16,185,129,.25)',
           border: '2px solid rgba(255,255,255,.15)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 11, color: '#fff',
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800, fontSize: 11, color: '#fff',
         }}>
           {initials}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 12, color: '#fff', lineHeight: 1.2 }}>
+          <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, fontSize: 12, color: '#fff', lineHeight: 1.2 }}>
             {currentUser.displayName}
           </span>
           <span style={{

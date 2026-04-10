@@ -18,7 +18,7 @@ import { useMemo } from 'react';
 
 // ── shared pill + card styles ────────────────────────────────
 const drugPill = {
-  fontFamily: 'JetBrains Mono, monospace',
+  fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace",
   fontSize: 10,
   fontWeight: 700,
   background: 'rgba(124,58,237,.08)',
@@ -49,7 +49,7 @@ function LabRow({
   return (
     <div>
       <div style={{
-        fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700,
+        fontSize: 10, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700,
         textTransform: 'uppercase', letterSpacing: '.4px',
         color: '#15803d', marginBottom: 4,
         display: 'flex', alignItems: 'center', gap: 4
@@ -79,7 +79,7 @@ function LabRow({
                   padding: '2px 7px', borderRadius: 4,
                   background: '#005469', color: '#fff',
                   border: 'none', cursor: 'pointer',
-                  fontFamily: 'Syne, sans-serif', letterSpacing: '.4px',
+                  fontFamily: "'Inter', system-ui, -apple-system, sans-serif", letterSpacing: '.4px',
                 }}
               >
                 + Add
@@ -116,7 +116,7 @@ function DrugDrugCard({
           fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.5px',
           padding: '2px 8px', borderRadius: 9999,
           background: disp.bg, color: disp.color,
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
         }}>
           {disp.icon} {disp.label}
         </span>
@@ -168,7 +168,7 @@ function DiagnosisDrugCard({
           fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.5px',
           padding: '2px 8px', borderRadius: 9999,
           background: disp.bg, color: disp.color,
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
         }}>
           {disp.icon} {disp.label}
         </span>
@@ -178,7 +178,7 @@ function DiagnosisDrugCard({
           fontSize: 10, fontWeight: 700,
           background: 'rgba(234,179,8,.15)', color: '#78350f',
           padding: '1px 7px', borderRadius: 4,
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
         }}>
           {warning.diagnosisPatterns[0]} diagnosis
         </span>
@@ -237,7 +237,7 @@ export default function DrugInteractionAlert({
       }}>
         <span style={{ fontSize: 16, display: 'inline-flex', alignItems: 'center' }}><AlertTriangle size={16} /></span>
         <span style={{
-          fontFamily: 'Syne, sans-serif', fontWeight: 700,
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700,
           fontSize: 11, color: '#fff', textTransform: 'uppercase', letterSpacing: '.5px',
         }}>
           Clinical Alert — {totalCount} warning{totalCount > 1 ? 's' : ''} detected
@@ -250,7 +250,7 @@ export default function DrugInteractionAlert({
           <div style={{
             padding: '5px 14px',
             background: 'rgba(234,179,8,.12)',
-            fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700,
+            fontSize: 10, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700,
             textTransform: 'uppercase', letterSpacing: '.4px', color: '#78350f',
             display: 'flex', alignItems: 'center', gap: 4
           }}>
@@ -275,7 +275,7 @@ export default function DrugInteractionAlert({
             <div style={{
               padding: '5px 14px',
               background: 'rgba(220,38,38,.06)',
-              fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700,
+              fontSize: 10, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '.4px', color: '#7f1d1d',
               display: 'flex', alignItems: 'center', gap: 4
             }}>

@@ -25,7 +25,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: '2px',
   padding: '8px 12px',
   fontSize: '14px',
-  fontFamily: 'Karla, sans-serif',
+  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   background: BG_LOW,
   color: INK,
   outline: 'none',
@@ -35,7 +35,7 @@ const inputStyle: React.CSSProperties = {
 function SectionHeader({ title }: { title: string }) {
   return (
     <div style={{ background: INK, height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center' }}>
-      <span style={{ color: '#fff', fontFamily: 'Syne, sans-serif', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
+      <span style={{ color: '#fff', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
         {title}
       </span>
     </div>
@@ -55,7 +55,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function FieldLabel({ text }: { text: string }) {
   return (
-    <div style={{ fontSize: '11px', fontFamily: 'Syne, sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: LABEL_C, marginBottom: '4px' }}>
+    <div style={{ fontSize: '11px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: LABEL_C, marginBottom: '4px' }}>
       {text}
     </div>
   );
@@ -133,22 +133,22 @@ export default function RegisterForm() {
   };
 
   return (
-    <div style={{ width: '100%', fontFamily: 'Karla, sans-serif' }}>
+    <div style={{ width: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
 
       {/* ── Clinical ID Code card ──────────────────────────── */}
       <div style={{
         background: INK, borderRadius: '10px', padding: '20px', marginBottom: '16px',
         borderLeft: `4px solid ${TEAL}`, position: 'relative', overflow: 'hidden',
       }}>
-        <div style={{ fontSize: '10px', fontWeight: 700, color: '#85d1ed', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '4px', fontFamily: 'Syne, sans-serif' }}>
+        <div style={{ fontSize: '10px', fontWeight: 700, color: '#85d1ed', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '4px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
           Clinical Identification Code
         </div>
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '22px', fontWeight: 700, color: '#fff', letterSpacing: '-0.5px' }}>
+        <div style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '22px', fontWeight: 700, color: '#fff', letterSpacing: '-0.5px' }}>
           {previewCode}
         </div>
         <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: previewCode === '—' ? '#64748b' : '#22c55e' }} />
-          <span style={{ fontSize: '10px', color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>
+          <span style={{ fontSize: '10px', color: '#94a3b8', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }}>
             {previewCode === '—' ? 'COMPLETE FORM TO GENERATE' : 'STATUS: GENERATED & UNIQUE'}
           </span>
         </div>
@@ -221,7 +221,7 @@ export default function RegisterForm() {
               type="number" value={age}
               onChange={(e) => setAge(e.target.value === '' ? '' : Number(e.target.value))}
               placeholder="45"
-              style={{ ...inputStyle, fontFamily: 'JetBrains Mono, monospace' }}
+              style={{ ...inputStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }}
             />
           </div>
           <div>
@@ -286,14 +286,14 @@ export default function RegisterForm() {
               display: 'inline-flex', alignItems: 'center', padding: '0 12px',
               background: BG_LOW, border: `1.5px solid ${BORDER}`, borderRight: 'none',
               borderRadius: '2px 0 0 2px', fontSize: '13px',
-              fontFamily: 'JetBrains Mono, monospace', color: LABEL_C, whiteSpace: 'nowrap',
+              fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", color: LABEL_C, whiteSpace: 'nowrap',
             }}>
               +255
             </span>
             <input
               value={phone} onChange={(e) => setPhone(e.target.value)}
               type="tel" placeholder="07xxxxxxx"
-              style={{ ...inputStyle, borderRadius: '0 2px 2px 0', fontFamily: 'JetBrains Mono, monospace' }}
+              style={{ ...inputStyle, borderRadius: '0 2px 2px 0', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }}
             />
           </div>
         </div>
@@ -325,7 +325,7 @@ export default function RegisterForm() {
         type="button" onClick={onRegister}
         style={{
           width: '100%', background: TEAL, color: '#fff', padding: '14px',
-          border: 'none', borderRadius: '8px', fontFamily: 'Syne, sans-serif',
+          border: 'none', borderRadius: '8px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
           fontWeight: 800, fontSize: '13px', textTransform: 'uppercase',
           letterSpacing: '1.5px', cursor: 'pointer',
           boxShadow: '0 4px 14px rgba(13,110,135,0.25)',

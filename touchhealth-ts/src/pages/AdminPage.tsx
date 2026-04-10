@@ -20,14 +20,14 @@ import { isControlled, isDue } from '../services/clinical';
 
 import EnrolmentChart from '../components/charts/EnrolmentChart';
 import BPControlChart from '../components/charts/BPControlChart';
-import TrendsChart from '../components/charts/TrendsChart';
 
 import Chip from '../components/ui/Chip';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import BackupPanel from '../components/ui/BackupPanel';
 import { backupStatus } from '../services/backup';
-import DirectoryPage from './DirectoryPage';
+import DirectoryPage     from './DirectoryPage';
+import AnalyticsBuilder from './AnalyticsBuilder';
 
 import {
   Chart as ChartJS,
@@ -96,19 +96,19 @@ function Card({ title, children }: { title?: string; children: React.ReactNode }
 
 function RiskBadge({ ctrlRate }: { ctrlRate: number | null }) {
   if (ctrlRate === null) return <span style={{ color: '#64748b', fontSize: '12px' }}>—</span>;
-  if (ctrlRate >= 65) return <span style={{ padding: '3px 10px', background: '#d1fae5', color: '#065f46', fontSize: '10px', fontFamily: 'Karla, sans-serif', fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>Stable</span>;
-  if (ctrlRate >= 45) return <span style={{ padding: '3px 10px', background: '#fef3c7', color: '#92400e', fontSize: '10px', fontFamily: 'Karla, sans-serif', fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>Moderate</span>;
-  return <span style={{ padding: '3px 10px', background: '#ffe4e6', color: '#9f1239', fontSize: '10px', fontFamily: 'Karla, sans-serif', fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>High Risk</span>;
+  if (ctrlRate >= 65) return <span style={{ padding: '3px 10px', background: '#d1fae5', color: '#065f46', fontSize: '10px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>Stable</span>;
+  if (ctrlRate >= 45) return <span style={{ padding: '3px 10px', background: '#fef3c7', color: '#92400e', fontSize: '10px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>Moderate</span>;
+  return <span style={{ padding: '3px 10px', background: '#ffe4e6', color: '#9f1239', fontSize: '10px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, borderRadius: '999px', textTransform: 'uppercase' }}>High Risk</span>;
 }
 
 function StatCard({ title, value, sub, valueColor }: { title: string; value: number | string; sub?: string; valueColor: string }) {
   return (
     <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
       <div style={{ background: '#f3f4f6', height: '38px', padding: '0 16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid #e5e7eb' }}>
-        <span style={{ color: '#374151', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</span>
+        <span style={{ color: '#374151', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</span>
       </div>
       <div style={{ padding: '18px 20px' }}>
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '32px', fontWeight: 700, color: valueColor, lineHeight: 1 }}>
+        <div style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '32px', fontWeight: 700, color: valueColor, lineHeight: 1 }}>
           {typeof value === 'number' ? value.toLocaleString() : value}
         </div>
         {sub && <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>{sub}</div>}
@@ -185,7 +185,7 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
           <div style={{ borderRadius: 10, background: bs.isDue ? '#fef3c7' : '#f0fdf4', border: `1px solid ${bs.isDue ? '#fde68a' : '#86efac'}`, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 24 }}>{bs.isDue ? '⚠️' : '✅'}</span>
             <div>
-              <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: 12, color: bs.isDue ? '#78350f' : '#14532d' }}>
+              <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, fontSize: 12, color: bs.isDue ? '#78350f' : '#14532d' }}>
                 {bs.isDue ? 'Backup Overdue' : 'Data Protected'}
               </div>
               <div style={{ fontSize: 11, color: '#516169' }}>
@@ -206,15 +206,15 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
 
       <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
         <div style={{ background: '#f3f4f6', height: '44px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb' }}>
-          <span style={{ color: '#374151', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Regional Facility Matrix</span>
-          <span style={{ color: '#1a56db', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{scopeLabel}</span>
+          <span style={{ color: '#374151', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Regional Facility Matrix</span>
+          <span style={{ color: '#1a56db', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{scopeLabel}</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                 {['Facility Name', 'Total Patients', 'Active %', 'Control Rate', 'Risk Status', 'LTFU'].map((h) => (
-                  <th key={h} style={{ padding: '12px 24px', textAlign: 'left', fontSize: '10px', fontFamily: 'Karla, sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding: '12px 24px', textAlign: 'left', fontSize: '10px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -222,11 +222,11 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
               {facilityRows.map((r, idx) => (
                 <tr key={r.h.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
                   <td style={{ padding: '16px 24px', fontWeight: 700, fontSize: '14px', color: '#132b31' }}>{r.h.name}</td>
-                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', color: '#64748b' }}>{r.total.toLocaleString()}</td>
-                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 700, color: '#10b981' }}>{r.total ? `${r.activeP}%` : '—'}</td>
-                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 700, color: r.ctrlRate !== null && r.ctrlRate >= 65 ? '#059669' : r.ctrlRate !== null && r.ctrlRate >= 45 ? '#d97706' : '#dc2626' }}>{r.ctrlRate !== null ? `${r.ctrlRate}%` : '—'}</td>
+                  <td style={{ padding: '16px 24px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '14px', color: '#64748b' }}>{r.total.toLocaleString()}</td>
+                  <td style={{ padding: '16px 24px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '14px', fontWeight: 700, color: '#10b981' }}>{r.total ? `${r.activeP}%` : '—'}</td>
+                  <td style={{ padding: '16px 24px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '14px', fontWeight: 700, color: r.ctrlRate !== null && r.ctrlRate >= 65 ? '#059669' : r.ctrlRate !== null && r.ctrlRate >= 45 ? '#d97706' : '#dc2626' }}>{r.ctrlRate !== null ? `${r.ctrlRate}%` : '—'}</td>
                   <td style={{ padding: '16px 24px' }}><RiskBadge ctrlRate={r.ctrlRate} /></td>
-                  <td style={{ padding: '16px 24px', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: 700, color: r.ltfu > 0 ? '#dc2626' : '#64748b' }}>{r.ltfu}</td>
+                  <td style={{ padding: '16px 24px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '14px', fontWeight: 700, color: r.ltfu > 0 ? '#dc2626' : '#64748b' }}>{r.ltfu}</td>
                 </tr>
               ))}
               {!facilityRows.length && (
@@ -622,7 +622,6 @@ export default function AdminPage() {
   const superAdmin  = currentUser?.isSuperAdmin === true;
 
   const [hospitals,     setHospitals]     = useState<Hospital[]>(() => loadHospitals());
-  const [selectedYear,  setSelectedYear]  = useState<number>(() => new Date().getFullYear());
 
   // Superadmin filter controls
   const [scopeRegion,   setScopeRegion]   = useState('');
@@ -702,38 +701,22 @@ export default function AdminPage() {
               ✕ Clear
             </button>
           )}
-          <span style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'JetBrains Mono, monospace', marginLeft: 'auto' }}>
+          <span style={{ fontSize: '11px', color: '#6b7280', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", marginLeft: 'auto' }}>
             {scopedPatients.length} patients · {scopedHospitals.length} facilities
           </span>
         </div>
       )}
 
       {activePage === 'overview' && (
-        <OverviewView patients={scopedPatients} hospitals={scopedHospitals} year={selectedYear} scopeLabel={scopeLabel} />
+        <OverviewView patients={scopedPatients} hospitals={scopedHospitals} year={new Date().getFullYear()} scopeLabel={scopeLabel} />
       )}
 
       {activePage === 'trends' && (
-        <div className="space-y-4">
-          <div style={{ ...CARD_STYLE, padding: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, color: INK, fontSize: '16px' }}>Trends</div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                  Monthly enrolment, BP control, attendance · <strong>{scopeLabel}</strong>
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', color: '#6b7280', marginBottom: '4px' }}>Year</div>
-                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} style={{ border: '1px solid #d1d5db', borderRadius: '6px', padding: '6px 10px', background: '#fff', outline: 'none', fontSize: '13px', color: '#1e293b' }}>
-                  {Array.from({ length: 6 }).map((_, i) => new Date().getFullYear() - i).map((y) => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-          <TrendsChart patients={scopedPatients} year={selectedYear} />
-        </div>
+        <AnalyticsBuilder
+          scopedPatients={scopedPatients}
+          scopeLabel={scopeLabel}
+          isSuperAdmin={superAdmin}
+        />
       )}
 
       {activePage === 'directory'       && <DirectoryPage />}

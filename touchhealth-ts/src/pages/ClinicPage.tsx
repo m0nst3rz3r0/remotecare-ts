@@ -102,7 +102,7 @@ function StatCard({ label, value, sub, color, ring, total }: {
           <div style={{
             position: 'absolute', inset: 0, display: 'flex',
             alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'Syne, sans-serif', fontWeight: 800,
+            fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800,
             fontSize: 11, color,
           }}>
             {Math.round(pct * 100)}%
@@ -110,10 +110,10 @@ function StatCard({ label, value, sub, color, ring, total }: {
         </div>
       )}
       <div>
-        <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 26, color, lineHeight: 1 }}>
+        <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800, fontSize: 26, color, lineHeight: 1 }}>
           {value}
         </div>
-        <div style={{ fontFamily: 'Karla, sans-serif', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginTop: 2 }}>
+        <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginTop: 2 }}>
           {label}
         </div>
         {sub && <div style={{ fontSize: 10, color: '#6f797d', marginTop: 1 }}>{sub}</div>}
@@ -262,7 +262,7 @@ export default function ClinicPage() {
         {/* Status badge */}
         <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
           <span style={{
-            fontSize: 9, fontWeight: 800, fontFamily: 'Syne, sans-serif',
+            fontSize: 9, fontWeight: 800, fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
             textTransform: 'uppercase', letterSpacing: '.4px',
             padding: '3px 9px', borderRadius: 9999,
             background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
@@ -274,7 +274,7 @@ export default function ClinicPage() {
         {/* Code */}
         <td style={{ padding: '10px 14px' }}>
           <span style={{
-            fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 11,
+            fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontWeight: 700, fontSize: 11,
             color: slotStatus === 'overdue' ? '#dc2626' : '#005469',
             background: slotStatus === 'overdue' ? 'rgba(220,38,38,.08)' : 'rgba(0,84,105,.08)',
             padding: '2px 8px', borderRadius: 4,
@@ -285,11 +285,11 @@ export default function ClinicPage() {
 
         {/* Patient */}
         <td style={{ padding: '10px 14px' }}>
-          <div style={{ fontFamily: 'Karla, sans-serif', fontSize: 12, color: '#0f1f26', fontWeight: 600 }}>
+          <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 12, color: '#0f1f26', fontWeight: 600 }}>
             {p.age}y · {p.sex}
           </div>
           <span style={{
-            fontSize: 9, fontWeight: 800, fontFamily: 'Syne, sans-serif',
+            fontSize: 9, fontWeight: 800, fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
             textTransform: 'uppercase', letterSpacing: '.4px',
             padding: '1px 6px', borderRadius: 9999,
             ...condStyle(p.cond),
@@ -300,7 +300,7 @@ export default function ClinicPage() {
 
         {/* Appointment date */}
         <td style={{ padding: '10px 14px' }}>
-          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: '#0f1f26' }}>
+          <div style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: 11, fontWeight: 700, color: '#0f1f26' }}>
             {nextDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
           </div>
           <div style={{ fontSize: 10, color: '#6f797d' }}>
@@ -312,7 +312,7 @@ export default function ClinicPage() {
         <td style={{ padding: '10px 14px' }}>
           {slotStatus === 'overdue' && daysOverdue > 0 ? (
             <span style={{
-              fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 800,
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 10, fontWeight: 800,
               color: daysOverdue >= AUTO_LTFU_DAYS ? '#7f1d1d' : '#dc2626',
               background: daysOverdue >= AUTO_LTFU_DAYS ? 'rgba(127,29,29,.1)' : 'rgba(220,38,38,.08)',
               padding: '2px 7px', borderRadius: 4,
@@ -325,7 +325,7 @@ export default function ClinicPage() {
           ) : slotStatus === 'expected' ? (
             <span style={{ fontSize: 10, color: '#d97706', fontWeight: 700 }}>Due today</span>
           ) : (
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#0369a1', fontWeight: 700 }}>
+            <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: 11, color: '#0369a1', fontWeight: 700 }}>
               in {diffDays}d
             </span>
           )}
@@ -334,14 +334,14 @@ export default function ClinicPage() {
         {/* BP */}
         <td style={{ padding: '10px 14px' }}>
           {bpLabel
-            ? <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: bpCrisis ? '#dc2626' : '#16a34a' }}>{bpLabel}</span>
+            ? <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: 11, fontWeight: 700, color: bpCrisis ? '#dc2626' : '#16a34a' }}>{bpLabel}</span>
             : <span style={{ color: '#bfc8cd', fontSize: 11 }}>—</span>}
         </td>
 
         {/* Glucose */}
         <td style={{ padding: '10px 14px' }}>
           {sgLabel
-            ? <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: sgCrisis ? '#dc2626' : '#16a34a' }}>{sgLabel}</span>
+            ? <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: 11, fontWeight: 700, color: sgCrisis ? '#dc2626' : '#16a34a' }}>{sgLabel}</span>
             : <span style={{ color: '#bfc8cd', fontSize: 11 }}>—</span>}
         </td>
 
@@ -356,7 +356,7 @@ export default function ClinicPage() {
                 padding: '5px 13px',
                 background: 'linear-gradient(135deg,#0d6e87 0%,#005469 100%)',
                 color: '#fff', border: 'none', borderRadius: 5,
-                fontFamily: 'Syne, sans-serif', fontSize: 10,
+                fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 10,
                 fontWeight: 700, cursor: 'pointer',
                 textTransform: 'uppercase', letterSpacing: '.4px',
                 boxShadow: '0 2px 6px rgba(13,110,135,.35)',
@@ -381,7 +381,7 @@ export default function ClinicPage() {
                 {TABLE_HEADERS.map((h) => (
                   <th key={h} style={{
                     padding: '11px 14px', textAlign: 'left',
-                    fontFamily: 'Syne, sans-serif', fontSize: 9, fontWeight: 700,
+                    fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 9, fontWeight: 700,
                     textTransform: 'uppercase', letterSpacing: '.6px',
                     color: 'rgba(255,255,255,.7)', whiteSpace: 'nowrap',
                   }}>{h}</th>
@@ -390,7 +390,7 @@ export default function ClinicPage() {
             </thead>
             <tbody>
               {rows.length === 0
-                ? <tr><td colSpan={8} style={{ padding: '36px', textAlign: 'center', color: '#6f797d', fontFamily: 'Karla, sans-serif', fontSize: 13 }}>{empty}</td></tr>
+                ? <tr><td colSpan={8} style={{ padding: '36px', textAlign: 'center', color: '#6f797d', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 13 }}>{empty}</td></tr>
                 : rows.map((r, i, arr) => renderRow(r, i, arr))
               }
             </tbody>
@@ -407,17 +407,17 @@ export default function ClinicPage() {
       {/* ── Header + live clock ── */}
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.6px', color: '#6f797d', marginBottom: 3 }}>
+          <div style={{ fontSize: 10, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.6px', color: '#6f797d', marginBottom: 3 }}>
             Registry › Clinic Day
           </div>
-          <h1 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 28, color: '#132b31', margin: 0 }}>
+          <h1 style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, fontSize: 28, color: '#132b31', margin: 0 }}>
             Today's Clinic
           </h1>
           <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>{dateStr}</div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 28, color: '#0f1f26', lineHeight: 1 }}>
+          <div style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontWeight: 800, fontSize: 28, color: '#0f1f26', lineHeight: 1 }}>
             {timeStr}
           </div>
           <div style={{
@@ -433,7 +433,7 @@ export default function ClinicPage() {
               boxShadow: clinicOpen ? '0 0 0 3px rgba(22,163,74,.2)' : 'none',
             }} />
             <span style={{
-              fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700,
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 10, fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '.4px',
               color: clinicOpen ? '#15803d' : '#9a3412',
             }}>
@@ -461,10 +461,10 @@ export default function ClinicPage() {
           boxShadow: '0 1px 4px rgba(15,31,38,.06)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: '#516169' }}>
+            <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: '#516169' }}>
               Workload Progress
             </span>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 13, color: '#0f1f26' }}>
+            <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontWeight: 700, fontSize: 13, color: '#0f1f26' }}>
               {countSeen} / {totalToday} seen
             </span>
           </div>
@@ -493,7 +493,7 @@ export default function ClinicPage() {
         padding: '12px 16px', marginBottom: 16,
         boxShadow: '0 1px 4px rgba(15,31,38,.06)',
       }}>
-        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.6px', color: '#6f797d', marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.6px', color: '#6f797d', marginBottom: 8 }}>
           Clinic Days — appointments snap to nearest selected day
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -503,7 +503,7 @@ export default function ClinicPage() {
             return (
               <button key={d} onClick={() => toggleClinicDay(d as any)} style={{
                 padding: '5px 14px', borderRadius: 9999,
-                fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700,
+                fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 10, fontWeight: 700,
                 cursor: 'pointer', transition: 'all .12s',
                 border: on ? '2px solid #0d6e87' : '1.5px solid rgba(191,200,205,.4)',
                 background: on ? (isToday ? '#0d6e87' : 'rgba(13,110,135,.08)') : '#fff',
@@ -523,7 +523,7 @@ export default function ClinicPage() {
           {(['today', 'schedule'] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               padding: '7px 16px', borderRadius: 9999,
-              fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700,
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 10, fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '.4px',
               cursor: 'pointer', border: 'none', transition: 'all .12s',
               background: activeTab === tab ? '#0f1f26' : 'rgba(191,200,205,.2)',
@@ -539,7 +539,7 @@ export default function ClinicPage() {
             style={{
               padding: '6px 12px', borderRadius: 6, fontSize: 12,
               border: '1.5px solid rgba(191,200,205,.5)',
-              fontFamily: 'Karla, sans-serif', color: '#0f1f26', outline: 'none', width: 210,
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#0f1f26', outline: 'none', width: 210,
             }}
           />
         )}
@@ -551,7 +551,7 @@ export default function ClinicPage() {
           {/* Expected */}
           {allRows.filter(r => r.slotStatus === 'expected').length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: '#d97706', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: '#d97706', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', display: 'inline-block', animation: 'pulse 1.5s ease-in-out infinite' }} />
                 Waiting · {allRows.filter(r => r.slotStatus === 'expected').length} expected
               </div>
@@ -562,7 +562,7 @@ export default function ClinicPage() {
           {/* Seen */}
           {countSeen > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: '#16a34a', marginBottom: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: '#16a34a', marginBottom: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <Check size={12} /> Seen today · {countSeen}
               </div>
               <Table rows={allRows.filter(r => r.slotStatus === 'seen')} empty="" />
@@ -572,7 +572,7 @@ export default function ClinicPage() {
           {/* Overdue-today (missed = today's patients after clinic closed) */}
           {todayRows.filter(r => r.slotStatus === 'overdue').length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: '#dc2626', marginBottom: 8 }}>
+              <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: '#dc2626', marginBottom: 8 }}>
                 ! Missed today — clinic closed
               </div>
               <Table rows={todayRows.filter(r => r.slotStatus === 'overdue')} empty="" />
@@ -583,7 +583,7 @@ export default function ClinicPage() {
           {todayRows.length === 0 && (
             <div style={{ background: '#fff', borderRadius: 10, border: '1px solid rgba(191,200,205,.2)', padding: '48px 32px', textAlign: 'center', boxShadow: '0 1px 4px rgba(15,31,38,.06)' }}>
               <div style={{ fontSize: 36, marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Calendar size={36} color="#0d6e87" /></div>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14, color: '#0f1f26', marginBottom: 6 }}>
+              <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, fontSize: 14, color: '#0f1f26', marginBottom: 6 }}>
                 No patients scheduled for today
               </div>
               <div style={{ fontSize: 12, color: '#6f797d' }}>
@@ -600,7 +600,7 @@ export default function ClinicPage() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
             {(Object.entries(STATUS_CFG) as [SlotStatus, typeof STATUS_CFG.seen][]).map(([k, v]) => (
               <span key={k} style={{
-                fontSize: 9, fontWeight: 700, fontFamily: 'Syne, sans-serif',
+                fontSize: 9, fontWeight: 700, fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                 textTransform: 'uppercase', letterSpacing: '.4px',
                 padding: '2px 9px', borderRadius: 9999,
                 background: v.bg, color: v.color, border: `1px solid ${v.border}`,
@@ -609,7 +609,7 @@ export default function ClinicPage() {
               </span>
             ))}
             {countOverdue > 0 && (
-              <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'Syne, sans-serif', color: '#7f1d1d', padding: '2px 0', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#7f1d1d', padding: '2px 0', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <AlertOctagon size={10} /> {allRows.filter(r => r.daysOverdue >= AUTO_LTFU_DAYS).length} at {AUTO_LTFU_DAYS}+ days → auto-LTFU
               </span>
             )}
@@ -619,7 +619,7 @@ export default function ClinicPage() {
       )}
 
       {/* ── Footer ── */}
-      <div style={{ marginTop: 18, fontSize: 10, color: '#6f797d', fontFamily: 'JetBrains Mono, monospace', textAlign: 'center' }}>
+      <div style={{ marginTop: 18, fontSize: 10, color: '#6f797d', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", textAlign: 'center' }}>
         Clinic {fmt12h(CLINIC_OPEN_HOUR)}–{fmt12h(CLINIC_CLOSE_HOUR)} ·
         Missed by {fmt12h(CLINIC_CLOSE_HOUR)} → Overdue ·
         {AUTO_LTFU_DAYS}+ days overdue → Auto-LTFU ·

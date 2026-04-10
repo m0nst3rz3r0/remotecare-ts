@@ -42,7 +42,7 @@ export default function NavTabs() {
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '0 16px',
-              fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700,
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 11, fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '.5px',
               color: active ? '#10b981' : '#94a3b8',
               background: 'transparent',
