@@ -12,6 +12,8 @@ export default function NavTabs() {
   const counts      = selectTopbarCounts(patients);
   const doctorCount = useMemo(() => loadUsers().filter((u) => u.role === 'doctor').length, []);
 
+  const isAdmin = currentUser?.role === 'admin';
+
   const tabs = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === 'doctor') return [
@@ -28,13 +30,19 @@ export default function NavTabs() {
     ];
   }, [currentUser, counts.ltfu, counts.due, doctorCount]);
 
+  // Admin/SuperAdmin: light grey nav; Doctors: white nav
+  const navBg         = isAdmin ? '#e8eaed' : '#ffffff';
+  const navBorder     = isAdmin ? '1px solid #d1d5db' : '1px solid rgba(191,200,205,.25)';
+  const activeColor   = isAdmin ? '#1a56db' : '#10b981';
+  const inactiveColor = isAdmin ? '#6b7280' : '#94a3b8';
+
   return (
     <nav style={{
       position: 'sticky', top: 52, zIndex: 190,
-      height: 48, padding: '0 16px',
+      height: 48, padding: '0 20px',
       display: 'flex', alignItems: 'stretch', gap: 2,
-      background: '#ffffff',
-      borderBottom: '1px solid rgba(191,200,205,.25)',
+      background: navBg,
+      borderBottom: navBorder,
     }}>
       {tabs.map((t) => {
         const active = activePage === t.id;
@@ -47,10 +55,11 @@ export default function NavTabs() {
               padding: '0 16px',
               fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '.5px',
-              color: active ? '#10b981' : '#94a3b8',
-              background: 'transparent',
+              color: active ? activeColor : inactiveColor,
+              background: active && isAdmin ? 'rgba(26,86,219,.07)' : 'transparent',
               border: 'none',
-              borderBottom: active ? '2.5px solid #10b981' : '2.5px solid transparent',
+              borderBottom: active ? `2.5px solid ${activeColor}` : '2.5px solid transparent',
+              borderRadius: active && isAdmin ? '4px 4px 0 0' : undefined,
               marginBottom: -1,
               cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap',
             }}
@@ -63,7 +72,7 @@ export default function NavTabs() {
               <span style={{
                 minWidth: 18, height: 18, padding: '0 5px',
                 borderRadius: 9999, fontSize: 9, fontWeight: 800,
-                background: '#ef4444', color: '#fff',
+                background: isAdmin ? '#1a56db' : '#ef4444', color: '#fff',
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 {(t as any).badge}
