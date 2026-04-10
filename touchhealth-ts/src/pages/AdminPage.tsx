@@ -46,20 +46,23 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 const INK   = '#1e293b';
 const TEAL  = '#1a56db';
 const CARD_STYLE: React.CSSProperties = {
-  background: '#ffffff',
-  borderRadius: '10px',
-  border: '1px solid #e5e7eb',
-  boxShadow: '0 1px 3px rgba(0,0,0,.06)',
+  background: 'rgba(255,255,255,0.72)',
+  backdropFilter: 'blur(14px)',
+  WebkitBackdropFilter: 'blur(14px)',
+  borderRadius: '12px',
+  border: '1px solid rgba(255,255,255,0.75)',
+  boxShadow: '0 2px 12px rgba(0,0,0,.07), inset 0 1px 0 rgba(255,255,255,0.9)',
   marginBottom: '16px',
 };
 
 function titleForAdminPage(page: string) {
   switch (page) {
-    case 'overview': return 'Overview';
-    case 'trends':   return 'Trends';
-    case 'doctors':  return 'Doctors';
-    case 'settings': return 'Settings';
-    default:         return 'Admin';
+    case 'overview':        return 'Overview';
+    case 'trends':          return 'Trends';
+    case 'doctors':         return 'Doctors';
+    case 'settings':        return 'Settings';
+    case 'user-management': return 'User Management';
+    default:                return 'Admin';
   }
 }
 
@@ -73,8 +76,8 @@ function cssVar(name: string, fallback: string) {
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <div style={{ background: '#f3f4f6', height: '38px', padding: '0 16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid #e5e7eb' }}>
-      <span style={{ color: '#374151', fontFamily: 'Karla, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+    <div style={{ background: 'rgba(241,245,249,0.7)', height: '38px', padding: '0 16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid rgba(226,232,240,0.7)' }}>
+      <span style={{ color: '#475569', fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
         {title}
       </span>
     </div>
@@ -797,6 +800,7 @@ export default function AdminPage() {
 
       {activePage === 'doctors'  && <DoctorsView patients={scopedPatients} />}
       {activePage === 'settings' && <SettingsView />}
+      {activePage === 'user-management' && <SettingsView />}
     </PageWrapper>
   );
 }
