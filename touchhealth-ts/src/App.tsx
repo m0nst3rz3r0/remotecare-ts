@@ -9,6 +9,7 @@ import { usePatientStore } from './store/usePatientStore';
 import { useUIStore } from './store/useUIStore';
 import Topbar from './components/layout/Topbar';
 import NavTabs from './components/layout/NavTabs';
+import Sidebar from './components/layout/Sidebar';
 import SyncBar from './components/ui/SyncBar';
 import AuthPage from './pages/AuthPage';
 import PatientsPage from './pages/PatientsPage';
@@ -26,7 +27,7 @@ function isDoctorPage(p: PageId) {
 }
 
 function isAdminPage(p: PageId) {
-  return p === 'overview' || p === 'trends' || p === 'doctors' || p === 'settings';
+  return p === 'overview' || p === 'trends' || p === 'doctors' || p === 'settings' || p === 'user-management';
 }
 
 export default function App() {
@@ -88,8 +89,26 @@ export default function App() {
   if (!currentUser) return <AuthPage />;
 
   const role = currentUser.role;
-  // Doctors keep the existing off-white; Admin/SuperAdmin get a clean light grey
+  const isAdmin = role === 'admin';
   const pageBg = role === 'doctor' ? '#f8fafc' : '#f0f2f5';
+
+  if (isAdmin) {
+    return (
+      <div style={{
+          display: 'flex',
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #e8ecf3 0%, #eef0f5 40%, #e4e9f2 100%)',
+          backgroundImage: `linear-gradient(135deg, #e8ecf3 0%, #eef0f5 40%, #e4e9f2 100%), url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23b8c4d4' fill-opacity='0.08'%3E%3Ccircle cx='30' cy='30' r='1.5'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}>
+        <Sidebar />
+        <div id="admin-main" style={{ flex: 1, minWidth: 0, marginLeft: '220px', transition: 'margin-left 0.22s cubic-bezier(0.4,0,0.2,1)' }}>
+          <AdminPage />
+        </div>
+        <VisitModal />
+        <MedModal />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen" style={{ background: pageBg }}>
