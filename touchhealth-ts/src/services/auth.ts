@@ -14,28 +14,15 @@ const KEYS = {
   HOSPITALS: 'th_hospitals',
 } as const;
 
-// ── DEFAULT SEED DATA ─────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// SUPABASE MIGRATION NOTE:
+// All localStorage usage below is being replaced with Supabase.
+// See: src/services/supabase.ts for new implementation
+// ════════════════════════════════════════════════════════════
 
-const DEFAULT_USERS: User[] = [
-  {
-    id: 'u0',
-    username: 'superadmin',
-    password: 'RemoteCare@2025',
-    role: 'admin',
-    displayName: 'Super Admin',
-    hospital: '',
-    region: '',
-    district: '',
-    isSuperAdmin: true,
-    createdAt: new Date().toISOString(),
-  },
-];
-
-const DEFAULT_HOSPITALS: Hospital[] = [
-  { id: 'h1', name: 'Zamzam Hospital',         region: 'Kagera', district: 'Bukoba Municipal' },
-  { id: 'h2', name: 'Bukoba Regional Hospital', region: 'Kagera', district: 'Bukoba Municipal' },
-  { id: 'h3', name: 'BMC Health Centre',        region: 'Kagera', district: 'Bukoba Municipal' },
-];
+// ── NO DEFAULT SEED DATA ─────────────────────────────────────
+// No fake hospitals, no default users. Create superadmin via Supabase
+// dashboard SQL Editor or first-time registration flow.
 
 // ── STORAGE HELPERS ───────────────────────────────────────────
 
@@ -66,18 +53,19 @@ export function saveHospitals(hospitals: Hospital[]): void {
 }
 
 // ── SEED DEFAULTS ─────────────────────────────────────────────
+// NO AUTO-SEEDING: All users and hospitals must be created via the app UI
+// Superadmin must be created through first-time registration or Supabase dashboard
 
 export function seedDefaults(): void {
-  if (!loadUsers().length)     saveUsers(DEFAULT_USERS);
-  if (!loadHospitals().length) saveHospitals(DEFAULT_HOSPITALS);
+  // No automatic seeding - prevents fake data in production
+  // First superadmin should be created via registration flow
 }
 
 export function clearAndReseed(): void {
   localStorage.removeItem(KEYS.USERS);
   localStorage.removeItem(KEYS.HOSPITALS);
   localStorage.removeItem(KEYS.SESSION);
-  saveUsers(DEFAULT_USERS);
-  saveHospitals(DEFAULT_HOSPITALS);
+  // No automatic reseeding - prevents fake data
 }
 
 // ── SESSION ───────────────────────────────────────────────────
