@@ -6,7 +6,6 @@
 import { useMemo, useState } from 'react';
 import { useAuthStore }   from '../../store/useAuthStore';
 import { useUIStore }     from '../../store/useUIStore';
-import { usePatientStore } from '../../store/usePatientStore';
 import { loadUsers }      from '../../services/auth';
 import { getUserInitials } from '../../services/auth';
 
