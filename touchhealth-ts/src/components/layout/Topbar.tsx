@@ -6,6 +6,10 @@ const LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6e
 
 export default function Topbar() {
   const currentUser = useAuthStore((s) => s.currentUser);
+
+  // Admin/SuperAdmin use the sidebar — no topbar needed
+  if (currentUser?.role === 'admin') return null;
+
   const signOut     = useAuthStore((s) => s.signOut);
   const patients    = usePatientStore((s) => s.patients);
   const counts      = selectTopbarCounts(patients);
