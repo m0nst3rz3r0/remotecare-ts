@@ -27,9 +27,12 @@ export default {
         },
       },
       fontFamily: {
-        syne:  ['Syne', 'sans-serif'],
-        karla: ['Karla', 'sans-serif'],
-        mono:  ['JetBrains Mono', 'monospace'],
+        // All three aliases now point to Inter so legacy
+        // class names (font-syne, font-karla) still compile
+        sans:  ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        syne:  ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        karla: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono:  ['ui-monospace', 'Cascadia Code', 'Source Code Pro', 'monospace'],
       },
     },
   },
