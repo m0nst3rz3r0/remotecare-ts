@@ -30,7 +30,7 @@ export default function PageWrapper({
             boxShadow: '0 1px 0 rgba(0,0,0,0.06)',
           }}>
             <h1 style={{
-              fontFamily: 'Syne, sans-serif',
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
               fontSize: 18,
               fontWeight: 700,
               color: '#1e293b',
