@@ -27,6 +27,7 @@ import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import BackupPanel from '../components/ui/BackupPanel';
 import { backupStatus } from '../services/backup';
+import DirectoryPage from './DirectoryPage';
 
 import {
   Chart as ChartJS,
@@ -77,7 +78,7 @@ function cssVar(name: string, fallback: string) {
 function SectionHeader({ title }: { title: string }) {
   return (
     <div style={{ background: 'rgba(241,245,249,0.7)', height: '38px', padding: '0 16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid rgba(226,232,240,0.7)' }}>
-      <span style={{ color: '#475569', fontFamily: 'Syne, sans-serif', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+      <span style={{ color: '#475569', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
         {title}
       </span>
     </div>
@@ -161,7 +162,7 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: '26px', fontWeight: 800, color: INK, marginBottom: '4px' }}>Admin Overview</h2>
+          <h2 style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '26px', fontWeight: 800, color: INK, marginBottom: '4px' }}>Admin Overview</h2>
           <p style={{ fontSize: '13px', color: '#6b7280' }}>Regional clinical performance · <strong>{scopeLabel}</strong></p>
         </div>
         <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', color: '#1d4ed8', fontWeight: 600 }}>
@@ -239,69 +240,6 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
   );
 }
 
-// ── Doctors view ─────────────────────────────────────────────
-function DoctorsView({ patients }: { patients: Patient[] }) {
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const superAdmin  = currentUser?.isSuperAdmin === true;
-  const [doctors, setDoctors] = useState<User[]>([]);
-  useEffect(() => {
-    const allDoctors = loadUsers().filter((u) => u.role === 'doctor');
-    // Admins can only see doctors in their own district
-    if (superAdmin) {
-      setDoctors(allDoctors);
-    } else {
-      const r = currentUser?.adminRegion   ?? '';
-      const d = currentUser?.adminDistrict ?? '';
-      setDoctors(allDoctors.filter((doc) =>
-        (!r || doc.region   === r) &&
-        (!d || doc.district === d),
-      ));
-    }
-  }, [superAdmin, currentUser]);
-  const rows = useMemo(() => doctors.map((doc) => {
-    const dp = patients.filter((p) => p.hospital === doc.hospital);
-    const allVisits = dp.flatMap((p) => p.visits ?? []);
-    const attended = allVisits.filter((v) => v.att).length;
-    const missed = allVisits.length - attended;
-    const pct = allVisits.length ? Math.round((attended / allVisits.length) * 100) : 0;
-    return { doc, patients: dp.length, attended, missed, pct };
-  }), [doctors, patients]);
-
-  return (
-    <div style={{ ...CARD_STYLE, padding: '20px', overflow: 'auto' }}>
-      <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, color: INK, fontSize: '14px', marginBottom: '12px' }}>
-        Doctor Activity {!superAdmin && <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>· Your district only</span>}
-      </div>
-      <table className="w-full text-left">
-        <thead>
-          <tr className="text-[10px] uppercase tracking-[0.05em] font-bold text-slate-500">
-            <th className="pb-2 px-2">Doctor</th><th className="pb-2 px-2">Hospital</th>
-            <th className="pb-2 px-2 text-center">Patients</th><th className="pb-2 px-2 text-center">Attended</th>
-            <th className="pb-2 px-2 text-center">Missed</th><th className="pb-2 px-2 text-center">Attend %</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, idx) => (
-            <tr key={r.doc.id} style={{ background: idx % 2 ? '#f8fafc' : undefined }}>
-              <td className="px-2 py-2 font-semibold text-slate-800 text-[12px]">{r.doc.displayName}</td>
-              <td className="px-2 py-2 text-[12px] text-slate-500">{r.doc.hospital || '—'}</td>
-              <td className="px-2 py-2 text-center font-semibold text-[12px] text-emerald-600">{r.patients}</td>
-              <td className="px-2 py-2 text-center font-semibold text-[12px] text-emerald-600">{r.attended}</td>
-              <td className="px-2 py-2 text-center font-semibold text-[12px] text-rose-500">{r.missed}</td>
-              <td className="px-2 py-2 text-center">
-                <div className="font-semibold text-[12px] text-emerald-600">{r.pct}%</div>
-                <div className="mt-1 h-[8px] rounded-[999px] bg-slate-200 overflow-hidden">
-                  <div className="h-full bg-emerald-600" style={{ width: `${r.pct}%` }} />
-                </div>
-              </td>
-            </tr>
-          ))}
-          {!rows.length ? <tr><td colSpan={6} className="px-2 py-4 text-center text-slate-500 font-semibold">No doctors registered.</td></tr> : null}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 // ── Settings view ────────────────────────────────────────────
 function SettingsView() {
@@ -464,7 +402,7 @@ function SettingsView() {
 
       {/* ── Hospital Management ─────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-xl p-4">
-        <div className="font-syne font-semibold text-slate-800 text-[14px] mb-2">Hospital Management</div>
+        <div className="font-sans font-semibold text-slate-800 text-[14px] mb-2">Hospital Management</div>
         {hErr ? <Alert variant="red">Could not add hospital: {hErr}</Alert> : null}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
           <div>
@@ -511,7 +449,7 @@ function SettingsView() {
 
       {/* ── Add User — scoped by role ───────────────────── */}
       <div className="bg-white border border-slate-200 rounded-xl p-4">
-        <div className="font-syne font-semibold text-slate-800 text-[14px] mb-1">
+        <div className="font-sans font-semibold text-slate-800 text-[14px] mb-1">
           {superAdmin ? 'Add Admin Account' : 'Add Doctor Account'}
         </div>
         <div className="text-[12px] text-slate-500 mb-3">
@@ -616,7 +554,7 @@ function SettingsView() {
 
       {/* ── Password Reset ──────────────────────────────── */}
       <div style={{ ...CARD_STYLE, padding: '20px' }}>
-        <div className="font-syne font-semibold text-slate-800 text-[14px] mb-1">Reset Password</div>
+        <div className="font-sans font-semibold text-slate-800 text-[14px] mb-1">Reset Password</div>
         <div className="text-[12px] text-slate-500 mb-3">
           {superAdmin
             ? 'Reset passwords for admin accounts.'
@@ -647,7 +585,7 @@ function SettingsView() {
       {/* ── Superadmin: Change Own Password ──────────────── */}
       {superAdmin && (
         <div style={{ ...CARD_STYLE, padding: '20px' }}>
-          <div className="font-syne font-semibold text-slate-800 text-[14px] mb-1">Change My Password</div>
+          <div className="font-sans font-semibold text-slate-800 text-[14px] mb-1">Change My Password</div>
           <div className="text-[12px] text-slate-500 mb-3">
             Update your own superadmin password.
           </div>
@@ -736,7 +674,7 @@ export default function AdminPage() {
       {/* Superadmin scope filter bar */}
       {superAdmin && (activePage === 'overview' || activePage === 'trends') && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px', flexWrap: 'wrap', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px 14px', boxShadow: '0 1px 2px rgba(0,0,0,.04)' }}>
-          <span style={{ fontSize: '11px', fontFamily: 'Syne, sans-serif', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <span style={{ fontSize: '11px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             🔭 Scope:
           </span>
           <select
@@ -779,7 +717,7 @@ export default function AdminPage() {
           <div style={{ ...CARD_STYLE, padding: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, color: INK, fontSize: '16px' }}>Trends</div>
+                <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, color: INK, fontSize: '16px' }}>Trends</div>
                 <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                   Monthly enrolment, BP control, attendance · <strong>{scopeLabel}</strong>
                 </div>
@@ -798,9 +736,9 @@ export default function AdminPage() {
         </div>
       )}
 
-      {activePage === 'doctors'  && <DoctorsView patients={scopedPatients} />}
-      {activePage === 'settings' && <SettingsView />}
-      {activePage === 'user-management' && <SettingsView />}
+      {activePage === 'directory'       && <DirectoryPage />}
+      {activePage === 'settings'         && <SettingsView />}
+      {activePage === 'user-management'   && <SettingsView />}
     </PageWrapper>
   );
 }
