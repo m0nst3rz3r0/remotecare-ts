@@ -1,7 +1,19 @@
 // ════════════════════════════════════════════════════════════
-// TOUCH HEALTH · DM/HTN NCD MANAGEMENT SYSTEM
-// src/services/auth.ts — Authentication & session management
-// ════════════════════════════════════════════════════════════
+// REMOTECARE · src/services/auth.ts
+// Authentication & session management
+//
+// OFFLINE-FIRST STRATEGY:
+// ─────────────────────────────────────────────────────────────
+// • All writes go to localStorage FIRST — the app always works
+//   without internet.
+// • Supabase is used as a SYNC target only:
+//     - Login: try Supabase first, fall back to localStorage cache
+//     - User mutations (add / password reset / delete): write locally,
+//       then fire-and-forget to Supabase (no crash if offline)
+//     - A "pending_ops" queue stores any Supabase write that failed,
+//       so the manual Sync button can replay them later
+// • SMS: works normally when online, queues silently when offline
+// ─────────────────────────────────────────────────────────────
 
 import type { User, SessionUser, UserRole, Hospital } from '../types';
 import { hashPassword, verifyPassword } from './crypto';
@@ -10,22 +22,92 @@ import { supabase } from './supabase';
 // ── STORAGE KEYS ─────────────────────────────────────────────
 
 const KEYS = {
-  USERS:     'th_users',
-  SESSION:   'th_session',
-  HOSPITALS: 'th_hospitals',
+  USERS:          'th_users',
+  SESSION:        'th_session',
+  HOSPITALS:      'th_hospitals',
+  CACHED_USERS:   'th_cached_users',   // users pulled from Supabase for offline login
+  PENDING_OPS:    'th_pending_ops',    // failed Supabase writes queued for next sync
 } as const;
 
 // ════════════════════════════════════════════════════════════
-// SUPABASE MIGRATION NOTE:
-// All localStorage usage below is being replaced with Supabase.
-// See: src/services/supabase.ts for new implementation
+// PENDING OPERATIONS QUEUE
+// Any Supabase write that fails while offline is stored here.
+// Call flushPendingOps() from the manual Sync button.
 // ════════════════════════════════════════════════════════════
 
-// ── NO DEFAULT SEED DATA ─────────────────────────────────────
-// No fake hospitals, no default users. Create superadmin via Supabase
-// dashboard SQL Editor or first-time registration flow.
+type PendingOp =
+  | { type: 'insert_user';   payload: Record<string, unknown> }
+  | { type: 'update_password'; id: string; password: string }
+  | { type: 'delete_user';   id: string }
+  | { type: 'insert_hospital'; payload: Record<string, unknown> }
+  | { type: 'delete_hospital'; id: string };
 
-// ── STORAGE HELPERS ───────────────────────────────────────────
+function loadPendingOps(): PendingOp[] {
+  try {
+    const raw = localStorage.getItem(KEYS.PENDING_OPS);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePendingOps(ops: PendingOp[]): void {
+  localStorage.setItem(KEYS.PENDING_OPS, JSON.stringify(ops));
+}
+
+function enqueuePendingOp(op: PendingOp): void {
+  savePendingOps([...loadPendingOps(), op]);
+}
+
+/**
+ * Replay all queued Supabase writes.
+ * Called by the Sync button (SyncBar / BackupPanel).
+ * Returns { flushed, failed } counts.
+ */
+export async function flushPendingOps(): Promise<{ flushed: number; failed: number }> {
+  const ops = loadPendingOps();
+  if (!ops.length) return { flushed: 0, failed: 0 };
+
+  let flushed = 0;
+  const remaining: PendingOp[] = [];
+
+  for (const op of ops) {
+    try {
+      switch (op.type) {
+        case 'insert_user':
+          await supabase.from('users').upsert(op.payload);
+          break;
+        case 'update_password':
+          await supabase.from('users').update({ password: op.password }).eq('id', op.id);
+          break;
+        case 'delete_user':
+          await supabase.from('users').delete().eq('id', op.id);
+          break;
+        case 'insert_hospital':
+          await supabase.from('hospitals').upsert(op.payload);
+          break;
+        case 'delete_hospital':
+          await supabase.from('hospitals').delete().eq('id', op.id);
+          break;
+      }
+      flushed++;
+    } catch {
+      remaining.push(op);
+    }
+  }
+
+  savePendingOps(remaining);
+  return { flushed, failed: remaining.length };
+}
+
+/** How many ops are waiting to sync */
+export function pendingOpsCount(): number {
+  return loadPendingOps().length;
+}
+
+// ════════════════════════════════════════════════════════════
+// LOCAL STORAGE HELPERS  (source of truth for all reads)
+// ════════════════════════════════════════════════════════════
 
 export function loadUsers(): User[] {
   try {
@@ -53,23 +135,87 @@ export function saveHospitals(hospitals: Hospital[]): void {
   localStorage.setItem(KEYS.HOSPITALS, JSON.stringify(hospitals));
 }
 
-// ── SEED DEFAULTS ─────────────────────────────────────────────
-// NO AUTO-SEEDING: All users and hospitals must be created via the app UI
-// Superadmin must be created through first-time registration or Supabase dashboard
+// ════════════════════════════════════════════════════════════
+// OFFLINE USER CACHE
+// A separate copy of users fetched from Supabase, keyed by
+// username, used as fallback when Supabase is unreachable.
+// ════════════════════════════════════════════════════════════
+
+function loadCachedUsers(): Record<string, unknown>[] {
+  try {
+    const raw = localStorage.getItem(KEYS.CACHED_USERS);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCachedUsers(users: Record<string, unknown>[]): void {
+  localStorage.setItem(KEYS.CACHED_USERS, JSON.stringify(users));
+}
+
+/** Upsert one user into the offline cache */
+function cacheUserForOffline(user: Record<string, unknown>): void {
+  const cached = loadCachedUsers();
+  const idx = cached.findIndex((u) => u['username'] === user['username']);
+  const entry = {
+    id:           user['id'],
+    username:     user['username'],
+    password:     user['password'],   // already hashed
+    role:         user['role'],
+    display_name: user['display_name'] ?? user['displayName'],
+    hospital:     user['hospital'],
+    region:       user['region'],
+    district:     user['district'],
+    is_super_admin: user['is_super_admin'] ?? user['isSuperAdmin'] ?? false,
+    cachedAt:     new Date().toISOString(),
+  };
+  if (idx >= 0) {
+    cached[idx] = entry;
+  } else {
+    cached.push(entry);
+  }
+  saveCachedUsers(cached);
+}
+
+/** Update the cached password for a user (called after password reset) */
+function updateCachedPassword(userId: string, hashedPassword: string): void {
+  const cached = loadCachedUsers().map((u) =>
+    u['id'] === userId ? { ...u, password: hashedPassword } : u
+  );
+  saveCachedUsers(cached);
+}
+
+/** Remove a user from the offline cache */
+function removeCachedUser(userId: string): void {
+  saveCachedUsers(loadCachedUsers().filter((u) => u['id'] !== userId));
+}
+
+function findCachedUser(username: string): Record<string, unknown> | null {
+  return (
+    loadCachedUsers().find(
+      (u) => String(u['username']).toLowerCase() === username.toLowerCase()
+    ) ?? null
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// SEED DEFAULTS  (no auto-seeding — create via UI or Supabase)
+// ════════════════════════════════════════════════════════════
 
 export function seedDefaults(): void {
-  // No automatic seeding - prevents fake data in production
-  // First superadmin should be created via registration flow
+  // intentionally empty — no fake data in production
 }
 
 export function clearAndReseed(): void {
   localStorage.removeItem(KEYS.USERS);
   localStorage.removeItem(KEYS.HOSPITALS);
   localStorage.removeItem(KEYS.SESSION);
-  // No automatic reseeding - prevents fake data
 }
 
-// ── SESSION ───────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// SESSION
+// ════════════════════════════════════════════════════════════
 
 export function getSession(): SessionUser | null {
   try {
@@ -91,27 +237,33 @@ export function clearSession(): void {
 export function validateSession(): SessionUser | null {
   const session = getSession();
   if (!session) return null;
+  // Session is valid as long as the user exists locally
   const stillExists = loadUsers().find(
-    (u) => u.id === session.id && u.role === session.role,
+    (u) => u.id === session.id && u.role === session.role
   );
-  if (!stillExists) { clearSession(); return null; }
+  if (!stillExists) {
+    // Also accept if they exist in offline cache (Supabase-sourced user)
+    const inCache = findCachedUser(session.username);
+    if (!inCache) { clearSession(); return null; }
+  }
   return session;
 }
 
-// ── LOGIN ─────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// LOGIN  — Supabase first, localStorage cache fallback
+// ════════════════════════════════════════════════════════════
 
 export type LoginResult =
-  | { success: true; user: SessionUser; offline?: boolean }
+  | { success: true;  user: SessionUser; offline?: boolean }
   | { success: false; error: string };
 
-// CHANGED: Hybrid login - checks Supabase first, caches to localStorage for offline
 export async function login(params: {
   username: string;
   password: string;
   role: UserRole;
-  hospital?: string;
-  region?: string;
-  district?: string;
+  hospital?:  string;
+  region?:    string;
+  district?:  string;
 }): Promise<LoginResult> {
   const { username, password, role, hospital = '', region = '', district = '' } = params;
 
@@ -119,10 +271,10 @@ export async function login(params: {
     return { success: false, error: 'Please enter your username and password.' };
   }
 
-  let foundUser: any = null;
+  let foundUser: Record<string, unknown> | null = null;
   let isOffline = false;
 
-  // Try Supabase first (online mode)
+  // ── 1. Try Supabase (online) ──────────────────────────────
   try {
     const { data, error } = await supabase
       .from('users')
@@ -131,59 +283,73 @@ export async function login(params: {
       .single();
 
     if (!error && data) {
-      foundUser = data;
-      // Cache user to localStorage for offline login
+      foundUser = data as Record<string, unknown>;
+      // Refresh the offline cache so next offline login has latest password/role
       cacheUserForOffline(foundUser);
     } else {
-      // If Supabase fails, try localStorage (offline mode)
       isOffline = true;
-      foundUser = findCachedUser(username);
     }
-  } catch (e) {
-    // Network error - use localStorage fallback
+  } catch {
     isOffline = true;
+  }
+
+  // ── 2. Fall back to offline cache ─────────────────────────
+  if (!foundUser) {
     foundUser = findCachedUser(username);
+    isOffline = true;
   }
 
   if (!foundUser) {
     return { success: false, error: 'Incorrect username or password. Please try again.' };
   }
 
-  // Verify password
-  const passwordOk = await verifyPassword(password, foundUser.password);
+  // ── 3. Verify password ────────────────────────────────────
+  const storedHash = String(foundUser['password'] ?? '');
+  const passwordOk = await verifyPassword(password, storedHash);
   if (!passwordOk) {
     return { success: false, error: 'Incorrect username or password. Please try again.' };
   }
 
-  if (foundUser.role !== role) {
-    const correctTab = foundUser.role === 'admin' ? 'Admin' : 'Doctor';
+  // ── 4. Role check ─────────────────────────────────────────
+  const userRole = String(foundUser['role'] ?? '');
+  if (userRole !== role) {
+    const correctTab = userRole === 'admin' ? 'Admin' : 'Doctor';
     return {
       success: false,
-      error: `Wrong tab selected. Please click the "${correctTab}" tab — your account is a ${foundUser.role} account.`,
+      error: `Wrong tab selected. Please click the "${correctTab}" tab — your account is a ${userRole} account.`,
     };
   }
 
-  // Doctor: validate hospital assignment
+  // ── 5. Build session ──────────────────────────────────────
+  const userId       = String(foundUser['id'] ?? '');
+  const uname        = String(foundUser['username'] ?? '');
+  const displayName  = String(foundUser['display_name'] ?? foundUser['displayName'] ?? uname);
+  const userHospital = String(foundUser['hospital'] ?? '');
+  const userRegion   = String(foundUser['region']   ?? '');
+  const userDistrict = String(foundUser['district'] ?? '');
+  const isSuperAdmin =
+    foundUser['is_super_admin'] === true || foundUser['isSuperAdmin'] === true;
+
   if (role === 'doctor') {
-    const resolvedHospital = hospital || foundUser.hospital;
+    const resolvedHospital = hospital || userHospital;
     if (!resolvedHospital) {
       return { success: false, error: 'Please select your hospital from the list.' };
     }
-    if (foundUser.hospital && resolvedHospital !== foundUser.hospital) {
+    if (userHospital && resolvedHospital !== userHospital) {
       return {
         success: false,
-        error: `Access Denied: You are not authorised for this facility. Your assigned hospital is: ${foundUser.hospital}`,
+        error: `Access Denied: You are not authorised for this facility. Your assigned hospital is: ${userHospital}`,
       };
     }
     const sessionUser: SessionUser = {
-      id:              foundUser.id,
-      username:        foundUser.username,
-      displayName:     foundUser.display_name,
-      role:            foundUser.role,
-      hospital:        foundUser.hospital,
+      id:              userId,
+      username:        uname,
+      displayName,
+      role:            'doctor',
+      hospital:        userHospital,
       sessionHospital: resolvedHospital,
-      sessionRegion:   region || foundUser.region,
-      sessionDistrict: district || foundUser.district,
+      sessionRegion:   region   || userRegion,
+      sessionDistrict: district || userDistrict,
       isSuperAdmin:    false,
       adminRegion:     '',
       adminDistrict:   '',
@@ -192,80 +358,52 @@ export async function login(params: {
     return { success: true, user: sessionUser, offline: isOffline };
   }
 
-  // Admin login
+  // Admin
   const sessionUser: SessionUser = {
-    id:              foundUser.id,
-    username:        foundUser.username,
-    displayName:     foundUser.display_name,
-    role:            foundUser.role,
-    hospital:        foundUser.hospital,
+    id:              userId,
+    username:        uname,
+    displayName,
+    role:            'admin',
+    hospital:        userHospital,
     sessionHospital: 'RemoteCare',
-    sessionRegion:   foundUser.region   ?? '',
-    sessionDistrict: foundUser.district ?? '',
-    isSuperAdmin:    foundUser.is_super_admin === true,
-    adminRegion:     foundUser.region   ?? '',
-    adminDistrict:   foundUser.district ?? '',
+    sessionRegion:   userRegion,
+    sessionDistrict: userDistrict,
+    isSuperAdmin,
+    adminRegion:     userRegion,
+    adminDistrict:   userDistrict,
   };
   saveSession(sessionUser);
   return { success: true, user: sessionUser, offline: isOffline };
 }
 
-// Helper: Cache user credentials for offline login
-function cacheUserForOffline(user: any): void {
-  const cachedUsers = JSON.parse(localStorage.getItem('th_cached_users') || '[]');
-  const existingIndex = cachedUsers.findIndex((u: any) => u.username === user.username);
-  
-  const cacheData = {
-    id: user.id,
-    username: user.username,
-    password: user.password, // Already hashed
-    role: user.role,
-    displayName: user.display_name,
-    hospital: user.hospital,
-    region: user.region,
-    district: user.district,
-    isSuperAdmin: user.is_super_admin,
-    cachedAt: new Date().toISOString()
-  };
-  
-  if (existingIndex >= 0) {
-    cachedUsers[existingIndex] = cacheData;
-  } else {
-    cachedUsers.push(cacheData);
-  }
-  
-  localStorage.setItem('th_cached_users', JSON.stringify(cachedUsers));
-}
-
-// Helper: Find cached user for offline login
-function findCachedUser(username: string): any {
-  const cachedUsers = JSON.parse(localStorage.getItem('th_cached_users') || '[]');
-  return cachedUsers.find((u: any) => u.username.toLowerCase() === username.toLowerCase()) || null;
-}
-
-// ── LOGOUT ────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// LOGOUT
+// ════════════════════════════════════════════════════════════
 
 export function logout(): void {
   clearSession();
 }
 
-// ── USER MANAGEMENT ───────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// USER MANAGEMENT
+// Write pattern: localStorage first → Supabase fire-and-forget
+//   → on failure, enqueue in pending ops for manual sync
+// ════════════════════════════════════════════════════════════
 
 export type MutationResult =
   | { success: true }
   | { success: false; error: string };
 
-// CHANGED: addUser is now async to hash the password before saving
 export async function addUser(params: {
-  displayName: string;
-  username: string;
-  password: string;
-  role: UserRole;
-  hospital?: string;
-  region?: string;
-  district?: string;
+  displayName:  string;
+  username:     string;
+  password:     string;
+  role:         UserRole;
+  hospital?:    string;
+  region?:      string;
+  district?:    string;
   isSuperAdmin?: boolean;
-  createdBy?: SessionUser | null;
+  createdBy?:   SessionUser | null;
 }): Promise<MutationResult> {
   const {
     displayName, username, password, role,
@@ -281,16 +419,12 @@ export async function addUser(params: {
     return { success: false, error: 'Password must be at least 6 characters.' };
   }
 
-  // ── Permission checks ──────────────────────────────────────
-  if (role === 'admin') {
-    if (!createdBy?.isSuperAdmin) {
-      return { success: false, error: 'Only superadmin can create admin accounts.' };
-    }
+  // Permission checks
+  if (role === 'admin' && !createdBy?.isSuperAdmin) {
+    return { success: false, error: 'Only superadmin can create admin accounts.' };
   }
-  if (role === 'doctor') {
-    if (createdBy && createdBy.role !== 'admin') {
-      return { success: false, error: 'Only admins can create doctor accounts.' };
-    }
+  if (role === 'doctor' && createdBy && createdBy.role !== 'admin') {
+    return { success: false, error: 'Only admins can create doctor accounts.' };
   }
 
   const users = loadUsers();
@@ -301,48 +435,30 @@ export async function addUser(params: {
     return { success: false, error: 'You must assign a hospital to this doctor.' };
   }
 
-  // CHANGED: hash password before saving
-  const hashed = await hashPassword(password);
-  const userId = crypto.randomUUID();
+  const hashed  = await hashPassword(password);
+  const userId  = crypto.randomUUID();
 
   const newUser: User = {
-    id:           userId,
+    id:          userId,
     displayName,
-    username:     username.toLowerCase(),
-    password:     hashed,
+    username:    username.toLowerCase(),
+    password:    hashed,
     role,
     hospital,
     region,
     district,
     isSuperAdmin: newUserIsSuperAdmin,
-    createdAt:    new Date().toISOString(),
+    createdAt:   new Date().toISOString(),
   };
 
-  // Save to localStorage (offline-first)
+  // ── 1. Save locally (always succeeds) ─────────────────────
   saveUsers([...users, newUser]);
 
-  // Try to save to Supabase (for online access)
-  try {
-    await supabase.from('users').insert({
-      id: userId,
-      username: username.toLowerCase(),
-      password: hashed,
-      role,
-      display_name: displayName,
-      hospital,
-      region,
-      district,
-      is_super_admin: newUserIsSuperAdmin,
-    });
-  } catch (e) {
-    console.log('Supabase save failed (offline?), user saved locally only');
-  }
-
-  // Cache for offline login
+  // ── 2. Update offline cache ───────────────────────────────
   cacheUserForOffline({
-    id: userId,
-    username: username.toLowerCase(),
-    password: hashed,
+    id:           userId,
+    username:     username.toLowerCase(),
+    password:     hashed,
     role,
     display_name: displayName,
     hospital,
@@ -351,18 +467,54 @@ export async function addUser(params: {
     is_super_admin: newUserIsSuperAdmin,
   });
 
+  // ── 3. Try Supabase; queue on failure ─────────────────────
+  const supabasePayload = {
+    id:           userId,
+    username:     username.toLowerCase(),
+    password:     hashed,
+    role,
+    display_name: displayName,
+    hospital,
+    region,
+    district,
+    is_super_admin: newUserIsSuperAdmin,
+  };
+
+  try {
+    const { error } = await supabase.from('users').insert(supabasePayload);
+    if (error) throw error;
+  } catch {
+    enqueuePendingOp({ type: 'insert_user', payload: supabasePayload });
+  }
+
   return { success: true };
 }
 
 export function deleteUser(id: string): void {
+  // ── 1. Remove locally ─────────────────────────────────────
   saveUsers(loadUsers().filter((u) => u.id !== id));
+  removeCachedUser(id);
+
+  // ── 2. Try Supabase; queue on failure ─────────────────────
+  supabase
+    .from('users')
+    .delete()
+    .eq('id', id)
+    .then(({ error }) => {
+      if (error) enqueuePendingOp({ type: 'delete_user', id });
+    })
+    .catch(() => {
+      enqueuePendingOp({ type: 'delete_user', id });
+    });
 }
 
-// ── PASSWORD RESET ────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// PASSWORD RESET
+// Fixed: now updates localStorage + Supabase + offline cache
+// ════════════════════════════════════════════════════════════
 
-// CHANGED: updateUserPassword is now async to hash the new password
 export async function updateUserPassword(
-  targetId: string,
+  targetId:    string,
   newPassword: string,
   requestedBy: SessionUser | null,
 ): Promise<MutationResult> {
@@ -373,7 +525,7 @@ export async function updateUserPassword(
     return { success: false, error: 'Password must be at least 6 characters.' };
   }
 
-  const users = loadUsers();
+  const users  = loadUsers();
   const target = users.find((u) => u.id === targetId);
   if (!target) {
     return { success: false, error: 'User not found.' };
@@ -389,17 +541,36 @@ export async function updateUserPassword(
     return { success: false, error: 'Only admins can reset doctor passwords.' };
   }
 
-  // CHANGED: hash the new password before saving
   const hashed = await hashPassword(newPassword);
+
+  // ── 1. Update localStorage ────────────────────────────────
   saveUsers(users.map((u) => (u.id === targetId ? { ...u, password: hashed } : u)));
+
+  // ── 2. Update offline cache ───────────────────────────────
+  updateCachedPassword(targetId, hashed);
+
+  // ── 3. Try Supabase; queue on failure ─────────────────────
+  try {
+    const { error } = await supabase
+      .from('users')
+      .update({ password: hashed })
+      .eq('id', targetId);
+    if (error) throw error;
+  } catch {
+    enqueuePendingOp({ type: 'update_password', id: targetId, password: hashed });
+  }
+
   return { success: true };
 }
 
-// ── HOSPITAL MANAGEMENT ───────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// HOSPITAL MANAGEMENT
+// Same offline-first pattern: local first, Supabase secondary
+// ════════════════════════════════════════════════════════════
 
 export function addHospital(params: {
-  name: string;
-  region: string;
+  name:     string;
+  region:   string;
   district: string;
 }): MutationResult {
   const { name, region, district } = params;
@@ -410,12 +581,42 @@ export function addHospital(params: {
   if (hospitals.find((h) => h.name.toLowerCase() === name.toLowerCase())) {
     return { success: false, error: 'A hospital with this name already exists.' };
   }
-  saveHospitals([...hospitals, { id: crypto.randomUUID(), name, region, district }]);
+
+  const id = crypto.randomUUID();
+
+  // ── 1. Save locally ───────────────────────────────────────
+  saveHospitals([...hospitals, { id, name, region, district }]);
+
+  // ── 2. Try Supabase; queue on failure ─────────────────────
+  const payload = { id, name, region, district };
+  supabase
+    .from('hospitals')
+    .insert(payload)
+    .then(({ error }) => {
+      if (error) enqueuePendingOp({ type: 'insert_hospital', payload });
+    })
+    .catch(() => {
+      enqueuePendingOp({ type: 'insert_hospital', payload });
+    });
+
   return { success: true };
 }
 
 export function deleteHospital(id: string): void {
+  // ── 1. Remove locally ─────────────────────────────────────
   saveHospitals(loadHospitals().filter((h) => h.id !== id));
+
+  // ── 2. Try Supabase; queue on failure ─────────────────────
+  supabase
+    .from('hospitals')
+    .delete()
+    .eq('id', id)
+    .then(({ error }) => {
+      if (error) enqueuePendingOp({ type: 'delete_hospital', id });
+    })
+    .catch(() => {
+      enqueuePendingOp({ type: 'delete_hospital', id });
+    });
 }
 
 export function getHospitalsByRegionDistrict(region: string, district: string): Hospital[] {
@@ -426,7 +627,9 @@ export function getHospitalsByRegionDistrict(region: string, district: string): 
   );
 }
 
-// ── PERMISSION HELPERS ────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// PERMISSION HELPERS
+// ════════════════════════════════════════════════════════════
 
 export function isSuperAdmin(user: SessionUser | null): boolean {
   return user?.isSuperAdmin === true;
