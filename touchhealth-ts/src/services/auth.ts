@@ -303,9 +303,10 @@ export async function addUser(params: {
 
   // CHANGED: hash password before saving
   const hashed = await hashPassword(password);
+  const userId = crypto.randomUUID();
 
   const newUser: User = {
-    id:           'u' + Date.now(),
+    id:           userId,
     displayName,
     username:     username.toLowerCase(),
     password:     hashed,
@@ -317,7 +318,39 @@ export async function addUser(params: {
     createdAt:    new Date().toISOString(),
   };
 
+  // Save to localStorage (offline-first)
   saveUsers([...users, newUser]);
+
+  // Try to save to Supabase (for online access)
+  try {
+    await supabase.from('users').insert({
+      id: userId,
+      username: username.toLowerCase(),
+      password: hashed,
+      role,
+      display_name: displayName,
+      hospital,
+      region,
+      district,
+      is_super_admin: newUserIsSuperAdmin,
+    });
+  } catch (e) {
+    console.log('Supabase save failed (offline?), user saved locally only');
+  }
+
+  // Cache for offline login
+  cacheUserForOffline({
+    id: userId,
+    username: username.toLowerCase(),
+    password: hashed,
+    role,
+    display_name: displayName,
+    hospital,
+    region,
+    district,
+    is_super_admin: newUserIsSuperAdmin,
+  });
+
   return { success: true };
 }
 
@@ -377,7 +410,7 @@ export function addHospital(params: {
   if (hospitals.find((h) => h.name.toLowerCase() === name.toLowerCase())) {
     return { success: false, error: 'A hospital with this name already exists.' };
   }
-  saveHospitals([...hospitals, { id: 'h' + Date.now(), name, region, district }]);
+  saveHospitals([...hospitals, { id: crypto.randomUUID(), name, region, district }]);
   return { success: true };
 }
 
