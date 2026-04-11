@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { useAuthStore }    from '../../store/useAuthStore';
 import { useUIStore }      from '../../store/useUIStore';
 import { loadUsers }       from '../../services/auth';
+import { LOGO }            from './Topbar';
 import { getUserInitials } from '../../services/auth';
 
 interface NavItem {
@@ -85,14 +86,11 @@ export default function Sidebar() {
         gap: 10,
         borderBottom: '1px solid rgba(0,0,0,0.07)',
       }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-          background: 'linear-gradient(135deg,#132b31 0%,#1a4a55 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 2px 8px rgba(19,43,49,0.28)',
-        }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 17, color: '#6ee7b7' }}>favorite</span>
-        </div>
+        <img
+          src={LOGO}
+          alt="RemoteCare"
+          style={{ width: 32, height: 32, objectFit: 'contain', flexShrink: 0 }}
+        />
 
         {!collapsed && (
           <span style={{ ...TEXT, fontWeight: 700, fontSize: 15, color: '#132b31', letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>
