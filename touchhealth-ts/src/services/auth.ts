@@ -496,16 +496,13 @@ export function deleteUser(id: string): void {
   removeCachedUser(id);
 
   // ── 2. Try Supabase; queue on failure ─────────────────────
-  supabase
-    .from('users')
-    .delete()
-    .eq('id', id)
-    .then(({ error }) => {
-      if (error) enqueuePendingOp({ type: 'delete_user', id });
-    })
-    .catch(() => {
-      enqueuePendingOp({ type: 'delete_user', id });
-    });
+  void Promise.resolve(
+    supabase.from('users').delete().eq('id', id)
+  ).then(({ error }) => {
+    if (error) enqueuePendingOp({ type: 'delete_user', id });
+  }).catch(() => {
+    enqueuePendingOp({ type: 'delete_user', id });
+  });
 }
 
 // ════════════════════════════════════════════════════════════
@@ -589,15 +586,13 @@ export function addHospital(params: {
 
   // ── 2. Try Supabase; queue on failure ─────────────────────
   const payload = { id, name, region, district };
-  supabase
-    .from('hospitals')
-    .insert(payload)
-    .then(({ error }) => {
-      if (error) enqueuePendingOp({ type: 'insert_hospital', payload });
-    })
-    .catch(() => {
-      enqueuePendingOp({ type: 'insert_hospital', payload });
-    });
+  void Promise.resolve(
+    supabase.from('hospitals').insert(payload)
+  ).then(({ error }) => {
+    if (error) enqueuePendingOp({ type: 'insert_hospital', payload });
+  }).catch(() => {
+    enqueuePendingOp({ type: 'insert_hospital', payload });
+  });
 
   return { success: true };
 }
@@ -607,16 +602,13 @@ export function deleteHospital(id: string): void {
   saveHospitals(loadHospitals().filter((h) => h.id !== id));
 
   // ── 2. Try Supabase; queue on failure ─────────────────────
-  supabase
-    .from('hospitals')
-    .delete()
-    .eq('id', id)
-    .then(({ error }) => {
-      if (error) enqueuePendingOp({ type: 'delete_hospital', id });
-    })
-    .catch(() => {
-      enqueuePendingOp({ type: 'delete_hospital', id });
-    });
+  void Promise.resolve(
+    supabase.from('hospitals').delete().eq('id', id)
+  ).then(({ error }) => {
+    if (error) enqueuePendingOp({ type: 'delete_hospital', id });
+  }).catch(() => {
+    enqueuePendingOp({ type: 'delete_hospital', id });
+  });
 }
 
 export function getHospitalsByRegionDistrict(region: string, district: string): Hospital[] {
