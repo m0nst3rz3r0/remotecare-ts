@@ -1,5 +1,6 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';\nimport App from './App';
+import ReactDOM from 'react-dom/client';
+import App from './App';
 import './index.css';
 // ADDED: import migratePasswords to upgrade legacy plain-text passwords on startup
 import { migratePasswords } from './services/crypto';
