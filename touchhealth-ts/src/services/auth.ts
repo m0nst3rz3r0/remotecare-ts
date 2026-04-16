@@ -238,7 +238,8 @@ export async function login(params: {
   region?:    string;
   district?:  string;
 }): Promise<LoginResult> {
-  const { username, password, role, hospital = '', region = '', district = '' } = params;
+  // FIX: Removed unused 'region' and 'district' here to pass TS Build
+  const { username, password, role, hospital = '' } = params;
 
   if (!username || !password) {
     return { success: false, error: 'Please enter your username and password.' };
