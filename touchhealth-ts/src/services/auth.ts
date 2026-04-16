@@ -310,15 +310,19 @@ export async function login(params: {
     return { success: false, error: 'Incorrect username or password. Please try again.' };
   }
 
-  // ── 4. Role check ─────────────────────────────────────────
+  // ── 4. Role check (UPDATED FOR 'AUTO') ────────────────────
   const userRole = String(foundUser['role'] ?? '');
-  if (userRole !== role) {
+  // Skip the mismatch check if the role was passed as 'auto'
+  if (role !== 'auto' && userRole !== role) {
     const correctTab = userRole === 'admin' ? 'Admin' : 'Doctor';
     return {
       success: false,
       error: `Wrong tab selected. Please click the "${correctTab}" tab — your account is a ${userRole} account.`,
     };
   }
+
+  // Resolve the final role from the database to build the session
+  const resolvedRole = userRole as 'admin' | 'doctor';
 
   // ── 5. Build session ──────────────────────────────────────
   const userId       = String(foundUser['id'] ?? '');
@@ -330,7 +334,7 @@ export async function login(params: {
   const isSuperAdmin =
     foundUser['is_super_admin'] === true || foundUser['isSuperAdmin'] === true;
 
-  if (role === 'doctor') {
+  if (resolvedRole === 'doctor') {
     const resolvedHospital = hospital || userHospital;
     if (!resolvedHospital) {
       return { success: false, error: 'Please select your hospital from the list.' };
