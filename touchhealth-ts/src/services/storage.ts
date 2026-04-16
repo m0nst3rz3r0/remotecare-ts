@@ -144,30 +144,8 @@ export function setSyncCount(n: number): void {
 }
 
 // ── Seed defaults ─────────────────────────────────────
-
+// No demo/seed data. All users and hospitals are managed
+// via Supabase and the Admin UI.
 export function seedDefaults(): void {
-  if (!loadUsers().length) {
-    saveUsers([
-      {
-        id: 'u0', username: 'alexalpha360', password: 'admin123',
-        role: 'admin', displayName: 'Super Admin',
-        hospital: '', region: '', district: '',
-        isSuperAdmin: true, createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'u1', username: 'admin', password: 'admin123',
-        role: 'admin', displayName: 'System Admin',
-        hospital: '', region: '', district: '',
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-  }
-
-  if (!loadHospitals().length) {
-    saveHospitals([
-      { id: 'h1', name: 'Zamzam Hospital',         region: 'Kagera', district: 'Bukoba Municipal' },
-      { id: 'h2', name: 'Bukoba Regional Hospital', region: 'Kagera', district: 'Bukoba Municipal' },
-      { id: 'h3', name: 'BMC Health Centre',        region: 'Kagera', district: 'Bukoba Municipal' },
-    ]);
-  }
+  // intentionally empty — no fake data in production
 }
