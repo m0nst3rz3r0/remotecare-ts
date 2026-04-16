@@ -73,10 +73,15 @@ export default function AuthPage() {
           <div>
             <div className="flex items-center gap-4 mb-8">
               <div
-                className="w-16 h-16 rounded-full flex items-center justify-center"
-                style={{ background: '#132b31' }}
+                className="w-16 h-16 rounded-full flex items-center justify-center overflow-hidden"
+                style={{ background: '#ffffff' }}
               >
-                <img src="data:image/png;base64,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" alt="RemoteCare" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                {/* FIXED: Using the local image file instead of base64 */}
+                <img 
+                  src="/logo.png" 
+                  alt="RemoteCare Research Organization Logo" 
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                />
               </div>
               <div className="font-sans text-2xl font-extrabold" style={{ color: '#005469' }}>
                 RemoteCare
