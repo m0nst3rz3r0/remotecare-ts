@@ -22,69 +22,69 @@ const KEYS = {
 } as const;
 
 // ════════════════════════════════════════════════════
-// SUPABASE SELECTIVE SYNC (Optimized for Low Egress)
+// FULL SYSTEM SYNC (Patients, Users, & Hospitals)
 // ════════════════════════════════════════════════════
 
 export async function syncPatientsWithCloud() {
   try {
-    console.log('🔄 Selective Sync initiated (Pull-on-Demand)...');
+    console.log('🔄 Full System Sync initiated...');
     
     const localPatients = loadPatients();
     const lastSyncTimestamp = getLastSync(); 
 
-    // 1. PUSH (On-Demand Backup)
-    // Only pushes if there is data. Postgres UPSERT handles creation vs updates.
+    // 1. PUSH PATIENTS (On-Demand)
     if (localPatients.length > 0) {
       const { error: pushError } = await supabase
         .from('patients')
         .upsert(localPatients, { onConflict: 'id' });
 
-      if (pushError) {
-        console.error('❌ Push failed:', pushError.message);
-        return { success: false, error: pushError.message };
-      }
+      if (pushError) throw pushError;
     }
 
-    // 2. SELECTIVE PULL (Data Minimization)
-    // Only requests rows modified AFTER the last successful sync.
-    let query = supabase.from('patients').select('*');
-    
+    // 2. SELECTIVE PULL PATIENTS (Data Minimization)
+    let pQuery = supabase.from('patients').select('*');
     if (lastSyncTimestamp) {
-      // GT = Greater Than. We only fetch updates, reducing egress.
-      query = query.gt('updated_at', lastSyncTimestamp);
+      pQuery = pQuery.gt('updated_at', lastSyncTimestamp);
     }
+    const { data: pUpdates, error: pError } = await pQuery;
+    if (pError) throw pError;
 
-    const { data: remoteUpdates, error: pullError } = await query;
-
-    if (pullError) {
-      console.error('❌ Pull failed:', pullError.message);
-      return { success: false, error: pullError.message };
-    }
-
-    // 3. SMART MERGE
-    // Instead of replacing everything, we merge the specific updates into our local list.
-    if (remoteUpdates && remoteUpdates.length > 0) {
+    // Merge patient updates
+    if (pUpdates && pUpdates.length > 0) {
       const currentList = loadPatients();
-      
-      // Use a Map for O(1) lookup performance
       const patientMap = new Map(currentList.map(p => [p.id, p]));
-      
-      remoteUpdates.forEach((updatedPatient: any) => {
-        patientMap.set(updatedPatient.id, updatedPatient as Patient);
-      });
-
+      pUpdates.forEach((up: any) => patientMap.set(up.id, up as Patient));
       savePatients(Array.from(patientMap.values()));
-      console.log(`✅ Synced ${remoteUpdates.length} updates.`);
-    } else {
-      console.log('✅ Local data is already up to date. No egress used.');
     }
 
-    // Update the sync timestamp to current ISO string
+    // 3. PULL USERS (For Admin Directory/Stats)
+    // We pull all users so the Admin Directory is always accurate
+    const { data: cloudUsers, error: uError } = await supabase
+      .from('users')
+      .select('*');
+    
+    if (uError) console.warn('User sync failed:', uError.message);
+    if (cloudUsers) {
+      saveUsers(cloudUsers as User[]);
+      console.log(`✅ Synced ${cloudUsers.length} users.`);
+    }
+
+    // 4. PULL HOSPITALS (For Facility Matrix)
+    const { data: cloudHospitals, error: hError } = await supabase
+      .from('hospitals')
+      .select('*');
+    
+    if (hError) console.warn('Hospital sync failed:', hError.message);
+    if (cloudHospitals) {
+      saveHospitals(cloudHospitals as Hospital[]);
+    }
+
+    // Update global sync timestamp
     setLastSync(); 
     return { success: true };
 
   } catch (err) {
-    console.error('⚠️ Critical Sync Failure:', err);
+    console.error('⚠️ Sync System Error:', err);
     return { success: false, error: 'Network or internal error' };
   }
 }
