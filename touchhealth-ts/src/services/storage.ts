@@ -2,6 +2,49 @@ import type {
   Patient, User, Hospital, ClinicSettings,
   StockoutReport, SMSConfig, SMSLogEntry,
 } from '@/types';
+import { supabase } from './supabase';
+
+// ════════════════════════════════════════════════════
+// SUPABASE SYNC BRIDGE
+// ════════════════════════════════════════════════════
+
+export async function syncPatientsWithCloud() {
+  try {
+    // 1. Push local patients up to Supabase
+    const localPatients = loadPatients();
+    if (localPatients.length > 0) {
+      const { error: pushError } = await supabase
+        .from('patients') // NOTE: Ensure your Supabase table is named 'patients'
+        .upsert(localPatients);
+
+      if (pushError) {
+        console.error('Failed to push patients to Supabase:', pushError);
+        return { success: false, error: pushError.message };
+      }
+    }
+
+    // 2. Pull the latest master list down from Supabase
+    const { data: cloudPatients, error: pullError } = await supabase
+      .from('patients')
+      .select('*');
+
+    if (pullError) {
+      console.error('Failed to pull patients from Supabase:', pullError);
+      return { success: false, error: pullError.message };
+    }
+
+    // 3. Save the cloud data to local storage and update timestamp
+    if (cloudPatients) {
+      savePatients(cloudPatients as Patient[]);
+      setLastSync(); // Updates the "Last synced" text in your dashboard UI
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('Unexpected sync error:', err);
+    return { success: false, error: 'Network error during sync' };
+  }
+}
 
 // ════════════════════════════════════════════════════
 // STORAGE SERVICE — localStorage abstraction
