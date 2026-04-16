@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getLastSync, syncPatientsWithCloud } from '../../services/storage';
+import { useAuthStore } from '../../store/useAuthStore'; // Import Auth Store
 import Button from './Button';
 
 type ConnState = 'online' | 'offline' | 'syncing';
@@ -16,6 +17,7 @@ function formatLastSync(iso: string | null) {
 }
 
 export default function SyncBar() {
+  const currentUser = useAuthStore((s) => s.currentUser); // Get User Info
   const [conn, setConn] = useState<ConnState>(() =>
     typeof navigator !== 'undefined' && navigator.onLine ? 'online' : 'offline',
   );
@@ -25,12 +27,10 @@ export default function SyncBar() {
 
   const handleSync = async () => {
     if (conn === 'offline') return;
-    
     setConn('syncing');
     try {
       const result = await syncPatientsWithCloud();
       if (result.success) {
-        // Force refresh to update the global store with the pulled data
         window.location.reload(); 
       }
     } catch (error) {
@@ -44,10 +44,8 @@ export default function SyncBar() {
   useEffect(() => {
     const onOnline = () => setConn('online');
     const onOffline = () => setConn('offline');
-
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
-    
     return () => {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
@@ -55,30 +53,31 @@ export default function SyncBar() {
   }, []);
 
   return (
-    <div className="h-auto px-3 py-2 border-b border-slate-200 bg-slate-50">
+    <div className="px-3 py-2 border border-slate-200 rounded-lg bg-white shadow-sm mb-4">
       <div className="flex items-center gap-3">
-        {conn === 'online' ? (
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
-        ) : conn === 'offline' ? (
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-        ) : (
-          <span className="w-2.5 h-2.5 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin" />
-        )}
+        {/* Connection Status Dot */}
+        <div className="relative flex h-3 w-3">
+           {conn === 'online' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+           <span className={`relative inline-flex rounded-full h-3 w-3 ${
+             conn === 'online' ? 'bg-emerald-600' : conn === 'offline' ? 'bg-amber-500' : 'bg-blue-500 animate-spin border-2 border-t-transparent'
+           }`}></span>
+        </div>
 
         <div className="flex-1 min-w-0">
-          {conn === 'syncing' ? (
-            <div className="text-[13px] font-bold truncate">Syncing with Supabase…</div>
-          ) : conn === 'offline' ? (
-            <div className="text-[13px] font-bold truncate">
-              Offline mode · Changes saved locally
-            </div>
-          ) : (
-            <div className="text-[13px] font-bold truncate">
-              Connected · Last synced: {formatLastSync(lastSyncAt)}
-            </div>
-          )}
-          <div className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-            Offline-first NCD management
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-bold text-slate-800">
+              {conn === 'syncing' ? 'Synchronizing...' : `Last Sync: ${formatLastSync(lastSyncAt)}`}
+            </span>
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-mono">
+              {conn.toUpperCase()}
+            </span>
+          </div>
+          
+          {/* USER IDENTITY SECTION */}
+          <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
+            <span className="text-emerald-600">👤 {currentUser?.displayName || 'Unknown User'}</span>
+            <span className="opacity-50">|</span>
+            <span>{currentUser?.isSuperAdmin ? 'Platform Superadmin' : `${currentUser?.role} : ${currentUser?.adminRegion || 'National'}`}</span>
           </div>
         </div>
 
@@ -86,8 +85,8 @@ export default function SyncBar() {
           <Button
             size="xs"
             variant="ghost"
-            icon={<span className="leading-none">↻</span>}
-            label={conn === 'syncing' ? "Syncing..." : "Sync"}
+            icon={<span>↻</span>}
+            label={conn === 'syncing' ? "Processing..." : "Sync Now"}
             onClick={handleSync}
             disabled={conn === 'syncing'}
           />
