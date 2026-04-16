@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAuthStore } from '../../store/useAuthStore';
-import { usePatientStore } from '../../store/usePatientStore';
-import { getLastSync, syncPatientsWithCloud } from '../../services/storage'; // UPDATED IMPORT
+import { useEffect, useMemo, useState } from 'react';
+import { getLastSync, syncPatientsWithCloud } from '../../services/storage';
 import Button from './Button';
 
 type ConnState = 'online' | 'offline' | 'syncing';
@@ -18,20 +16,13 @@ function formatLastSync(iso: string | null) {
 }
 
 export default function SyncBar() {
-  const patients = usePatientStore((s) => s.patients);
-  const user = useAuthStore((s) => s.currentUser);
-  const setPatients = usePatientStore((s) => s.setPatients); // Need this to update UI after pull
-
   const [conn, setConn] = useState<ConnState>(() =>
     typeof navigator !== 'undefined' && navigator.onLine ? 'online' : 'offline',
   );
 
   const [syncNonce, setSyncNonce] = useState(0);
-  const timerRef = useRef<number | null>(null);
-
   const lastSyncAt = useMemo(() => getLastSync(), [syncNonce]);
 
-  // Logic to handle the sync process
   const handleSync = async () => {
     if (conn === 'offline') return;
     
@@ -39,8 +30,7 @@ export default function SyncBar() {
     try {
       const result = await syncPatientsWithCloud();
       if (result.success) {
-        // If we pulled new patients from the cloud, refresh the store
-        // This ensures your "0 patients" updates to "X patients"
+        // Force refresh to update the global store with the pulled data
         window.location.reload(); 
       }
     } catch (error) {
@@ -92,7 +82,6 @@ export default function SyncBar() {
           </div>
         </div>
 
-        {/* UPDATED: Button is now always visible when online */}
         {conn !== 'offline' && (
           <Button
             size="xs"
