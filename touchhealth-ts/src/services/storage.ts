@@ -8,41 +8,49 @@ import { supabase } from './supabase';
 // SUPABASE SYNC BRIDGE
 // ════════════════════════════════════════════════════
 
+/**
+ * Pushes local patients to Supabase and pulls the latest cloud data.
+ * This is the primary data recovery and backup mechanism.
+ */
 export async function syncPatientsWithCloud() {
   try {
-    // 1. Push local patients up to Supabase
+    console.log('🔄 Sync initiated...');
     const localPatients = loadPatients();
+    
+    // 1. PUSH: Upsert local data to Supabase
+    // This ensures new patients are added and existing ones are updated.
     if (localPatients.length > 0) {
       const { error: pushError } = await supabase
-        .from('patients') // NOTE: Ensure your Supabase table is named 'patients'
-        .upsert(localPatients);
+        .from('patients') 
+        .upsert(localPatients, { onConflict: 'id' });
 
       if (pushError) {
-        console.error('Failed to push patients to Supabase:', pushError);
+        console.error('❌ Supabase Push Error:', pushError.message);
         return { success: false, error: pushError.message };
       }
     }
 
-    // 2. Pull the latest master list down from Supabase
+    // 2. PULL: Fetch the latest master list from the cloud
     const { data: cloudPatients, error: pullError } = await supabase
       .from('patients')
       .select('*');
 
     if (pullError) {
-      console.error('Failed to pull patients from Supabase:', pullError);
+      console.error('❌ Supabase Pull Error:', pullError.message);
       return { success: false, error: pullError.message };
     }
 
-    // 3. Save the cloud data to local storage and update timestamp
+    // 3. PERSIST: Save to localStorage and update timestamp
     if (cloudPatients) {
       savePatients(cloudPatients as Patient[]);
-      setLastSync(); // Updates the "Last synced" text in your dashboard UI
+      setLastSync(); // This updates the "Last synced" string in the UI
+      console.log('✅ Sync successful at:', new Date().toLocaleTimeString());
     }
 
     return { success: true };
   } catch (err) {
-    console.error('Unexpected sync error:', err);
-    return { success: false, error: 'Network error during sync' };
+    console.error('⚠️ Unexpected Sync System Error:', err);
+    return { success: false, error: 'Network or configuration error' };
   }
 }
 
@@ -112,7 +120,14 @@ export function saveHospitals(hospitals: Hospital[]): void {
 
 export function loadClinicSettings(): ClinicSettings {
   const saved = load<Partial<ClinicSettings>>(KEYS.CLINIC, {});
-  return { days: [1,3,5], interval: 30, openHour: 7, closeHour: 18, autoLtfuDays: 21, ...saved };
+  return { 
+    days: [1,3,5], 
+    interval: 30, 
+    openHour: 7, 
+    closeHour: 18, 
+    autoLtfuDays: 21, 
+    ...saved 
+  };
 }
 
 export function saveClinicSettings(cfg: ClinicSettings): void {
@@ -187,8 +202,6 @@ export function setSyncCount(n: number): void {
 }
 
 // ── Seed defaults ─────────────────────────────────────
-// No demo/seed data. All users and hospitals are managed
-// via Supabase and the Admin UI.
 export function seedDefaults(): void {
   // intentionally empty — no fake data in production
 }
