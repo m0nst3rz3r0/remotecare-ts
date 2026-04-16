@@ -12,7 +12,8 @@ export type Condition = 'HTN' | 'DM' | 'DM+HTN';
 
 export type PatientStatus = 'active' | 'ltfu' | 'completed';
 
-export type UserRole = 'admin' | 'doctor';
+// ADDED 'auto' role to handle new device logins
+export type UserRole = 'admin' | 'doctor' | 'auto';
 
 export type SugarTestType = 'FBS' | 'RBS' | '2HPP';
 
