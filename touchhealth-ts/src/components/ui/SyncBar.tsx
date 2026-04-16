@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { usePatientStore } from '../../store/usePatientStore';
-import { getLastSync, getSyncCount } from '../../services/storage';
-import { syncToCloud } from '../../services/sync';
+import { getLastSync, syncPatientsWithCloud } from '../../services/storage'; // UPDATED IMPORT
 import Button from './Button';
 
 type ConnState = 'online' | 'offline' | 'syncing';
@@ -21,72 +20,52 @@ function formatLastSync(iso: string | null) {
 export default function SyncBar() {
   const patients = usePatientStore((s) => s.patients);
   const user = useAuthStore((s) => s.currentUser);
+  const setPatients = usePatientStore((s) => s.setPatients); // Need this to update UI after pull
 
   const [conn, setConn] = useState<ConnState>(() =>
     typeof navigator !== 'undefined' && navigator.onLine ? 'online' : 'offline',
   );
 
-  // Force re-render after sync so `getLastSync/getSyncCount` reads stay fresh.
   const [syncNonce, setSyncNonce] = useState(0);
   const timerRef = useRef<number | null>(null);
 
-  const pendingCount = useMemo(() => {
-    const lastCount = getSyncCount();
-    return Math.max(0, patients.length - lastCount);
-  }, [patients.length, syncNonce]);
-
   const lastSyncAt = useMemo(() => getLastSync(), [syncNonce]);
 
-  useEffect(() => {
-    const onOnline = () => {
-      setConn('online');
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-
-      timerRef.current = window.setTimeout(() => {
-        const shouldSync = pendingCount > 0 && navigator.onLine;
-        if (!shouldSync) return;
-        setConn('syncing');
-        syncToCloud(patients, user)
-          .catch(() => {
-            // Never crash
-          })
-          .finally(() => {
-            setConn('online');
-            setSyncNonce((n) => n + 1);
-          });
-      }, 2000);
-    };
-
-    const onOffline = () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-      setConn('offline');
-    };
-
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    return () => {
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-    };
-  }, [patients, user, pendingCount]);
-
-  const canManualSync = conn === 'online' && pendingCount > 0;
-
+  // Logic to handle the sync process
   const handleSync = async () => {
+    if (conn === 'offline') return;
+    
     setConn('syncing');
     try {
-      await syncToCloud(patients, user);
+      const result = await syncPatientsWithCloud();
+      if (result.success) {
+        // If we pulled new patients from the cloud, refresh the store
+        // This ensures your "0 patients" updates to "X patients"
+        window.location.reload(); 
+      }
+    } catch (error) {
+      console.error("Sync failed", error);
     } finally {
       setConn('online');
       setSyncNonce((n) => n + 1);
     }
   };
 
+  useEffect(() => {
+    const onOnline = () => setConn('online');
+    const onOffline = () => setConn('offline');
+
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
   return (
-    <div
-      className="h-auto px-3 py-2 border-b border-slate-200 bg-slate-50"
-    >
+    <div className="h-auto px-3 py-2 border-b border-slate-200 bg-slate-50">
       <div className="flex items-center gap-3">
         {conn === 'online' ? (
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
@@ -98,7 +77,7 @@ export default function SyncBar() {
 
         <div className="flex-1 min-w-0">
           {conn === 'syncing' ? (
-            <div className="text-[13px] font-bold truncate">Syncing…</div>
+            <div className="text-[13px] font-bold truncate">Syncing with Supabase…</div>
           ) : conn === 'offline' ? (
             <div className="text-[13px] font-bold truncate">
               Offline mode · Changes saved locally
@@ -113,17 +92,18 @@ export default function SyncBar() {
           </div>
         </div>
 
-        {canManualSync ? (
+        {/* UPDATED: Button is now always visible when online */}
+        {conn !== 'offline' && (
           <Button
             size="xs"
             variant="ghost"
             icon={<span className="leading-none">↻</span>}
-            label="Sync"
+            label={conn === 'syncing' ? "Syncing..." : "Sync"}
             onClick={handleSync}
+            disabled={conn === 'syncing'}
           />
-        ) : null}
+        )}
       </div>
     </div>
   );
 }
-
