@@ -1,61 +1,11 @@
+import { supabase } from './supabase';
 import type {
   Patient, User, Hospital, ClinicSettings,
   StockoutReport, SMSConfig, SMSLogEntry,
 } from '@/types';
-import { supabase } from './supabase';
 
 // ════════════════════════════════════════════════════
-// SUPABASE SYNC BRIDGE
-// ════════════════════════════════════════════════════
-
-/**
- * Pushes local patients to Supabase and pulls the latest cloud data.
- * This is the primary data recovery and backup mechanism.
- */
-export async function syncPatientsWithCloud() {
-  try {
-    console.log('🔄 Sync initiated...');
-    const localPatients = loadPatients();
-    
-    // 1. PUSH: Upsert local data to Supabase
-    // This ensures new patients are added and existing ones are updated.
-    if (localPatients.length > 0) {
-      const { error: pushError } = await supabase
-        .from('patients') 
-        .upsert(localPatients, { onConflict: 'id' });
-
-      if (pushError) {
-        console.error('❌ Supabase Push Error:', pushError.message);
-        return { success: false, error: pushError.message };
-      }
-    }
-
-    // 2. PULL: Fetch the latest master list from the cloud
-    const { data: cloudPatients, error: pullError } = await supabase
-      .from('patients')
-      .select('*');
-
-    if (pullError) {
-      console.error('❌ Supabase Pull Error:', pullError.message);
-      return { success: false, error: pullError.message };
-    }
-
-    // 3. PERSIST: Save to localStorage and update timestamp
-    if (cloudPatients) {
-      savePatients(cloudPatients as Patient[]);
-      setLastSync(); // This updates the "Last synced" string in the UI
-      console.log('✅ Sync successful at:', new Date().toLocaleTimeString());
-    }
-
-    return { success: true };
-  } catch (err) {
-    console.error('⚠️ Unexpected Sync System Error:', err);
-    return { success: false, error: 'Network or configuration error' };
-  }
-}
-
-// ════════════════════════════════════════════════════
-// STORAGE SERVICE — localStorage abstraction
+// STORAGE KEYS
 // ════════════════════════════════════════════════════
 
 const KEYS = {
@@ -71,7 +21,77 @@ const KEYS = {
   SYNC_COUNT: 'th_sync_count',
 } as const;
 
-// ── Generic helpers ──────────────────────────────────
+// ════════════════════════════════════════════════════
+// SUPABASE SELECTIVE SYNC (Optimized for Low Egress)
+// ════════════════════════════════════════════════════
+
+export async function syncPatientsWithCloud() {
+  try {
+    console.log('🔄 Selective Sync initiated (Pull-on-Demand)...');
+    
+    const localPatients = loadPatients();
+    const lastSyncTimestamp = getLastSync(); 
+
+    // 1. PUSH (On-Demand Backup)
+    // Only pushes if there is data. Postgres UPSERT handles creation vs updates.
+    if (localPatients.length > 0) {
+      const { error: pushError } = await supabase
+        .from('patients')
+        .upsert(localPatients, { onConflict: 'id' });
+
+      if (pushError) {
+        console.error('❌ Push failed:', pushError.message);
+        return { success: false, error: pushError.message };
+      }
+    }
+
+    // 2. SELECTIVE PULL (Data Minimization)
+    // Only requests rows modified AFTER the last successful sync.
+    let query = supabase.from('patients').select('*');
+    
+    if (lastSyncTimestamp) {
+      // GT = Greater Than. We only fetch updates, reducing egress.
+      query = query.gt('updated_at', lastSyncTimestamp);
+    }
+
+    const { data: remoteUpdates, error: pullError } = await query;
+
+    if (pullError) {
+      console.error('❌ Pull failed:', pullError.message);
+      return { success: false, error: pullError.message };
+    }
+
+    // 3. SMART MERGE
+    // Instead of replacing everything, we merge the specific updates into our local list.
+    if (remoteUpdates && remoteUpdates.length > 0) {
+      const currentList = loadPatients();
+      
+      // Use a Map for O(1) lookup performance
+      const patientMap = new Map(currentList.map(p => [p.id, p]));
+      
+      remoteUpdates.forEach((updatedPatient: any) => {
+        patientMap.set(updatedPatient.id, updatedPatient as Patient);
+      });
+
+      savePatients(Array.from(patientMap.values()));
+      console.log(`✅ Synced ${remoteUpdates.length} updates.`);
+    } else {
+      console.log('✅ Local data is already up to date. No egress used.');
+    }
+
+    // Update the sync timestamp to current ISO string
+    setLastSync(); 
+    return { success: true };
+
+  } catch (err) {
+    console.error('⚠️ Critical Sync Failure:', err);
+    return { success: false, error: 'Network or internal error' };
+  }
+}
+
+// ════════════════════════════════════════════════════
+// LOCAL STORAGE HELPERS
+// ════════════════════════════════════════════════════
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -87,37 +107,30 @@ function persist<T>(key: string, value: T): void {
 }
 
 // ── Patients ─────────────────────────────────────────
-
 export function loadPatients(): Patient[] {
   return load<Patient[]>(KEYS.PATIENTS, []);
 }
-
 export function savePatients(patients: Patient[]): void {
   persist(KEYS.PATIENTS, patients);
 }
 
 // ── Users ────────────────────────────────────────────
-
 export function loadUsers(): User[] {
   return load<User[]>(KEYS.USERS, []);
 }
-
 export function saveUsers(users: User[]): void {
   persist(KEYS.USERS, users);
 }
 
 // ── Hospitals ────────────────────────────────────────
-
 export function loadHospitals(): Hospital[] {
   return load<Hospital[]>(KEYS.HOSPITALS, []);
 }
-
 export function saveHospitals(hospitals: Hospital[]): void {
   persist(KEYS.HOSPITALS, hospitals);
 }
 
 // ── Clinic Settings ───────────────────────────────────
-
 export function loadClinicSettings(): ClinicSettings {
   const saved = load<Partial<ClinicSettings>>(KEYS.CLINIC, {});
   return { 
@@ -129,37 +142,30 @@ export function loadClinicSettings(): ClinicSettings {
     ...saved 
   };
 }
-
 export function saveClinicSettings(cfg: ClinicSettings): void {
   persist(KEYS.CLINIC, cfg);
 }
 
 // ── Session ───────────────────────────────────────────
-
 export function loadSession(): User | null {
   return load<User | null>(KEYS.SESSION, null);
 }
-
 export function saveSession(user: User): void {
   persist(KEYS.SESSION, user);
 }
-
 export function clearSession(): void {
   localStorage.removeItem(KEYS.SESSION);
 }
 
 // ── Stockouts ─────────────────────────────────────────
-
 export function loadStockouts(): StockoutReport[] {
   return load<StockoutReport[]>(KEYS.STOCKOUTS, []);
 }
-
 export function saveStockouts(reports: StockoutReport[]): void {
   persist(KEYS.STOCKOUTS, reports);
 }
 
 // ── SMS ───────────────────────────────────────────────
-
 export function loadSMSConfig(): SMSConfig {
   return load<SMSConfig>(KEYS.SMS_CONFIG, {
     provider: 'at',
@@ -170,38 +176,28 @@ export function loadSMSConfig(): SMSConfig {
     templateSw: 'Habari {name}. Ziara yako katika {hospital} ni tarehe {date}. TouchHealth NCD.',
   });
 }
-
 export function saveSMSConfig(cfg: SMSConfig): void {
   persist(KEYS.SMS_CONFIG, cfg);
 }
-
 export function loadSMSLog(): SMSLogEntry[] {
   return load<SMSLogEntry[]>(KEYS.SMS_LOG, []);
 }
-
 export function saveSMSLog(log: SMSLogEntry[]): void {
   persist(KEYS.SMS_LOG, log);
 }
 
 // ── Sync Metadata ─────────────────────────────────────
-
 export function getLastSync(): string | null {
   return localStorage.getItem(KEYS.LAST_SYNC);
 }
-
 export function setLastSync(): void {
   localStorage.setItem(KEYS.LAST_SYNC, new Date().toISOString());
 }
-
 export function getSyncCount(): number {
   return parseInt(localStorage.getItem(KEYS.SYNC_COUNT) ?? '0', 10);
 }
-
 export function setSyncCount(n: number): void {
   localStorage.setItem(KEYS.SYNC_COUNT, String(n));
 }
 
-// ── Seed defaults ─────────────────────────────────────
-export function seedDefaults(): void {
-  // intentionally empty — no fake data in production
-}
+export function seedDefaults(): void {}
