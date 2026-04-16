@@ -12,7 +12,6 @@
 //       then fire-and-forget to Supabase (no crash if offline)
 //     - A "pending_ops" queue stores any Supabase write that failed,
 //       so the manual Sync button can replay them later
-// • SMS: works normally when online, queues silently when offline
 // ─────────────────────────────────────────────────────────────
 
 import type { User, SessionUser, UserRole, Hospital } from '../types';
@@ -31,14 +30,12 @@ const KEYS = {
 
 // ════════════════════════════════════════════════════════════
 // PENDING OPERATIONS QUEUE
-// Any Supabase write that fails while offline is stored here.
-// Call flushPendingOps() from the manual Sync button.
 // ════════════════════════════════════════════════════════════
 
 type PendingOp =
-  | { type: 'insert_user';   payload: Record<string, unknown> }
+  | { type: 'insert_user';     payload: Record<string, unknown> }
   | { type: 'update_password'; id: string; password: string }
-  | { type: 'delete_user';   id: string }
+  | { type: 'delete_user';     id: string }
   | { type: 'insert_hospital'; payload: Record<string, unknown> }
   | { type: 'delete_hospital'; id: string };
 
@@ -59,11 +56,6 @@ function enqueuePendingOp(op: PendingOp): void {
   savePendingOps([...loadPendingOps(), op]);
 }
 
-/**
- * Replay all queued Supabase writes.
- * Called by the Sync button (SyncBar / BackupPanel).
- * Returns { flushed, failed } counts.
- */
 export async function flushPendingOps(): Promise<{ flushed: number; failed: number }> {
   const ops = loadPendingOps();
   if (!ops.length) return { flushed: 0, failed: 0 };
@@ -100,7 +92,6 @@ export async function flushPendingOps(): Promise<{ flushed: number; failed: numb
   return { flushed, failed: remaining.length };
 }
 
-/** How many ops are waiting to sync */
 export function pendingOpsCount(): number {
   return loadPendingOps().length;
 }
@@ -137,8 +128,6 @@ export function saveHospitals(hospitals: Hospital[]): void {
 
 // ════════════════════════════════════════════════════════════
 // OFFLINE USER CACHE
-// A separate copy of users fetched from Supabase, keyed by
-// username, used as fallback when Supabase is unreachable.
 // ════════════════════════════════════════════════════════════
 
 function loadCachedUsers(): Record<string, unknown>[] {
@@ -154,31 +143,26 @@ function saveCachedUsers(users: Record<string, unknown>[]): void {
   localStorage.setItem(KEYS.CACHED_USERS, JSON.stringify(users));
 }
 
-/** Upsert one user into the offline cache */
 function cacheUserForOffline(user: Record<string, unknown>): void {
   const cached = loadCachedUsers();
   const idx = cached.findIndex((u) => u['username'] === user['username']);
   const entry = {
-    id:           user['id'],
-    username:     user['username'],
-    password:     user['password'],   // already hashed
-    role:         user['role'],
-    display_name: user['display_name'] ?? user['displayName'],
-    hospital:     user['hospital'],
-    region:       user['region'],
-    district:     user['district'],
+    id:             user['id'],
+    username:       user['username'],
+    password:       user['password'],
+    role:           user['role'],
+    display_name:   user['display_name'] ?? user['displayName'],
+    hospital:       user['hospital'],
+    region:         user['region'],
+    district:       user['district'],
     is_super_admin: user['is_super_admin'] ?? user['isSuperAdmin'] ?? false,
-    cachedAt:     new Date().toISOString(),
+    cachedAt:       new Date().toISOString(),
   };
-  if (idx >= 0) {
-    cached[idx] = entry;
-  } else {
-    cached.push(entry);
-  }
+  if (idx >= 0) cached[idx] = entry;
+  else cached.push(entry);
   saveCachedUsers(cached);
 }
 
-/** Update the cached password for a user (called after password reset) */
 function updateCachedPassword(userId: string, hashedPassword: string): void {
   const cached = loadCachedUsers().map((u) =>
     u['id'] === userId ? { ...u, password: hashedPassword } : u
@@ -186,7 +170,6 @@ function updateCachedPassword(userId: string, hashedPassword: string): void {
   saveCachedUsers(cached);
 }
 
-/** Remove a user from the offline cache */
 function removeCachedUser(userId: string): void {
   saveCachedUsers(loadCachedUsers().filter((u) => u['id'] !== userId));
 }
@@ -199,13 +182,7 @@ function findCachedUser(username: string): Record<string, unknown> | null {
   );
 }
 
-// ════════════════════════════════════════════════════════════
-// SEED DEFAULTS  (no auto-seeding — create via UI or Supabase)
-// ════════════════════════════════════════════════════════════
-
-export function seedDefaults(): void {
-  // intentionally empty — no fake data in production
-}
+export function seedDefaults(): void {}
 
 export function clearAndReseed(): void {
   localStorage.removeItem(KEYS.USERS);
@@ -237,12 +214,8 @@ export function clearSession(): void {
 export function validateSession(): SessionUser | null {
   const session = getSession();
   if (!session) return null;
-  // Session is valid as long as the user exists locally
-  const stillExists = loadUsers().find(
-    (u) => u.id === session.id && u.role === session.role
-  );
+  const stillExists = loadUsers().find((u) => u.id === session.id && u.role === session.role);
   if (!stillExists) {
-    // Also accept if they exist in offline cache (Supabase-sourced user)
     const inCache = findCachedUser(session.username);
     if (!inCache) { clearSession(); return null; }
   }
@@ -250,7 +223,7 @@ export function validateSession(): SessionUser | null {
 }
 
 // ════════════════════════════════════════════════════════════
-// LOGIN  — Supabase first, localStorage cache fallback
+// LOGIN 
 // ════════════════════════════════════════════════════════════
 
 export type LoginResult =
@@ -274,7 +247,6 @@ export async function login(params: {
   let foundUser: Record<string, unknown> | null = null;
   let isOffline = false;
 
-  // ── 1. Try Supabase (online) ──────────────────────────────
   try {
     const { data, error } = await supabase
       .from('users')
@@ -284,7 +256,6 @@ export async function login(params: {
 
     if (!error && data) {
       foundUser = data as Record<string, unknown>;
-      // Refresh the offline cache so next offline login has latest password/role
       cacheUserForOffline(foundUser);
     } else {
       isOffline = true;
@@ -293,7 +264,6 @@ export async function login(params: {
     isOffline = true;
   }
 
-  // ── 2. Fall back to offline cache ─────────────────────────
   if (!foundUser) {
     foundUser = findCachedUser(username);
     isOffline = true;
@@ -303,86 +273,38 @@ export async function login(params: {
     return { success: false, error: 'Incorrect username or password. Please try again.' };
   }
 
-  // ── 3. Verify password ────────────────────────────────────
   const storedHash = String(foundUser['password'] ?? '');
   const passwordOk = await verifyPassword(password, storedHash);
   if (!passwordOk) {
     return { success: false, error: 'Incorrect username or password. Please try again.' };
   }
 
-  // ── 4. Role check (UPDATED FOR 'AUTO') ────────────────────
   const userRole = String(foundUser['role'] ?? '');
-  // Skip the mismatch check if the role was passed as 'auto'
   if (role !== 'auto' && userRole !== role) {
     const correctTab = userRole === 'admin' ? 'Admin' : 'Doctor';
-    return {
-      success: false,
-      error: `Wrong tab selected. Please click the "${correctTab}" tab — your account is a ${userRole} account.`,
-    };
+    return { success: false, error: `Wrong tab selected. Please use the ${correctTab} tab.` };
   }
 
-  // Resolve the final role from the database to build the session
   const resolvedRole = userRole as 'admin' | 'doctor';
+  const isSuperAdmin = foundUser['is_super_admin'] === true || foundUser['isSuperAdmin'] === true;
 
-  // ── 5. Build session ──────────────────────────────────────
-  const userId       = String(foundUser['id'] ?? '');
-  const uname        = String(foundUser['username'] ?? '');
-  const displayName  = String(foundUser['display_name'] ?? foundUser['displayName'] ?? uname);
-  const userHospital = String(foundUser['hospital'] ?? '');
-  const userRegion   = String(foundUser['region']   ?? '');
-  const userDistrict = String(foundUser['district'] ?? '');
-  const isSuperAdmin =
-    foundUser['is_super_admin'] === true || foundUser['isSuperAdmin'] === true;
-
-  if (resolvedRole === 'doctor') {
-    const resolvedHospital = hospital || userHospital;
-    if (!resolvedHospital) {
-      return { success: false, error: 'Please select your hospital from the list.' };
-    }
-    if (userHospital && resolvedHospital !== userHospital) {
-      return {
-        success: false,
-        error: `Access Denied: You are not authorised for this facility. Your assigned hospital is: ${userHospital}`,
-      };
-    }
-    const sessionUser: SessionUser = {
-      id:              userId,
-      username:        uname,
-      displayName,
-      role:            'doctor',
-      hospital:        userHospital,
-      sessionHospital: resolvedHospital,
-      sessionRegion:   region   || userRegion,
-      sessionDistrict: district || userDistrict,
-      isSuperAdmin:    false,
-      adminRegion:     '',
-      adminDistrict:   '',
-    };
-    saveSession(sessionUser);
-    return { success: true, user: sessionUser, offline: isOffline };
-  }
-
-  // Admin
   const sessionUser: SessionUser = {
-    id:              userId,
-    username:        uname,
-    displayName,
-    role:            'admin',
-    hospital:        userHospital,
-    sessionHospital: 'RemoteCare',
-    sessionRegion:   userRegion,
-    sessionDistrict: userDistrict,
+    id:              String(foundUser['id'] ?? ''),
+    username:        String(foundUser['username'] ?? ''),
+    displayName:     String(foundUser['display_name'] ?? foundUser['displayName'] ?? ''),
+    role:            resolvedRole,
+    hospital:        String(foundUser['hospital'] ?? ''),
+    sessionHospital: resolvedRole === 'doctor' ? (hospital || String(foundUser['hospital'] ?? '')) : 'RemoteCare',
+    sessionRegion:   String(foundUser['region'] ?? ''),
+    sessionDistrict: String(foundUser['district'] ?? ''),
     isSuperAdmin,
-    adminRegion:     userRegion,
-    adminDistrict:   userDistrict,
+    adminRegion:     String(foundUser['region'] ?? ''),
+    adminDistrict:   String(foundUser['district'] ?? ''),
   };
+
   saveSession(sessionUser);
   return { success: true, user: sessionUser, offline: isOffline };
 }
-
-// ════════════════════════════════════════════════════════════
-// LOGOUT
-// ════════════════════════════════════════════════════════════
 
 export function logout(): void {
   clearSession();
@@ -390,8 +312,6 @@ export function logout(): void {
 
 // ════════════════════════════════════════════════════════════
 // USER MANAGEMENT
-// Write pattern: localStorage first → Supabase fire-and-forget
-//   → on failure, enqueue in pending ops for manual sync
 // ════════════════════════════════════════════════════════════
 
 export type MutationResult =
@@ -423,7 +343,6 @@ export async function addUser(params: {
     return { success: false, error: 'Password must be at least 6 characters.' };
   }
 
-  // Permission checks
   if (role === 'admin' && !createdBy?.isSuperAdmin) {
     return { success: false, error: 'Only superadmin can create admin accounts.' };
   }
@@ -442,48 +361,40 @@ export async function addUser(params: {
   const hashed  = await hashPassword(password);
   const userId  = crypto.randomUUID();
 
-  const newUser: User = {
-    id:          userId,
+  // Supabase Payload format
+  const supabasePayload = {
+    id:             userId,
+    username:       username.toLowerCase(),
+    password:       hashed,
+    role,
+    display_name:   displayName,
+    hospital,
+    region,
+    district,
+    is_super_admin: newUserIsSuperAdmin,
+  };
+
+  // Local Payload format
+  const localUser: User = {
+    id:           userId,
     displayName,
-    username:    username.toLowerCase(),
-    password:    hashed,
+    username:     username.toLowerCase(),
+    password:     hashed,
     role,
     hospital,
     region,
     district,
     isSuperAdmin: newUserIsSuperAdmin,
-    createdAt:   new Date().toISOString(),
+    createdAt:    new Date().toISOString(),
   };
 
-  // ── 1. Save locally (always succeeds) ─────────────────────
-  saveUsers([...users, newUser]);
+  // 1. Save Locally
+  saveUsers([...users, localUser]);
 
-  // ── 2. Update offline cache ───────────────────────────────
-  cacheUserForOffline({
-    id:           userId,
-    username:     username.toLowerCase(),
-    password:     hashed,
-    role,
-    display_name: displayName,
-    hospital,
-    region,
-    district,
-    is_super_admin: newUserIsSuperAdmin,
-  });
+  // 2. Cache for offline fallback
+  cacheUserForOffline(supabasePayload);
 
-  // ── 3. Try Supabase; queue on failure ─────────────────────
-  const supabasePayload = {
-    id:           userId,
-    username:     username.toLowerCase(),
-    password:     hashed,
-    role,
-    display_name: displayName,
-    hospital,
-    region,
-    district,
-    is_super_admin: newUserIsSuperAdmin,
-  };
-
+  // 3. Sync to Supabase
   try {
     const { error } = await supabase.from('users').insert(supabasePayload);
     if (error) throw error;
@@ -495,11 +406,9 @@ export async function addUser(params: {
 }
 
 export function deleteUser(id: string): void {
-  // ── 1. Remove locally ─────────────────────────────────────
   saveUsers(loadUsers().filter((u) => u.id !== id));
   removeCachedUser(id);
 
-  // ── 2. Try Supabase; queue on failure ─────────────────────
   void Promise.resolve(
     supabase.from('users').delete().eq('id', id)
   ).then(({ error }) => {
@@ -511,7 +420,6 @@ export function deleteUser(id: string): void {
 
 // ════════════════════════════════════════════════════════════
 // PASSWORD RESET
-// Fixed: now updates localStorage + Supabase + offline cache
 // ════════════════════════════════════════════════════════════
 
 export async function updateUserPassword(
@@ -528,9 +436,7 @@ export async function updateUserPassword(
 
   const users  = loadUsers();
   const target = users.find((u) => u.id === targetId);
-  if (!target) {
-    return { success: false, error: 'User not found.' };
-  }
+  if (!target) return { success: false, error: 'User not found.' };
 
   if (target.isSuperAdmin) {
     return { success: false, error: 'Superadmin password cannot be reset here.' };
@@ -544,13 +450,9 @@ export async function updateUserPassword(
 
   const hashed = await hashPassword(newPassword);
 
-  // ── 1. Update localStorage ────────────────────────────────
   saveUsers(users.map((u) => (u.id === targetId ? { ...u, password: hashed } : u)));
-
-  // ── 2. Update offline cache ───────────────────────────────
   updateCachedPassword(targetId, hashed);
 
-  // ── 3. Try Supabase; queue on failure ─────────────────────
   try {
     const { error } = await supabase
       .from('users')
@@ -566,7 +468,6 @@ export async function updateUserPassword(
 
 // ════════════════════════════════════════════════════════════
 // HOSPITAL MANAGEMENT
-// Same offline-first pattern: local first, Supabase secondary
 // ════════════════════════════════════════════════════════════
 
 export function addHospital(params: {
@@ -584,11 +485,8 @@ export function addHospital(params: {
   }
 
   const id = crypto.randomUUID();
-
-  // ── 1. Save locally ───────────────────────────────────────
   saveHospitals([...hospitals, { id, name, region, district }]);
 
-  // ── 2. Try Supabase; queue on failure ─────────────────────
   const payload = { id, name, region, district };
   void Promise.resolve(
     supabase.from('hospitals').insert(payload)
@@ -602,10 +500,8 @@ export function addHospital(params: {
 }
 
 export function deleteHospital(id: string): void {
-  // ── 1. Remove locally ─────────────────────────────────────
   saveHospitals(loadHospitals().filter((h) => h.id !== id));
 
-  // ── 2. Try Supabase; queue on failure ─────────────────────
   void Promise.resolve(
     supabase.from('hospitals').delete().eq('id', id)
   ).then(({ error }) => {
