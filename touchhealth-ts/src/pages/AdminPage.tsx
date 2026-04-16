@@ -18,15 +18,16 @@ import {
 } from '../services/auth';
 import { isControlled, isDue } from '../services/clinical';
 
+// Components
+import SyncBar from '../components/ui/SyncBar';
 import EnrolmentChart from '../components/charts/EnrolmentChart';
 import BPControlChart from '../components/charts/BPControlChart';
-
 import Chip from '../components/ui/Chip';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import BackupPanel from '../components/ui/BackupPanel';
 import { backupStatus } from '../services/backup';
-import DirectoryPage     from './DirectoryPage';
+import DirectoryPage from './DirectoryPage';
 import AnalyticsBuilder from './AnalyticsBuilder';
 
 import {
@@ -264,13 +265,13 @@ function SettingsView() {
   const [dDistrict, setDDistrict] = useState('');
   const [dHospital, setDHospital] = useState('');
   const [uErr,      setUErr]      = useState<string | null>(null);
-  const [uOk,       setUOk]       = useState<string | null>(null);
+  const [uOk,        setUOk]        = useState<string | null>(null);
 
   // Password reset
   const [pwTargetId, setPwTargetId] = useState('');
   const [pwNew,      setPwNew]      = useState('');
   const [pwErr,      setPwErr]      = useState<string | null>(null);
-  const [pwOk,       setPwOk]       = useState<string | null>(null);
+  const [pwOk,        setPwOk]        = useState<string | null>(null);
 
   // Superadmin own password change
   const [selfPwCurrent, setSelfPwCurrent] = useState('');
@@ -356,7 +357,7 @@ function SettingsView() {
       hospital:    role === 'doctor' ? dHospital : '',
       region:      regionToUse,
       district:    districtToUse,
-      createdBy:   currentUser,
+      createdBy:    currentUser,
     });
     if (!res.success) { setUErr(res.error ?? null); return; }
     setUOk(`${role === 'admin' ? 'Admin' : 'Doctor'} account created successfully.`);
@@ -373,7 +374,7 @@ function SettingsView() {
   const onChangeSelfPassword = () => {
     setSelfPwErr(null); setSelfPwOk(null);
     if (!selfPwCurrent) { setSelfPwErr('Enter your current password.'); return; }
-    if (!selfPwNew)     { setSelfPwErr('Enter a new password.'); return; }
+    if (!selfPwNew)      { setSelfPwErr('Enter a new password.'); return; }
     if (selfPwNew.length < 6) { setSelfPwErr('Password must be at least 6 characters.'); return; }
     // Verify current password
     const users = loadUsers();
@@ -669,6 +670,11 @@ export default function AdminPage() {
 
   return (
     <PageWrapper title={titleForAdminPage(activePage)}>
+      
+      {/* ── Sync Controls ── */}
+      <div className="mb-4">
+        <SyncBar />
+      </div>
 
       {/* Superadmin scope filter bar */}
       {superAdmin && (activePage === 'overview' || activePage === 'trends') && (
