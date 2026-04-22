@@ -312,4 +312,79 @@ export function setSyncCount(n: number): void {
   localStorage.setItem(KEYS.SYNC_COUNT, String(n));
 }
 
-export function seedDefaults(): void {}
+/**
+ * ONE-TIME REPAIR: Deduplicate patients by code, keeping the copy with the most
+ * visits (i.e. the real record). Also deletes ghost rows from Supabase and
+ * re-pushes the canonical records with their visits.
+ */
+export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: string }> {
+  try {
+    const patients = loadPatients();
+
+    // Group by code — keep the one with the most visits
+    const byCode = new Map<string, Patient>();
+    for (const p of patients) {
+      const existing = byCode.get(p.code);
+      if (!existing || (p.visits?.length ?? 0) > (existing.visits?.length ?? 0)) {
+        byCode.set(p.code, p);
+      }
+    }
+
+    const canonical = Array.from(byCode.values());
+    const duplicatesRemoved = patients.length - canonical.length;
+
+    if (duplicatesRemoved === 0) {
+      return { fixed: 0 };
+    }
+
+    // Save deduplicated list locally
+    savePatients(canonical);
+
+    // Delete ALL rows from Supabase patients/visits/medications tables
+    // then re-push only the canonical records cleanly
+    const canonicalIds = canonical.map(p => Number(p.id));
+
+    // Delete ghost patient rows (those not in canonical set)
+    const allLocalIds = patients.map(p => Number(p.id));
+    const ghostIds = allLocalIds.filter(id => !canonicalIds.includes(id));
+
+    if (ghostIds.length > 0) {
+      await supabase.from('visits').delete().in('patient_id', ghostIds);
+      await supabase.from('patients').delete().in('id', ghostIds);
+    }
+
+    // Re-push canonical patients with visits + meds
+    for (const p of canonical) {
+      await supabase.from('patients').upsert({
+        id: Number(p.id), code: p.code, age: p.age, sex: p.sex,
+        cond: p.cond, enrol: p.enrol, phone: p.phone, address: p.address,
+        status: p.status, hospital: p.hospital, region: p.region, district: p.district,
+      }, { onConflict: 'id' });
+
+      for (const v of p.visits ?? []) {
+        await supabase.from('visits').upsert({
+          id: v.id, patient_id: Number(p.id), month: v.month, year: v.year,
+          date: v.date, att: v.att, sbp: v.sbp, dbp: v.dbp, sugar: v.sugar,
+          sugar_type: v.sugarType, weight: v.weight, height: v.height, bmi: v.bmi,
+          notes: v.notes, presenting_complaint: v.presentingComplaint,
+          physical_exam: v.physicalExam, diagnoses: v.diagnoses,
+          investigations: v.investigations, drug_warnings: v.drugWarnings,
+        }, { onConflict: 'id' });
+
+        for (const m of v.meds ?? []) {
+          await supabase.from('medications').upsert({
+            visit_id: v.id, name: m.name, dose: m.dose,
+            freq: m.freq, instructions: m.instructions,
+          }, { onConflict: 'visit_id,name' });
+        }
+      }
+    }
+
+    setLastSync();
+    return { fixed: duplicatesRemoved };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Repair failed';
+    console.error('Repair error:', msg);
+    return { fixed: 0, error: msg };
+  }
+}
