@@ -23,18 +23,24 @@ export default function SyncBar() {
   );
 
   const [syncNonce, setSyncNonce] = useState(0);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const lastSyncAt = useMemo(() => getLastSync(), [syncNonce]);
 
   const handleSync = async () => {
     if (conn === 'offline') return;
     setConn('syncing');
+    setSyncError(null);
     try {
       const result = await syncPatientsWithCloud();
       if (result.success) {
-        window.location.reload(); 
+        window.location.reload();
+      } else {
+        setSyncError(result.error ?? 'Sync failed — check console for details');
       }
     } catch (error) {
-      console.error("Sync failed", error);
+      const msg = error instanceof Error ? error.message : 'Unknown sync error';
+      setSyncError(msg);
+      console.error('Sync failed', error);
     } finally {
       setConn('online');
       setSyncNonce((n) => n + 1);
@@ -92,6 +98,11 @@ export default function SyncBar() {
           />
         )}
       </div>
+      {syncError && (
+        <div className="mt-1 text-[11px] text-red-600 font-medium truncate" title={syncError}>
+          ⚠ {syncError}
+        </div>
+      )}
     </div>
   );
 }
