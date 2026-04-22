@@ -30,7 +30,6 @@ export async function syncPatientsWithCloud() {
     console.log('🔄 Full System Sync initiated...');
     
     const localPatients = loadPatients();
-    const lastSyncTimestamp = getLastSync(); 
 
     // 1. PUSH PATIENTS — only the scalar columns Supabase expects
     if (localPatients.length > 0) {
