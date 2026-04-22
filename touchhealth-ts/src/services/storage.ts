@@ -32,33 +32,107 @@ export async function syncPatientsWithCloud() {
     const localPatients = loadPatients();
     const lastSyncTimestamp = getLastSync(); 
 
-    // 1. PUSH PATIENTS (On-Demand)
+    // 1. PUSH PATIENTS — only the scalar columns Supabase expects
     if (localPatients.length > 0) {
+      const patientRows = localPatients.map(p => ({
+        id: p.id,
+        code: p.code,
+        age: p.age,
+        sex: p.sex,
+        cond: p.cond,
+        enrol: p.enrol,
+        phone: p.phone,
+        address: p.address,
+        status: p.status,
+        hospital: p.hospital,
+        region: p.region,
+        district: p.district,
+      }));
+
       const { error: pushError } = await supabase
         .from('patients')
-        .upsert(localPatients, { onConflict: 'id' });
+        .upsert(patientRows, { onConflict: 'id' });
 
-      if (pushError) throw pushError;
+      if (pushError) {
+        console.error('Patient push error:', pushError);
+        throw new Error(`Patient push failed: ${pushError.message}`);
+      }
+
+      // 1b. PUSH VISITS + MEDICATIONS for every local patient
+      for (const patient of localPatients) {
+        if (!patient.visits?.length) continue;
+
+        for (const visit of patient.visits) {
+          const { error: visitError } = await supabase
+            .from('visits')
+            .upsert({
+              id: visit.id,
+              patient_id: patient.id,
+              month: visit.month,
+              year: visit.year,
+              date: visit.date,
+              att: visit.att,
+              sbp: visit.sbp,
+              dbp: visit.dbp,
+              sugar: visit.sugar,
+              sugar_type: visit.sugarType,
+              weight: visit.weight,
+              height: visit.height,
+              bmi: visit.bmi,
+              notes: visit.notes,
+              presenting_complaint: visit.presentingComplaint,
+              physical_exam: visit.physicalExam,
+              diagnoses: visit.diagnoses,
+              investigations: visit.investigations,
+              drug_warnings: visit.drugWarnings,
+            }, { onConflict: 'id' });
+
+          if (visitError) {
+            console.error('Visit push error:', visitError);
+          }
+
+          if (visit.meds?.length) {
+            for (const med of visit.meds) {
+              const { error: medError } = await supabase
+                .from('medications')
+                .upsert({
+                  visit_id: visit.id,
+                  name: med.name,
+                  dose: med.dose,
+                  freq: med.freq,
+                  instructions: med.instructions,
+                }, { onConflict: 'visit_id,name' });
+
+              if (medError) {
+                console.error('Medication push error:', medError);
+              }
+            }
+          }
+        }
+      }
     }
 
-    // 2. SELECTIVE PULL PATIENTS (Data Minimization)
+    // 2. SELECTIVE PULL PATIENTS
     let pQuery = supabase.from('patients').select('*');
     if (lastSyncTimestamp) {
       pQuery = pQuery.gt('updated_at', lastSyncTimestamp);
     }
     const { data: pUpdates, error: pError } = await pQuery;
-    if (pError) throw pError;
+    if (pError) throw new Error(`Patient pull failed: ${pError.message}`);
 
-    // Merge patient updates
+    // Merge patient updates — preserve local visits for patients already stored
     if (pUpdates && pUpdates.length > 0) {
       const currentList = loadPatients();
       const patientMap = new Map(currentList.map(p => [p.id, p]));
-      pUpdates.forEach((up: any) => patientMap.set(up.id, up as Patient));
+      pUpdates.forEach((up: any) => {
+        const existing = patientMap.get(up.id);
+        // Keep local visits intact; Supabase patient row has no visits column
+        patientMap.set(up.id, { ...up, visits: existing?.visits ?? [] } as Patient);
+      });
       savePatients(Array.from(patientMap.values()));
     }
 
-    // 3. PULL USERS (For Admin Directory/Stats)
-    // We pull all users so the Admin Directory is always accurate
+    // 3. PULL USERS
     const { data: cloudUsers, error: uError } = await supabase
       .from('users')
       .select('*');
@@ -69,7 +143,7 @@ export async function syncPatientsWithCloud() {
       console.log(`✅ Synced ${cloudUsers.length} users.`);
     }
 
-    // 4. PULL HOSPITALS (For Facility Matrix)
+    // 4. PULL HOSPITALS
     const { data: cloudHospitals, error: hError } = await supabase
       .from('hospitals')
       .select('*');
@@ -79,13 +153,14 @@ export async function syncPatientsWithCloud() {
       saveHospitals(cloudHospitals as Hospital[]);
     }
 
-    // Update global sync timestamp
+    // Update global sync timestamp (stored locally — this is per-device by design)
     setLastSync(); 
     return { success: true };
 
   } catch (err) {
-    console.error('⚠️ Sync System Error:', err);
-    return { success: false, error: 'Network or internal error' };
+    const msg = err instanceof Error ? err.message : 'Network or internal error';
+    console.error('⚠️ Sync System Error:', msg);
+    return { success: false, error: msg };
   }
 }
 
