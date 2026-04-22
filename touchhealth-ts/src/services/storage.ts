@@ -35,7 +35,7 @@ export async function syncPatientsWithCloud() {
     // 1. PUSH PATIENTS — only the scalar columns Supabase expects
     if (localPatients.length > 0) {
       const patientRows = localPatients.map(p => ({
-        id: p.id,
+        id: Number(p.id),
         code: p.code,
         age: p.age,
         sex: p.sex,
@@ -112,22 +112,26 @@ export async function syncPatientsWithCloud() {
       }
     }
 
-    // 2. SELECTIVE PULL PATIENTS
-    let pQuery = supabase.from('patients').select('*');
-    if (lastSyncTimestamp) {
-      pQuery = pQuery.gt('updated_at', lastSyncTimestamp);
-    }
-    const { data: pUpdates, error: pError } = await pQuery;
+    // 2. PULL ALL PATIENTS from Supabase and merge
+    // We always pull all so a fresh device gets everything
+    const { data: pUpdates, error: pError } = await supabase.from('patients').select('*');
     if (pError) throw new Error(`Patient pull failed: ${pError.message}`);
 
-    // Merge patient updates — preserve local visits for patients already stored
     if (pUpdates && pUpdates.length > 0) {
       const currentList = loadPatients();
-      const patientMap = new Map(currentList.map(p => [p.id, p]));
+      // Normalize IDs to numbers — Supabase may return numeric IDs as strings
+      const normalize = (id: any): number => Number(id);
+      const patientMap = new Map(currentList.map(p => [normalize(p.id), p]));
+
       pUpdates.forEach((up: any) => {
-        const existing = patientMap.get(up.id);
-        // Keep local visits intact; Supabase patient row has no visits column
-        patientMap.set(up.id, { ...up, visits: existing?.visits ?? [] } as Patient);
+        const normId = normalize(up.id);
+        const existing = patientMap.get(normId);
+        // Keep local visits; cloud patient rows don't carry visit data
+        patientMap.set(normId, {
+          ...up,
+          id: normId,
+          visits: existing?.visits ?? [],
+        } as Patient);
       });
       savePatients(Array.from(patientMap.values()));
     }
