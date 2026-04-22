@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getLastSync, syncPatientsWithCloud } from '../../services/storage';
-import { useAuthStore } from '../../store/useAuthStore'; // Import Auth Store
+import { getLastSync, syncPatientsWithCloud, deduplicateAndRepair } from '../../services/storage';
+import { useAuthStore } from '../../store/useAuthStore';
 import Button from './Button';
 
 type ConnState = 'online' | 'offline' | 'syncing';
@@ -17,19 +17,21 @@ function formatLastSync(iso: string | null) {
 }
 
 export default function SyncBar() {
-  const currentUser = useAuthStore((s) => s.currentUser); // Get User Info
+  const currentUser = useAuthStore((s) => s.currentUser);
   const [conn, setConn] = useState<ConnState>(() =>
     typeof navigator !== 'undefined' && navigator.onLine ? 'online' : 'offline',
   );
 
   const [syncNonce, setSyncNonce] = useState(0);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const lastSyncAt = useMemo(() => getLastSync(), [syncNonce]);
 
   const handleSync = async () => {
     if (conn === 'offline') return;
     setConn('syncing');
     setSyncError(null);
+    setSyncMsg(null);
     try {
       const result = await syncPatientsWithCloud();
       if (result.success) {
@@ -44,6 +46,25 @@ export default function SyncBar() {
     } finally {
       setConn('online');
       setSyncNonce((n) => n + 1);
+    }
+  };
+
+  const handleRepair = async () => {
+    if (conn === 'offline') return;
+    if (!confirm('This will remove duplicate patients (keeping the one with visits) and clean up Supabase. Continue?')) return;
+    setConn('syncing');
+    setSyncError(null);
+    setSyncMsg(null);
+    const result = await deduplicateAndRepair();
+    setConn('online');
+    setSyncNonce((n) => n + 1);
+    if (result.error) {
+      setSyncError(result.error);
+    } else if (result.fixed === 0) {
+      setSyncMsg('No duplicates found.');
+    } else {
+      setSyncMsg(`✓ Removed ${result.fixed} duplicate(s). Reloading...`);
+      setTimeout(() => window.location.reload(), 1500);
     }
   };
 
@@ -78,8 +99,6 @@ export default function SyncBar() {
               {conn.toUpperCase()}
             </span>
           </div>
-          
-          {/* USER IDENTITY SECTION */}
           <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
             <span className="text-emerald-600">👤 {currentUser?.displayName || 'Unknown User'}</span>
             <span className="opacity-50">|</span>
@@ -88,19 +107,34 @@ export default function SyncBar() {
         </div>
 
         {conn !== 'offline' && (
-          <Button
-            size="xs"
-            variant="ghost"
-            icon={<span>↻</span>}
-            label={conn === 'syncing' ? "Processing..." : "Sync Now"}
-            onClick={handleSync}
-            disabled={conn === 'syncing'}
-          />
+          <div className="flex items-center gap-1">
+            <Button
+              size="xs"
+              variant="ghost"
+              icon={<span>↻</span>}
+              label={conn === 'syncing' ? "Processing..." : "Sync Now"}
+              onClick={handleSync}
+              disabled={conn === 'syncing'}
+            />
+            <Button
+              size="xs"
+              variant="ghost"
+              icon={<span>🔧</span>}
+              label="Fix Duplicates"
+              onClick={handleRepair}
+              disabled={conn === 'syncing'}
+            />
+          </div>
         )}
       </div>
       {syncError && (
         <div className="mt-1 text-[11px] text-red-600 font-medium truncate" title={syncError}>
           ⚠ {syncError}
+        </div>
+      )}
+      {syncMsg && (
+        <div className="mt-1 text-[11px] text-emerald-600 font-medium">
+          {syncMsg}
         </div>
       )}
     </div>
