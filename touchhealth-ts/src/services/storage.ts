@@ -337,31 +337,67 @@ export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: s
       return { fixed: 0 };
     }
 
-    // Save deduplicated list locally
+    // Save deduplicated list locally first
     savePatients(canonical);
 
-    // Delete ALL rows from Supabase patients/visits/medications tables
-    // then re-push only the canonical records cleanly
-    const canonicalIds = canonical.map(p => Number(p.id));
+    // Get IDs of ghost patients (those not kept)
+    const canonicalIds = new Set(canonical.map(p => Number(p.id)));
+    const ghostIds = patients
+      .map(p => Number(p.id))
+      .filter(id => !canonicalIds.has(id));
 
-    // Delete ghost patient rows (those not in canonical set)
-    const allLocalIds = patients.map(p => Number(p.id));
-    const ghostIds = allLocalIds.filter(id => !canonicalIds.includes(id));
-
+    // Delete ghost visits and patients from Supabase
     if (ghostIds.length > 0) {
+      await supabase.from('medications').delete().in(
+        'visit_id',
+        // get visit ids belonging to ghost patients by fetching them first
+        (await supabase.from('visits').select('id').in('patient_id', ghostIds))
+          .data?.map((v: any) => v.id) ?? []
+      );
       await supabase.from('visits').delete().in('patient_id', ghostIds);
       await supabase.from('patients').delete().in('id', ghostIds);
     }
 
-    // Re-push canonical patients with visits + meds
+    // For canonical patients, also deduplicate visits in Supabase by month+year
+    // keeping the visit that has vitals (sbp/dbp/att data)
     for (const p of canonical) {
+      // Deduplicate local visits by month+year — keep the one with vitals
+      const visitsByMonthYear = new Map<string, typeof p.visits[0]>();
+      for (const v of p.visits ?? []) {
+        const key = `${v.year}-${v.month}`;
+        const existing = visitsByMonthYear.get(key);
+        const hasVitals = (v.sbp != null || v.dbp != null || v.att === true);
+        const existingHasVitals = existing
+          ? (existing.sbp != null || existing.dbp != null || existing.att === true)
+          : false;
+        if (!existing || (hasVitals && !existingHasVitals)) {
+          visitsByMonthYear.set(key, v);
+        }
+      }
+      const canonicalVisits = Array.from(visitsByMonthYear.values());
+
+      // Find visit IDs to delete (the ghost visit duplicates for this patient)
+      const keepVisitIds = new Set(canonicalVisits.map(v => String(v.id)));
+      const allPatientVisits = await supabase
+        .from('visits').select('id').eq('patient_id', Number(p.id));
+      const ghostVisitIds = (allPatientVisits.data ?? [])
+        .map((v: any) => String(v.id))
+        .filter(id => !keepVisitIds.has(id));
+
+      if (ghostVisitIds.length > 0) {
+        await supabase.from('medications').delete().in('visit_id', ghostVisitIds);
+        await supabase.from('visits').delete().in('id', ghostVisitIds);
+      }
+
+      // Re-push canonical patient
       await supabase.from('patients').upsert({
         id: Number(p.id), code: p.code, age: p.age, sex: p.sex,
         cond: p.cond, enrol: p.enrol, phone: p.phone, address: p.address,
         status: p.status, hospital: p.hospital, region: p.region, district: p.district,
       }, { onConflict: 'id' });
 
-      for (const v of p.visits ?? []) {
+      // Re-push canonical visits with full vitals
+      for (const v of canonicalVisits) {
         await supabase.from('visits').upsert({
           id: v.id, patient_id: Number(p.id), month: v.month, year: v.year,
           date: v.date, att: v.att, sbp: v.sbp, dbp: v.dbp, sugar: v.sugar,
@@ -378,8 +414,13 @@ export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: s
           }, { onConflict: 'visit_id,name' });
         }
       }
+
+      // Update local patient with deduplicated visits too
+      const idx = canonical.findIndex(c => c.id === p.id);
+      if (idx !== -1) canonical[idx] = { ...p, visits: canonicalVisits };
     }
 
+    savePatients(canonical);
     setLastSync();
     return { fixed: duplicatesRemoved };
   } catch (err) {
