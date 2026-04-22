@@ -111,27 +111,61 @@ export async function syncPatientsWithCloud() {
       }
     }
 
-    // 2. PULL ALL PATIENTS from Supabase and merge
-    // We always pull all so a fresh device gets everything
+    // 2. PULL ALL PATIENTS + VISITS + MEDICATIONS from Supabase
     const { data: pUpdates, error: pError } = await supabase.from('patients').select('*');
     if (pError) throw new Error(`Patient pull failed: ${pError.message}`);
 
     if (pUpdates && pUpdates.length > 0) {
-      const currentList = loadPatients();
-      // Normalize IDs to numbers — Supabase may return numeric IDs as strings
       const normalize = (id: any): number => Number(id);
+      const currentList = loadPatients();
       const patientMap = new Map(currentList.map(p => [normalize(p.id), p]));
+
+      // Pull all visits for all patients in one query
+      const { data: allVisits } = await supabase.from('visits').select('*');
+      // Pull all medications in one query
+      const { data: allMeds } = await supabase.from('medications').select('*');
+
+      // Group meds by visit_id for fast lookup
+      const medsByVisit = new Map<string, any[]>();
+      (allMeds ?? []).forEach((m: any) => {
+        const key = String(m.visit_id);
+        if (!medsByVisit.has(key)) medsByVisit.set(key, []);
+        medsByVisit.get(key)!.push(m);
+      });
+
+      // Group visits by patient_id for fast lookup
+      const visitsByPatient = new Map<number, any[]>();
+      (allVisits ?? []).forEach((v: any) => {
+        const key = normalize(v.patient_id);
+        if (!visitsByPatient.has(key)) visitsByPatient.set(key, []);
+        visitsByPatient.get(key)!.push({
+          ...v,
+          sugarType: v.sugar_type,
+          presentingComplaint: v.presenting_complaint,
+          physicalExam: v.physical_exam,
+          drugWarnings: v.drug_warnings,
+          meds: medsByVisit.get(String(v.id)) ?? [],
+        });
+      });
 
       pUpdates.forEach((up: any) => {
         const normId = normalize(up.id);
+        const cloudVisits = visitsByPatient.get(normId) ?? [];
         const existing = patientMap.get(normId);
-        // Keep local visits; cloud patient rows don't carry visit data
+
+        // Merge visits: prefer cloud visits but keep any local-only visits not yet pushed
+        const cloudVisitIds = new Set(cloudVisits.map((v: any) => String(v.id)));
+        const localOnlyVisits = (existing?.visits ?? []).filter(
+          (v: any) => !cloudVisitIds.has(String(v.id))
+        );
+
         patientMap.set(normId, {
           ...up,
           id: normId,
-          visits: existing?.visits ?? [],
+          visits: [...cloudVisits, ...localOnlyVisits],
         } as Patient);
       });
+
       savePatients(Array.from(patientMap.values()));
     }
 
