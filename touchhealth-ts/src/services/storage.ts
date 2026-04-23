@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import type {
   Patient, User, Hospital, ClinicSettings,
   StockoutReport, SMSConfig, SMSLogEntry,
+  PatientStatus, Visit,
 } from '@/types';
 
 // ════════════════════════════════════════════════════
@@ -28,10 +29,24 @@ const KEYS = {
 export async function syncPatientsWithCloud() {
   try {
     console.log('🔄 Full System Sync initiated...');
-    
-    const localPatients = loadPatients();
 
-    // 1. PUSH PATIENTS — only the scalar columns Supabase expects
+    // ── Deduplicate local patients by code before pushing ──────
+    // This prevents ghost patients from ever reaching Supabase
+    const rawLocal = loadPatients();
+    const localByCode = new Map<string, Patient>();
+    for (const p of rawLocal) {
+      const existing = localByCode.get(p.code);
+      if (!existing || (p.visits?.length ?? 0) > (existing.visits?.length ?? 0)) {
+        localByCode.set(p.code, p);
+      }
+    }
+    const localPatients = Array.from(localByCode.values());
+    // Save the deduplicated list immediately
+    if (localPatients.length < rawLocal.length) {
+      savePatients(localPatients);
+    }
+
+    // ── 1. PUSH patients ───────────────────────────────────────
     if (localPatients.length > 0) {
       const patientRows = localPatients.map(p => ({
         id: Number(p.id),
@@ -40,8 +55,8 @@ export async function syncPatientsWithCloud() {
         sex: p.sex,
         cond: p.cond,
         enrol: p.enrol,
-        phone: p.phone,
-        address: p.address,
+        phone: p.phone ?? null,
+        address: p.address ?? null,
         status: p.status,
         hospital: p.hospital,
         region: p.region,
@@ -51,81 +66,91 @@ export async function syncPatientsWithCloud() {
       const { error: pushError } = await supabase
         .from('patients')
         .upsert(patientRows, { onConflict: 'id' });
+      if (pushError) throw new Error(`Patient push failed: ${pushError.message}`);
 
-      if (pushError) {
-        console.error('Patient push error:', pushError);
-        throw new Error(`Patient push failed: ${pushError.message}`);
-      }
-
-      // 1b. PUSH VISITS + MEDICATIONS for every local patient
+      // ── 1b. PUSH visits + medications ─────────────────────────
       for (const patient of localPatients) {
-        if (!patient.visits?.length) continue;
-
-        for (const visit of patient.visits) {
+        for (const visit of patient.visits ?? []) {
           const { error: visitError } = await supabase
             .from('visits')
             .upsert({
               id: visit.id,
-              patient_id: patient.id,
+              patient_id: Number(patient.id),
               month: visit.month,
               year: visit.year,
               date: visit.date,
               att: visit.att,
-              sbp: visit.sbp,
-              dbp: visit.dbp,
-              sugar: visit.sugar,
-              sugar_type: visit.sugarType,
-              weight: visit.weight,
-              height: visit.height,
-              bmi: visit.bmi,
-              notes: visit.notes,
-              presenting_complaint: visit.presentingComplaint,
-              physical_exam: visit.physicalExam,
-              diagnoses: visit.diagnoses,
-              investigations: visit.investigations,
-              drug_warnings: visit.drugWarnings,
+              sbp: visit.sbp ?? null,
+              dbp: visit.dbp ?? null,
+              sugar: visit.sugar ?? null,
+              sugar_type: visit.sugarType ?? null,
+              weight: visit.weight ?? null,
+              height: visit.height ?? null,
+              bmi: visit.bmi ?? null,
+              notes: visit.notes ?? '',
+              presenting_complaint: visit.presentingComplaint ?? null,
+              physical_exam: visit.physicalExam ? JSON.stringify(visit.physicalExam) : null,
+              diagnoses: visit.diagnoses ? JSON.stringify(visit.diagnoses) : null,
+              investigations: visit.investigations ? JSON.stringify(visit.investigations) : null,
+              drug_warnings: visit.drugWarnings ? JSON.stringify(visit.drugWarnings) : null,
             }, { onConflict: 'id' });
+          if (visitError) console.error('Visit push error:', visitError.message);
 
-          if (visitError) {
-            console.error('Visit push error:', visitError);
-          }
-
-          if (visit.meds?.length) {
-            for (const med of visit.meds) {
-              const { error: medError } = await supabase
-                .from('medications')
-                .upsert({
-                  visit_id: visit.id,
-                  name: med.name,
-                  dose: med.dose,
-                  freq: med.freq,
-                  instructions: med.instructions,
-                }, { onConflict: 'visit_id,name' });
-
-              if (medError) {
-                console.error('Medication push error:', medError);
-              }
-            }
+          for (const med of visit.meds ?? []) {
+            const { error: medError } = await supabase
+              .from('medications')
+              .upsert({
+                visit_id: visit.id,
+                name: med.name,
+                dose: med.dose ?? null,
+                freq: med.freq ?? null,
+                instructions: med.instructions ?? null,
+              }, { onConflict: 'visit_id,name' });
+            if (medError) console.error('Med push error:', medError.message);
           }
         }
       }
     }
 
-    // 2. PULL ALL PATIENTS + VISITS + MEDICATIONS from Supabase
-    const { data: pUpdates, error: pError } = await supabase.from('patients').select('*');
+    // ── 2. PULL patients + visits + medications from Supabase ──
+    const { data: cloudPatients, error: pError } = await supabase.from('patients').select('*');
     if (pError) throw new Error(`Patient pull failed: ${pError.message}`);
 
-    if (pUpdates && pUpdates.length > 0) {
+    if (cloudPatients && cloudPatients.length > 0) {
       const normalize = (id: any): number => Number(id);
-      const currentList = loadPatients();
-      const patientMap = new Map(currentList.map(p => [normalize(p.id), p]));
 
-      // Pull all visits for all patients in one query
+      // Deduplicate cloud patients by code too — keep the one matching our local canonical
+      const cloudByCode = new Map<string, any>();
+      for (const cp of cloudPatients) {
+        const existing = cloudByCode.get(cp.code);
+        const localMatch = localByCode.get(cp.code);
+        const cpMatchesLocal = localMatch && normalize(cp.id) === normalize(localMatch.id);
+        const existMatchesLocal = existing && localMatch && normalize(existing.id) === normalize(localMatch.id);
+        if (!existing || (cpMatchesLocal && !existMatchesLocal)) {
+          cloudByCode.set(cp.code, cp);
+        }
+      }
+      const canonicalCloud = Array.from(cloudByCode.values());
+
+      // Delete ghost patients from Supabase that lost the dedup
+      const keepIds = new Set(canonicalCloud.map((p: any) => normalize(p.id)));
+      const ghostIds = cloudPatients
+        .map((p: any) => normalize(p.id))
+        .filter(id => !keepIds.has(id));
+      if (ghostIds.length > 0) {
+        const { data: gv } = await supabase.from('visits').select('id').in('patient_id', ghostIds);
+        const gvIds = (gv ?? []).map((v: any) => v.id);
+        if (gvIds.length > 0) {
+          await supabase.from('medications').delete().in('visit_id', gvIds);
+          await supabase.from('visits').delete().in('id', gvIds);
+        }
+        await supabase.from('patients').delete().in('id', ghostIds);
+      }
+
+      // Pull all visits + meds for canonical patients
       const { data: allVisits } = await supabase.from('visits').select('*');
-      // Pull all medications in one query
       const { data: allMeds } = await supabase.from('medications').select('*');
 
-      // Group meds by visit_id for fast lookup
       const medsByVisit = new Map<string, any[]>();
       (allMeds ?? []).forEach((m: any) => {
         const key = String(m.visit_id);
@@ -133,65 +158,72 @@ export async function syncPatientsWithCloud() {
         medsByVisit.get(key)!.push(m);
       });
 
-      // Group visits by patient_id for fast lookup
       const visitsByPatient = new Map<number, any[]>();
       (allVisits ?? []).forEach((v: any) => {
         const key = normalize(v.patient_id);
         if (!visitsByPatient.has(key)) visitsByPatient.set(key, []);
+
+        // Safely parse JSON columns that may be stored as strings or objects
+        const safeJson = (val: any) => {
+          if (!val) return undefined;
+          if (typeof val === 'string') { try { return JSON.parse(val); } catch { return undefined; } }
+          return val;
+        };
+
         visitsByPatient.get(key)!.push({
           ...v,
-          sugarType: v.sugar_type,
-          presentingComplaint: v.presenting_complaint,
-          physicalExam: v.physical_exam,
-          drugWarnings: v.drug_warnings,
+          att: v.att === true || v.att === 'true' || v.att === 1,
+          sugarType: v.sugar_type ?? '',
+          presentingComplaint: v.presenting_complaint ?? '',
+          physicalExam: safeJson(v.physical_exam),
+          diagnoses: safeJson(v.diagnoses) ?? [],
+          investigations: safeJson(v.investigations) ?? [],
+          drugWarnings: safeJson(v.drug_warnings) ?? [],
           meds: medsByVisit.get(String(v.id)) ?? [],
-        });
+        } as Visit);
       });
 
-      pUpdates.forEach((up: any) => {
-        const normId = normalize(up.id);
-        const cloudVisits = visitsByPatient.get(normId) ?? [];
-        const existing = patientMap.get(normId);
+      // Build final patient list — canonical cloud + local-only patients not yet in cloud
+      const cloudIds = new Set(canonicalCloud.map((p: any) => normalize(p.id)));
+      const localOnlyPatients = localPatients.filter(p => !cloudIds.has(normalize(p.id)));
 
-        // Merge visits: prefer cloud visits but keep any local-only visits not yet pushed
-        const cloudVisitIds = new Set(cloudVisits.map((v: any) => String(v.id)));
-        const localOnlyVisits = (existing?.visits ?? []).filter(
-          (v: any) => !cloudVisitIds.has(String(v.id))
-        );
+      const mergedPatients: Patient[] = [
+        ...canonicalCloud.map((cp: any) => {
+          const normId = normalize(cp.id);
+          const cloudVisits = visitsByPatient.get(normId) ?? [];
+          const localMatch = localByCode.get(cp.code);
+          const cloudVisitIds = new Set(cloudVisits.map((v: any) => String(v.id)));
+          const localOnlyVisits = (localMatch?.visits ?? []).filter(
+            v => !cloudVisitIds.has(String(v.id))
+          );
+          return {
+            ...cp,
+            id: normId,
+            status: cp.status as PatientStatus,
+            visits: [...cloudVisits, ...localOnlyVisits],
+            medications: localMatch?.medications ?? [],
+            hba1c: localMatch?.hba1c ?? [],
+            callLog: localMatch?.callLog ?? [],
+            scheduledNext: localMatch?.scheduledNext,
+          } as Patient;
+        }),
+        ...localOnlyPatients,
+      ];
 
-        patientMap.set(normId, {
-          ...up,
-          id: normId,
-          visits: [...cloudVisits, ...localOnlyVisits],
-        } as Patient);
-      });
-
-      savePatients(Array.from(patientMap.values()));
+      savePatients(mergedPatients);
     }
 
-    // 3. PULL USERS
-    const { data: cloudUsers, error: uError } = await supabase
-      .from('users')
-      .select('*');
-    
+    // ── 3. PULL users ──────────────────────────────────────────
+    const { data: cloudUsers, error: uError } = await supabase.from('users').select('*');
     if (uError) console.warn('User sync failed:', uError.message);
-    if (cloudUsers) {
-      saveUsers(cloudUsers as User[]);
-      console.log(`✅ Synced ${cloudUsers.length} users.`);
-    }
+    if (cloudUsers) saveUsers(cloudUsers as User[]);
 
-    // 4. PULL HOSPITALS
-    const { data: cloudHospitals, error: hError } = await supabase
-      .from('hospitals')
-      .select('*');
-    
+    // ── 4. PULL hospitals ──────────────────────────────────────
+    const { data: cloudHospitals, error: hError } = await supabase.from('hospitals').select('*');
     if (hError) console.warn('Hospital sync failed:', hError.message);
-    if (cloudHospitals) {
-      saveHospitals(cloudHospitals as Hospital[]);
-    }
+    if (cloudHospitals) saveHospitals(cloudHospitals as Hospital[]);
 
-    // Update global sync timestamp (stored locally — this is per-device by design)
-    setLastSync(); 
+    setLastSync();
     return { success: true };
 
   } catch (err) {
@@ -319,85 +351,65 @@ export function setSyncCount(n: number): void {
  */
 export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: string }> {
   try {
-    const patients = loadPatients();
-
-    // Group by code — keep the one with the most visits
-    const byCode = new Map<string, Patient>();
-    for (const p of patients) {
-      const existing = byCode.get(p.code);
+    // ── STEP 1: Deduplicate LOCAL storage by code ──────────────
+    const localPatients = loadPatients();
+    const localByCode = new Map<string, Patient>();
+    for (const p of localPatients) {
+      const existing = localByCode.get(p.code);
       if (!existing || (p.visits?.length ?? 0) > (existing.visits?.length ?? 0)) {
-        byCode.set(p.code, p);
+        localByCode.set(p.code, p);
+      }
+    }
+    const localCanonical = Array.from(localByCode.values());
+    savePatients(localCanonical);
+
+    // ── STEP 2: Fetch ALL patients from Supabase and deduplicate by code there too ──
+    const { data: allCloudPatients, error: fetchErr } = await supabase
+      .from('patients').select('*');
+    if (fetchErr) throw new Error(fetchErr.message);
+
+    const cloudByCode = new Map<string, any>();
+    for (const p of allCloudPatients ?? []) {
+      const existing = cloudByCode.get(p.code);
+      // Prefer the one whose ID matches our local canonical (it has visits)
+      const localMatch = localByCode.get(p.code);
+      const pIsCanonical = localMatch && Number(p.id) === Number(localMatch.id);
+      const existingIsCanonical = existing && localMatch && Number(existing.id) === Number(localMatch.id);
+      if (!existing || pIsCanonical && !existingIsCanonical) {
+        cloudByCode.set(p.code, p);
       }
     }
 
-    const canonical = Array.from(byCode.values());
-    const duplicatesRemoved = patients.length - canonical.length;
+    // IDs to keep in Supabase
+    const keepCloudIds = new Set(Array.from(cloudByCode.values()).map((p: any) => Number(p.id)));
+    // Ghost IDs = everything in Supabase NOT in the keep set
+    const ghostCloudIds = (allCloudPatients ?? [])
+      .map((p: any) => Number(p.id))
+      .filter(id => !keepCloudIds.has(id));
 
-    if (duplicatesRemoved === 0) {
-      return { fixed: 0 };
-    }
+    const totalRemoved = (localPatients.length - localCanonical.length) + ghostCloudIds.length;
 
-    // Save deduplicated list locally first
-    savePatients(canonical);
-
-    // Get IDs of ghost patients (those not kept)
-    const canonicalIds = new Set(canonical.map(p => Number(p.id)));
-    const ghostIds = patients
-      .map(p => Number(p.id))
-      .filter(id => !canonicalIds.has(id));
-
-    // Delete ghost visits and patients from Supabase
-    if (ghostIds.length > 0) {
-      await supabase.from('medications').delete().in(
-        'visit_id',
-        // get visit ids belonging to ghost patients by fetching them first
-        (await supabase.from('visits').select('id').in('patient_id', ghostIds))
-          .data?.map((v: any) => v.id) ?? []
-      );
-      await supabase.from('visits').delete().in('patient_id', ghostIds);
-      await supabase.from('patients').delete().in('id', ghostIds);
-    }
-
-    // For canonical patients, also deduplicate visits in Supabase by month+year
-    // keeping the visit that has vitals (sbp/dbp/att data)
-    for (const p of canonical) {
-      // Deduplicate local visits by month+year — keep the one with vitals
-      const visitsByMonthYear = new Map<string, typeof p.visits[0]>();
-      for (const v of p.visits ?? []) {
-        const key = `${v.year}-${v.month}`;
-        const existing = visitsByMonthYear.get(key);
-        const hasVitals = (v.sbp != null || v.dbp != null || v.att === true);
-        const existingHasVitals = existing
-          ? (existing.sbp != null || existing.dbp != null || existing.att === true)
-          : false;
-        if (!existing || (hasVitals && !existingHasVitals)) {
-          visitsByMonthYear.set(key, v);
-        }
-      }
-      const canonicalVisits = Array.from(visitsByMonthYear.values());
-
-      // Find visit IDs to delete (the ghost visit duplicates for this patient)
-      const keepVisitIds = new Set(canonicalVisits.map(v => String(v.id)));
-      const allPatientVisits = await supabase
-        .from('visits').select('id').eq('patient_id', Number(p.id));
-      const ghostVisitIds = (allPatientVisits.data ?? [])
-        .map((v: any) => String(v.id))
-        .filter(id => !keepVisitIds.has(id));
-
+    // ── STEP 3: Delete all ghost rows from Supabase ────────────
+    if (ghostCloudIds.length > 0) {
+      const { data: ghostVisits } = await supabase
+        .from('visits').select('id').in('patient_id', ghostCloudIds);
+      const ghostVisitIds = (ghostVisits ?? []).map((v: any) => v.id);
       if (ghostVisitIds.length > 0) {
         await supabase.from('medications').delete().in('visit_id', ghostVisitIds);
         await supabase.from('visits').delete().in('id', ghostVisitIds);
       }
+      await supabase.from('patients').delete().in('id', ghostCloudIds);
+    }
 
-      // Re-push canonical patient
+    // ── STEP 4: Re-push canonical patients + visits + meds ─────
+    for (const p of localCanonical) {
       await supabase.from('patients').upsert({
         id: Number(p.id), code: p.code, age: p.age, sex: p.sex,
         cond: p.cond, enrol: p.enrol, phone: p.phone, address: p.address,
         status: p.status, hospital: p.hospital, region: p.region, district: p.district,
       }, { onConflict: 'id' });
 
-      // Re-push canonical visits with full vitals
-      for (const v of canonicalVisits) {
+      for (const v of p.visits ?? []) {
         await supabase.from('visits').upsert({
           id: v.id, patient_id: Number(p.id), month: v.month, year: v.year,
           date: v.date, att: v.att, sbp: v.sbp, dbp: v.dbp, sugar: v.sugar,
@@ -414,15 +426,10 @@ export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: s
           }, { onConflict: 'visit_id,name' });
         }
       }
-
-      // Update local patient with deduplicated visits too
-      const idx = canonical.findIndex(c => c.id === p.id);
-      if (idx !== -1) canonical[idx] = { ...p, visits: canonicalVisits };
     }
 
-    savePatients(canonical);
     setLastSync();
-    return { fixed: duplicatesRemoved };
+    return { fixed: totalRemoved };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Repair failed';
     console.error('Repair error:', msg);
