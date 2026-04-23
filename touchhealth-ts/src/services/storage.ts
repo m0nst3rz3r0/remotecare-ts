@@ -412,11 +412,14 @@ export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: s
       for (const v of p.visits ?? []) {
         await supabase.from('visits').upsert({
           id: v.id, patient_id: Number(p.id), month: v.month, year: v.year,
-          date: v.date, att: v.att, sbp: v.sbp, dbp: v.dbp, sugar: v.sugar,
-          sugar_type: v.sugarType, weight: v.weight, height: v.height, bmi: v.bmi,
-          notes: v.notes, presenting_complaint: v.presentingComplaint,
-          physical_exam: v.physicalExam, diagnoses: v.diagnoses,
-          investigations: v.investigations, drug_warnings: v.drugWarnings,
+          date: v.date, att: v.att, sbp: v.sbp ?? null, dbp: v.dbp ?? null,
+          sugar: v.sugar ?? null, sugar_type: v.sugarType ?? null,
+          weight: v.weight ?? null, height: v.height ?? null, bmi: v.bmi ?? null,
+          notes: v.notes ?? '', presenting_complaint: v.presentingComplaint ?? null,
+          physical_exam: v.physicalExam ? JSON.stringify(v.physicalExam) : null,
+          diagnoses: v.diagnoses?.length ? JSON.stringify(v.diagnoses) : null,
+          investigations: v.investigations?.length ? JSON.stringify(v.investigations) : null,
+          drug_warnings: v.drugWarnings?.length ? JSON.stringify(v.drugWarnings) : null,
         }, { onConflict: 'id' });
 
         for (const m of v.meds ?? []) {
