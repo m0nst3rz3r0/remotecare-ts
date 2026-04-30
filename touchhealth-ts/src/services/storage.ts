@@ -49,7 +49,7 @@ export async function syncPatientsWithCloud() {
     // ── 1. PUSH patients ───────────────────────────────────────
     if (localPatients.length > 0) {
       const patientRows = localPatients.map(p => ({
-        id: Number(p.id),
+        id: String(p.id),
         code: p.code,
         age: p.age,
         sex: p.sex,
@@ -75,7 +75,7 @@ export async function syncPatientsWithCloud() {
             .from('visits')
             .upsert({
               id: visit.id,
-              patient_id: Number(patient.id),
+              patient_id: String(patient.id),
               month: visit.month,
               year: visit.year,
               date: visit.date,
@@ -89,10 +89,10 @@ export async function syncPatientsWithCloud() {
               bmi: visit.bmi ?? null,
               notes: visit.notes ?? '',
               presenting_complaint: visit.presentingComplaint ?? null,
-              physical_exam: visit.physicalExam ? JSON.stringify(visit.physicalExam) : null,
-              diagnoses: visit.diagnoses ? JSON.stringify(visit.diagnoses) : null,
-              investigations: visit.investigations ? JSON.stringify(visit.investigations) : null,
-              drug_warnings: visit.drugWarnings ? JSON.stringify(visit.drugWarnings) : null,
+              physical_exam: visit.physicalExam ?? null,
+              diagnoses: visit.diagnoses ?? null,
+              investigations: visit.investigations ?? null,
+              drug_warnings: visit.drugWarnings ?? null,
             }, { onConflict: 'id' });
           if (visitError) console.error('Visit push error:', visitError.message);
 
@@ -164,22 +164,15 @@ export async function syncPatientsWithCloud() {
         const key = String(v.patient_id);
         if (!visitsByPatient.has(key)) visitsByPatient.set(key, []);
 
-        // Safely parse JSON columns that may be stored as strings or objects
-        const safeJson = (val: any) => {
-          if (!val) return undefined;
-          if (typeof val === 'string') { try { return JSON.parse(val); } catch { return undefined; } }
-          return val;
-        };
-
         visitsByPatient.get(key)!.push({
           ...v,
           att: v.att === true || v.att === 'true' || v.att === 1,
           sugarType: v.sugar_type ?? '',
           presentingComplaint: v.presenting_complaint ?? '',
-          physicalExam: safeJson(v.physical_exam),
-          diagnoses: safeJson(v.diagnoses) ?? [],
-          investigations: safeJson(v.investigations) ?? [],
-          drugWarnings: safeJson(v.drug_warnings) ?? [],
+          physicalExam: v.physical_exam ?? undefined,
+          diagnoses: v.diagnoses ?? [],
+          investigations: v.investigations ?? [],
+          drugWarnings: v.drug_warnings ?? [],
           meds: medsByVisit.get(String(v.id)) ?? [],
         } as Visit);
       });
@@ -405,22 +398,22 @@ export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: s
     // ── STEP 4: Re-push canonical patients + visits + meds ─────
     for (const p of localCanonical) {
       await supabase.from('patients').upsert({
-        id: Number(p.id), code: p.code, age: p.age, sex: p.sex,
+        id: String(p.id), code: p.code, age: p.age, sex: p.sex,
         cond: p.cond, enrol: p.enrol, phone: p.phone, address: p.address,
         status: p.status, hospital: p.hospital, region: p.region, district: p.district,
       }, { onConflict: 'id' });
 
       for (const v of p.visits ?? []) {
         await supabase.from('visits').upsert({
-          id: v.id, patient_id: Number(p.id), month: v.month, year: v.year,
+          id: v.id, patient_id: String(p.id), month: v.month, year: v.year,
           date: v.date, att: v.att, sbp: v.sbp ?? null, dbp: v.dbp ?? null,
           sugar: v.sugar ?? null, sugar_type: v.sugarType ?? null,
           weight: v.weight ?? null, height: v.height ?? null, bmi: v.bmi ?? null,
           notes: v.notes ?? '', presenting_complaint: v.presentingComplaint ?? null,
-          physical_exam: v.physicalExam ? JSON.stringify(v.physicalExam) : null,
-          diagnoses: v.diagnoses?.length ? JSON.stringify(v.diagnoses) : null,
-          investigations: v.investigations?.length ? JSON.stringify(v.investigations) : null,
-          drug_warnings: v.drugWarnings?.length ? JSON.stringify(v.drugWarnings) : null,
+          physical_exam: v.physicalExam ?? null,
+          diagnoses: v.diagnoses ?? null,
+          investigations: v.investigations ?? null,
+          drug_warnings: v.drugWarnings ?? null,
         }, { onConflict: 'id' });
 
         for (const m of v.meds ?? []) {
