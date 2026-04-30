@@ -345,9 +345,9 @@ export function recordVisit(
       drugWarnings:        att ? drugWarnings         ?? undefined : undefined,
     };
 
-    // Remove existing entry for same month, then add new
+    // Keep all existing visits except one with the exact same date (prevent true duplicates only)
     const visits = [
-      ...(p.visits ?? []).filter((v) => v.month !== month),
+      ...(p.visits ?? []).filter((v) => v.date !== date),
       visit,
     ];
 
