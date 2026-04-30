@@ -439,3 +439,31 @@ export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: s
     return { fixed: 0, error: msg };
   }
 }
+
+/** DIAGNOSTIC: Reads data directly from Supabase and shows all fields */
+export async function diagnoseSyncIssue(): Promise<string> {
+  const lines: string[] = [];
+
+  const { data: pts, error: pe } = await supabase.from('patients').select('*');
+  if (pe) return `❌ Cannot read patients: ${pe.message}`;
+  lines.push(`✅ Patients in Supabase: ${pts?.length ?? 0}`);
+  pts?.forEach((p: any) => lines.push(`  [${p.id}] code=${p.code} status=${p.status}`));
+
+  const { data: vis, error: ve } = await supabase.from('visits').select('*');
+  if (ve) return `❌ Cannot read visits: ${ve.message}`;
+  lines.push(`\n✅ Visits in Supabase: ${vis?.length ?? 0}`);
+  if (vis && vis.length > 0) {
+    lines.push(`First visit raw fields:`);
+    Object.entries(vis[0]).forEach(([k, val]) =>
+      lines.push(`  ${k} = ${JSON.stringify(val)}`)
+    );
+  }
+
+  const { data: meds, error: me } = await supabase.from('medications').select('*');
+  if (me) lines.push(`\n⚠️ Medications error: ${me.message}`);
+  else lines.push(`\n✅ Medications in Supabase: ${meds?.length ?? 0}`);
+
+  const report = lines.join('\n');
+  console.log('=== SYNC DIAGNOSTIC ===\n' + report);
+  return report;
+}
