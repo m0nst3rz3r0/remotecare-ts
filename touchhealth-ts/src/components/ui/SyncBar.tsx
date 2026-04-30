@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getLastSync, syncPatientsWithCloud, deduplicateAndRepair } from '../../services/storage';
+import { getLastSync, syncPatientsWithCloud, deduplicateAndRepair, diagnoseSyncIssue } from '../../services/storage';
 import { useAuthStore } from '../../store/useAuthStore';
 import Button from './Button';
 
@@ -68,6 +68,14 @@ export default function SyncBar() {
     }
   };
 
+  const [diagReport, setDiagReport] = useState<string | null>(null);
+
+  const handleDiagnose = async () => {
+    setDiagReport('Running diagnostic...');
+    const report = await diagnoseSyncIssue();
+    setDiagReport(report);
+  };
+
   useEffect(() => {
     const onOnline = () => setConn('online');
     const onOffline = () => setConn('offline');
@@ -124,6 +132,14 @@ export default function SyncBar() {
               onClick={handleRepair}
               disabled={conn === 'syncing'}
             />
+            <Button
+              size="xs"
+              variant="ghost"
+              icon={<span>🔍</span>}
+              label="Diagnose"
+              onClick={handleDiagnose}
+              disabled={conn === 'syncing'}
+            />
           </div>
         )}
       </div>
@@ -136,6 +152,11 @@ export default function SyncBar() {
         <div className="mt-1 text-[11px] text-emerald-600 font-medium">
           {syncMsg}
         </div>
+      )}
+      {diagReport && (
+        <pre className="mt-2 text-[10px] bg-slate-50 border border-slate-200 rounded p-2 whitespace-pre-wrap max-h-48 overflow-y-auto text-slate-700">
+          {diagReport}
+        </pre>
       )}
     </div>
   );
