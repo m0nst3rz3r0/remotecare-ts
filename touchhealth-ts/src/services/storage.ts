@@ -158,9 +158,10 @@ export async function syncPatientsWithCloud() {
         medsByVisit.get(key)!.push(m);
       });
 
-      const visitsByPatient = new Map<number, any[]>();
+      // Use string keys throughout to avoid any numeric precision issues with large IDs
+      const visitsByPatient = new Map<string, any[]>();
       (allVisits ?? []).forEach((v: any) => {
-        const key = normalize(v.patient_id);
+        const key = String(v.patient_id);
         if (!visitsByPatient.has(key)) visitsByPatient.set(key, []);
 
         // Safely parse JSON columns that may be stored as strings or objects
@@ -190,7 +191,7 @@ export async function syncPatientsWithCloud() {
       const mergedPatients: Patient[] = [
         ...canonicalCloud.map((cp: any) => {
           const normId = normalize(cp.id);
-          const cloudVisits = visitsByPatient.get(normId) ?? [];
+          const cloudVisits = visitsByPatient.get(String(normId)) ?? [];
           const localMatch = localByCode.get(cp.code);
           const cloudVisitIds = new Set(cloudVisits.map((v: any) => String(v.id)));
           const localOnlyVisits = (localMatch?.visits ?? []).filter(
