@@ -41,10 +41,17 @@ type MetricId =
   | 'enrolment'
   | 'bp_control'
   | 'attendance'
-  | 'drug_usage'
+  | 'treatment_rate'
+  | 'polypharmacy'
   | 'ltfu_rate'
   | 'dm_patients'
-  | 'htn_patients';
+  | 'htn_patients'
+  | 'htn_drug_combo'
+  | 'dm_drug_combo'
+  | 'bp_by_drug'
+  | 'sugar_by_drug'
+  | 'combo_therapy_rate'
+  | 'drug_class_coverage';
 
 type ChartType = 'line' | 'bar';
 
@@ -53,21 +60,157 @@ interface MetricDef {
   label: string;
   color: string;
   fill:  string;
-  unit:  string;   // '%' | 'count'
+  unit:  string;
   type:  ChartType;
+  group: 'core' | 'drugs' | 'clinical';
 }
 
 // ── Metric catalogue ─────────────────────────────────────────
 
 const METRICS: MetricDef[] = [
-  { id: 'enrolment',   label: 'Enrolment Velocity',  color: '#10b981', fill: 'rgba(16,185,129,0.12)',  unit: 'count', type: 'bar'  },
-  { id: 'bp_control',  label: 'BP Control Rate',      color: '#1a56db', fill: 'rgba(26,86,219,0.12)',   unit: '%',     type: 'line' },
-  { id: 'attendance',  label: 'Attendance Rate',       color: '#8b5cf6', fill: 'rgba(139,92,246,0.12)', unit: '%',     type: 'line' },
-  { id: 'drug_usage',  label: 'Drug Usage Rate',       color: '#f59e0b', fill: 'rgba(245,158,11,0.12)', unit: '%',     type: 'line' },
-  { id: 'ltfu_rate',   label: 'LTFU Rate',             color: '#ef4444', fill: 'rgba(239,68,68,0.12)',  unit: '%',     type: 'line' },
-  { id: 'dm_patients', label: 'Active DM Patients',   color: '#06b6d4', fill: 'rgba(6,182,212,0.12)',  unit: 'count', type: 'bar'  },
-  { id: 'htn_patients',label: 'Active HTN Patients',  color: '#ec4899', fill: 'rgba(236,72,153,0.12)', unit: 'count', type: 'bar'  },
+  // Core
+  { id: 'enrolment',         label: 'Enrolment Velocity',       color: '#10b981', fill: 'rgba(16,185,129,0.12)',  unit: 'count', type: 'bar',  group: 'core'     },
+  { id: 'bp_control',        label: 'BP Control Rate',           color: '#1a56db', fill: 'rgba(26,86,219,0.12)',   unit: '%',     type: 'line', group: 'core'     },
+  { id: 'attendance',        label: 'Attendance Rate',            color: '#8b5cf6', fill: 'rgba(139,92,246,0.12)', unit: '%',     type: 'line', group: 'core'     },
+  { id: 'ltfu_rate',         label: 'LTFU Rate',                 color: '#ef4444', fill: 'rgba(239,68,68,0.12)',  unit: '%',     type: 'line', group: 'core'     },
+  { id: 'dm_patients',       label: 'Active DM Patients',        color: '#06b6d4', fill: 'rgba(6,182,212,0.12)',  unit: 'count', type: 'bar',  group: 'core'     },
+  { id: 'htn_patients',      label: 'Active HTN Patients',       color: '#ec4899', fill: 'rgba(236,72,153,0.12)', unit: 'count', type: 'bar',  group: 'core'     },
+  // Drug analytics
+  { id: 'treatment_rate',    label: 'Treatment Rate',            color: '#f59e0b', fill: 'rgba(245,158,11,0.12)', unit: '%',     type: 'line', group: 'drugs'    },
+  { id: 'polypharmacy',      label: 'Polypharmacy Rate (≥2)',    color: '#f97316', fill: 'rgba(249,115,22,0.12)', unit: '%',     type: 'line', group: 'drugs'    },
+  { id: 'combo_therapy_rate',label: 'Combination Therapy Rate',  color: '#a78bfa', fill: 'rgba(167,139,250,0.12)',unit: '%',     type: 'line', group: 'drugs'    },
+  { id: 'drug_class_coverage',label:'Drug Class Coverage',       color: '#34d399', fill: 'rgba(52,211,153,0.12)', unit: '%',     type: 'bar',  group: 'drugs'    },
+  // Clinical outcomes by drug
+  { id: 'bp_by_drug',        label: 'BP Control by Drug',        color: '#0ea5e9', fill: 'rgba(14,165,233,0.12)', unit: '%',     type: 'bar',  group: 'clinical' },
+  { id: 'sugar_by_drug',     label: 'Sugar Control by Drug',     color: '#d946ef', fill: 'rgba(217,70,239,0.12)', unit: '%',     type: 'bar',  group: 'clinical' },
+  { id: 'htn_drug_combo',    label: 'HTN Drug Combinations',     color: '#64748b', fill: 'rgba(100,116,139,0.12)',unit: 'count', type: 'bar',  group: 'clinical' },
+  { id: 'dm_drug_combo',     label: 'DM Drug Combinations',      color: '#78716c', fill: 'rgba(120,113,108,0.12)',unit: 'count', type: 'bar',  group: 'clinical' },
 ];
+
+// ── Drug class detection helpers ─────────────────────────────
+
+const HTN_CLASSES: Record<string, string[]> = {
+  'ACE Inhibitor':  ['enalapril','lisinopril','captopril','ramipril','perindopril'],
+  'ARB':            ['losartan','valsartan','irbesartan','candesartan','telmisartan'],
+  'CCB':            ['amlodipine','nifedipine','felodipine','diltiazem','verapamil'],
+  'Diuretic':       ['hydrochlorothiazide','furosemide','spironolactone','indapamide','chlorthalidone','hctz'],
+  'Beta-blocker':   ['atenolol','metoprolol','bisoprolol','carvedilol','propranolol'],
+  'Alpha-blocker':  ['doxazosin','prazosin','terazosin'],
+};
+
+const DM_CLASSES: Record<string, string[]> = {
+  'Metformin':      ['metformin'],
+  'Sulfonylurea':   ['glibenclamide','gliclazide','glimepiride','glipizide','tolbutamide'],
+  'Insulin':        ['insulin','mixtard','actrapid','lantus','novomix','humulin','novorapid'],
+  'SGLT2i':         ['dapagliflozin','empagliflozin','canagliflozin'],
+  'DPP-4i':         ['sitagliptin','saxagliptin','alogliptin','linagliptin'],
+  'GLP-1':          ['semaglutide','liraglutide','dulaglutide','exenatide'],
+};
+
+function detectClass(medName: string, classes: Record<string, string[]>): string | null {
+  const lower = medName.toLowerCase();
+  for (const [cls, drugs] of Object.entries(classes)) {
+    if (drugs.some(d => lower.includes(d))) return cls;
+  }
+  return null;
+}
+
+function getLastVisitMeds(patient: Patient): string[] {
+  const visits = [...(patient.visits ?? [])].sort((a, b) =>
+    new Date(b.date ?? '').getTime() - new Date(a.date ?? '').getTime()
+  );
+  const last = visits.find(v => v.att && (v.meds ?? []).length > 0);
+  return (last?.meds ?? []).map(m => m.name ?? '');
+}
+
+function getVisitMeds(visit: Visit): string[] {
+  return (visit.meds ?? []).map(m => m.name ?? '');
+}
+
+// ── Bar chart data for drug/combo breakdowns ──────────────────
+
+interface BarData { label: string; value: number; color: string; }
+
+function computeBarData(metricId: MetricId, patients: Patient[]): BarData[] | null {
+  const COLORS = ['#1a56db','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#a78bfa','#34d399'];
+
+  if (metricId === 'drug_class_coverage') {
+    const all = patients.filter(p => p.status === 'active' || p.status === 'completed');
+    if (!all.length) return null;
+    const allClasses = { ...HTN_CLASSES, ...DM_CLASSES };
+    return Object.keys(allClasses).map((cls, i) => ({
+      label: cls,
+      value: Math.round(
+        (all.filter(p => getLastVisitMeds(p).some(m => detectClass(m, allClasses) === cls)).length / all.length) * 100
+      ),
+      color: COLORS[i % COLORS.length],
+    }));
+  }
+
+  if (metricId === 'bp_by_drug') {
+    const htnPts = patients.filter(p => p.cond === 'HTN' || p.cond === 'DM+HTN');
+    if (!htnPts.length) return null;
+    return Object.keys(HTN_CLASSES).map((cls, i) => {
+      const onDrug = htnPts.filter(p => getLastVisitMeds(p).some(m => detectClass(m, HTN_CLASSES) === cls));
+      if (!onDrug.length) return { label: cls, value: 0, color: COLORS[i] };
+      const controlled = onDrug.filter(p => {
+        const last = [...(p.visits ?? [])].sort((a,b) => new Date(b.date??'').getTime()-new Date(a.date??'').getTime()).find(v=>v.att&&v.sbp);
+        return last && last.sbp! < 140 && last.dbp! < 90;
+      });
+      return { label: cls, value: Math.round((controlled.length / onDrug.length) * 100), color: COLORS[i] };
+    }).filter(d => d.value > 0 || patients.some(p => getLastVisitMeds(p).some(m => detectClass(m, HTN_CLASSES) === d.label)));
+  }
+
+  if (metricId === 'sugar_by_drug') {
+    const dmPts = patients.filter(p => p.cond === 'DM' || p.cond === 'DM+HTN');
+    if (!dmPts.length) return null;
+    return Object.keys(DM_CLASSES).map((cls, i) => {
+      const onDrug = dmPts.filter(p => getLastVisitMeds(p).some(m => detectClass(m, DM_CLASSES) === cls));
+      if (!onDrug.length) return null;
+      const controlled = onDrug.filter(p => {
+        const last = [...(p.visits ?? [])].sort((a,b) => new Date(b.date??'').getTime()-new Date(a.date??'').getTime()).find(v=>v.att&&v.sugar!=null);
+        return last && last.sugar! < 7;
+      });
+      return { label: cls, value: Math.round((controlled.length / onDrug.length) * 100), color: COLORS[i] };
+    }).filter(Boolean) as BarData[];
+  }
+
+  if (metricId === 'htn_drug_combo') {
+    const htnPts = patients.filter(p => (p.cond === 'HTN' || p.cond === 'DM+HTN') && (p.status === 'active' || p.status === 'completed'));
+    if (!htnPts.length) return null;
+    const comboCounts = new Map<string, number>();
+    htnPts.forEach(p => {
+      const meds = getLastVisitMeds(p);
+      const classes = [...new Set(meds.map(m => detectClass(m, HTN_CLASSES)).filter(Boolean))].sort();
+      if (!classes.length) return;
+      const key = classes.length === 1 ? classes[0]! : classes.join(' + ');
+      comboCounts.set(key, (comboCounts.get(key) ?? 0) + 1);
+    });
+    return Array.from(comboCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }));
+  }
+
+  if (metricId === 'dm_drug_combo') {
+    const dmPts = patients.filter(p => (p.cond === 'DM' || p.cond === 'DM+HTN') && (p.status === 'active' || p.status === 'completed'));
+    if (!dmPts.length) return null;
+    const comboCounts = new Map<string, number>();
+    dmPts.forEach(p => {
+      const meds = getLastVisitMeds(p);
+      const classes = [...new Set(meds.map(m => detectClass(m, DM_CLASSES)).filter(Boolean))].sort();
+      if (!classes.length) return;
+      const key = classes.length === 1 ? classes[0]! : classes.join(' + ');
+      comboCounts.set(key, (comboCounts.get(key) ?? 0) + 1);
+    });
+    return Array.from(comboCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }));
+  }
+
+  return null;
+}
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const FONT   = "'Inter', system-ui, -apple-system, sans-serif";
@@ -108,14 +251,38 @@ function computeSeries(
         return Math.round((visits.filter((v: Visit) => v.att).length / visits.length) * 100);
       }
 
-      case 'drug_usage': {
+      case 'treatment_rate': {
+        const active = patients.filter(p => p.status === 'active' || p.status === 'completed');
+        if (!active.length) return null;
+        // % of active patients who received any medication in this month
+        const onTreatment = active.filter(p =>
+          p.visits?.some(v => +v.month === m && +(v.year ?? year) === year && v.att && (v.meds ?? []).length > 0)
+        );
+        return Math.round((onTreatment.length / active.length) * 100);
+      }
+
+      case 'polypharmacy': {
         const attended = patients
           .flatMap((p) => p.visits ?? [])
           .filter((v: Visit) => +v.month === m && +(v.year ?? year) === year && v.att);
         if (!attended.length) return null;
         return Math.round(
-          (attended.filter((v: Visit) => (v.meds ?? []).length > 0).length / attended.length) * 100,
+          (attended.filter((v: Visit) => (v.meds ?? []).length >= 2).length / attended.length) * 100
         );
+      }
+
+      case 'combo_therapy_rate': {
+        const attended = patients
+          .flatMap((p) => p.visits ?? [])
+          .filter((v: Visit) => +v.month === m && +(v.year ?? year) === year && v.att);
+        if (!attended.length) return null;
+        const withCombo = attended.filter((v: Visit) => {
+          const meds = getVisitMeds(v);
+          const allClasses = { ...HTN_CLASSES, ...DM_CLASSES };
+          const classes = new Set(meds.map(med => detectClass(med, allClasses)).filter(Boolean));
+          return classes.size >= 2;
+        });
+        return Math.round((withCombo.length / attended.length) * 100);
       }
 
       case 'ltfu_rate': {
@@ -140,6 +307,14 @@ function computeSeries(
           p.status === 'active' &&
           p.visits?.some((v: Visit) => +v.month === m && +(v.year ?? year) === year),
         ).length || null;
+
+      // These metrics use bar charts with category labels — return null for time series
+      case 'drug_class_coverage':
+      case 'bp_by_drug':
+      case 'sugar_by_drug':
+      case 'htn_drug_combo':
+      case 'dm_drug_combo':
+        return null;
 
       default:
         return null;
@@ -277,6 +452,13 @@ export default function AnalyticsBuilder({
   const seriesB     = useMemo(() => computeSeries(metricB, patients, year),      [metricB, patients, year]);
   const seriesAComp = useMemo(() => computeSeries(metricA, patients, yearB),     [metricA, patients, yearB]);
   const seriesBComp = useMemo(() => computeSeries(metricB, patients, yearB),     [metricB, patients, yearB]);
+
+  // Bar data for drug/combo breakdown metrics
+  const barDataA = useMemo(() => computeBarData(metricA, patients), [metricA, patients]);
+  const barDataB = useMemo(() => computeBarData(metricB, patients), [metricB, patients]);
+
+  const isBarMetric = (id: MetricId) =>
+    ['drug_class_coverage','bp_by_drug','sugar_by_drug','htn_drug_combo','dm_drug_combo'].includes(id);
 
   const defA = METRICS.find((m) => m.id === metricA)!;
   const defB = METRICS.find((m) => m.id === metricB)!;
@@ -535,48 +717,79 @@ export default function AnalyticsBuilder({
       <div style={{ ...CARD, padding: '16px 20px' }}>
         <div style={{ marginBottom: 10 }}>
           <Label>Primary metric</Label>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {METRICS.map((m) => (
-              <MetricPill
-                key={m.id}
-                metric={m}
-                active={metricA === m.id}
-                onClick={() => setMetricA(m.id)}
-              />
-            ))}
-          </div>
+          {(['core','drugs','clinical'] as const).map(grp => (
+            <div key={grp} style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8', marginBottom: 5 }}>
+                {grp === 'core' ? 'Core' : grp === 'drugs' ? 'Drug Analytics' : 'Clinical Outcomes by Drug'}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {METRICS.filter(m => m.group === grp).map((m) => (
+                  <MetricPill key={m.id} metric={m} active={metricA === m.id} onClick={() => setMetricA(m.id)} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
 
         <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <button
-            onClick={toggleSecond}
-            style={{
-              padding: '6px 14px', borderRadius: 9999,
-              fontFamily: FONT, fontSize: 12, fontWeight: 500,
-              cursor: 'pointer', transition: 'all 0.15s',
-              background: showSecond ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.85)',
-              color:      showSecond ? '#8b5cf6'              : '#64748b',
-              border:     `1.5px solid ${showSecond ? 'rgba(139,92,246,0.4)' : '#e2e8f0'}`,
-            }}
-          >
-            {showSecond ? '– Remove overlay' : '+ Add overlay metric'}
-          </button>
+          {!isBarMetric(metricA) && (
+            <button
+              onClick={toggleSecond}
+              style={{
+                padding: '6px 14px', borderRadius: 9999,
+                fontFamily: FONT, fontSize: 12, fontWeight: 500,
+                cursor: 'pointer', transition: 'all 0.15s',
+                background: showSecond ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.85)',
+                color:      showSecond ? '#8b5cf6'              : '#64748b',
+                border:     `1.5px solid ${showSecond ? 'rgba(139,92,246,0.4)' : '#e2e8f0'}`,
+              }}
+            >
+              {showSecond ? '– Remove overlay' : '+ Add overlay metric'}
+            </button>
+          )}
 
-          {showSecond && (
+          {showSecond && !isBarMetric(metricA) && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {METRICS.filter((m) => m.id !== metricA).map((m) => (
-                <MetricPill
-                  key={m.id}
-                  metric={m}
-                  active={metricB === m.id}
-                  onClick={() => setMetricB(m.id)}
-                />
+              {METRICS.filter((m) => m.id !== metricA && !isBarMetric(m.id)).map((m) => (
+                <MetricPill key={m.id} metric={m} active={metricB === m.id} onClick={() => setMetricB(m.id)} />
               ))}
             </div>
           )}
         </div>
       </div>
 
+      {/* ── Bar breakdown chart (drug/combo metrics) ──────── */}
+      {isBarMetric(metricA) && barDataA && barDataA.length > 0 && (
+        <div style={CARD}>
+          <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 16 }}>
+            {defA.label}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {barDataA.map((d) => (
+              <div key={d.label}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontFamily: FONT, fontSize: 12, color: '#475569', fontWeight: 500 }}>{d.label}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: d.color }}>
+                    {d.value}{defA.unit === '%' ? '%' : ' patients'}
+                  </span>
+                </div>
+                <div style={{ height: 8, background: '#f1f5f9', borderRadius: 9999, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${defA.unit === '%' ? d.value : Math.round((d.value / Math.max(...barDataA.map(x=>x.value))) * 100)}%`,
+                    background: d.color,
+                    borderRadius: 9999,
+                    transition: 'width 0.4s ease',
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Summary stats + chart (time-series metrics only) ─ */}
+      {!isBarMetric(metricA) && (<>
       {/* ── Summary stats strip ───────────────────────────── */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         {[
@@ -627,6 +840,7 @@ export default function AnalyticsBuilder({
           Scope: <strong style={{ color: '#64748b' }}>{displayScope}</strong>
         </div>
       </div>
+      </>)}
 
     </div>
   );
