@@ -10,7 +10,7 @@ export type Sex = 'M' | 'F';
 
 export type Condition = 'HTN' | 'DM' | 'DM+HTN';
 
-export type PatientStatus = 'active' | 'ltfu' | 'completed';
+export type PatientStatus = 'active' | 'ltfu' | 'completed' | 'discharged';
 
 // ADDED 'auto' role to handle new device logins
 export type UserRole = 'admin' | 'doctor' | 'auto';
