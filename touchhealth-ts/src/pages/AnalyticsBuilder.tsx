@@ -129,7 +129,7 @@ function getVisitMeds(visit: Visit): string[] {
 
 // ── Bar chart data for drug/combo breakdowns ──────────────────
 
-interface BarData { label: string; value: number; color: string; }
+interface BarData { label: string; value: number; controlRate?: number; color: string; }
 
 function computeBarData(metricId: MetricId, patients: Patient[]): BarData[] | null {
   const COLORS = ['#1a56db','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#a78bfa','#34d399'];
@@ -176,37 +176,67 @@ function computeBarData(metricId: MetricId, patients: Patient[]): BarData[] | nu
   }
 
   if (metricId === 'htn_drug_combo') {
-    const htnPts = patients.filter(p => (p.cond === 'HTN' || p.cond === 'DM+HTN') && (p.status === 'active' || p.status === 'completed'));
+    const htnPts = patients.filter(p =>
+      (p.cond === 'HTN' || p.cond === 'DM+HTN') &&
+      (p.status === 'active' || p.status === 'completed')
+    );
     if (!htnPts.length) return null;
-    const comboCounts = new Map<string, number>();
+    const comboMap = new Map<string, Patient[]>();
     htnPts.forEach(p => {
       const meds = getLastVisitMeds(p);
       const classes = [...new Set(meds.map(m => detectClass(m, HTN_CLASSES)).filter(Boolean))].sort();
       if (!classes.length) return;
       const key = classes.length === 1 ? classes[0]! : classes.join(' + ');
-      comboCounts.set(key, (comboCounts.get(key) ?? 0) + 1);
+      if (!comboMap.has(key)) comboMap.set(key, []);
+      comboMap.get(key)!.push(p);
     });
-    return Array.from(comboCounts.entries())
-      .sort((a, b) => b[1] - a[1])
+    return Array.from(comboMap.entries())
+      .sort((a, b) => b[1].length - a[1].length)
       .slice(0, 8)
-      .map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }));
+      .map(([label, pts], i) => {
+        const controlled = pts.filter(p => {
+          const last = [...(p.visits ?? [])].sort((a,b) => new Date(b.date??'').getTime()-new Date(a.date??'').getTime()).find(v=>v.att&&v.sbp);
+          return last && last.sbp! < 140 && last.dbp! < 90;
+        });
+        return {
+          label,
+          value: pts.length,
+          controlRate: pts.length ? Math.round((controlled.length / pts.length) * 100) : 0,
+          color: COLORS[i % COLORS.length],
+        };
+      });
   }
 
   if (metricId === 'dm_drug_combo') {
-    const dmPts = patients.filter(p => (p.cond === 'DM' || p.cond === 'DM+HTN') && (p.status === 'active' || p.status === 'completed'));
+    const dmPts = patients.filter(p =>
+      (p.cond === 'DM' || p.cond === 'DM+HTN') &&
+      (p.status === 'active' || p.status === 'completed')
+    );
     if (!dmPts.length) return null;
-    const comboCounts = new Map<string, number>();
+    const comboMap = new Map<string, Patient[]>();
     dmPts.forEach(p => {
       const meds = getLastVisitMeds(p);
       const classes = [...new Set(meds.map(m => detectClass(m, DM_CLASSES)).filter(Boolean))].sort();
       if (!classes.length) return;
       const key = classes.length === 1 ? classes[0]! : classes.join(' + ');
-      comboCounts.set(key, (comboCounts.get(key) ?? 0) + 1);
+      if (!comboMap.has(key)) comboMap.set(key, []);
+      comboMap.get(key)!.push(p);
     });
-    return Array.from(comboCounts.entries())
-      .sort((a, b) => b[1] - a[1])
+    return Array.from(comboMap.entries())
+      .sort((a, b) => b[1].length - a[1].length)
       .slice(0, 8)
-      .map(([label, value], i) => ({ label, value, color: COLORS[i % COLORS.length] }));
+      .map(([label, pts], i) => {
+        const controlled = pts.filter(p => {
+          const last = [...(p.visits ?? [])].sort((a,b) => new Date(b.date??'').getTime()-new Date(a.date??'').getTime()).find(v=>v.att&&v.sugar!=null);
+          return last && last.sugar! < 7;
+        });
+        return {
+          label,
+          value: pts.length,
+          controlRate: pts.length ? Math.round((controlled.length / pts.length) * 100) : 0,
+          color: COLORS[i % COLORS.length],
+        };
+      });
   }
 
   return null;
@@ -254,7 +284,6 @@ function computeSeries(
       case 'treatment_rate': {
         const active = patients.filter(p => p.status === 'active' || p.status === 'completed');
         if (!active.length) return null;
-        // % of active patients who received any medication in this month
         const onTreatment = active.filter(p =>
           p.visits?.some(v => +v.month === m && +(v.year ?? year) === year && v.att && (v.meds ?? []).length > 0)
         );
@@ -286,25 +315,25 @@ function computeSeries(
       }
 
       case 'ltfu_rate': {
-        const active = patients.filter((p) => {
+        const enrolled = patients.filter((p) => {
           const d = new Date(p.enrol ?? '');
           return d.getFullYear() < year || (d.getFullYear() === year && d.getMonth() + 1 <= m);
-        });
-        if (!active.length) return null;
-        return Math.round((active.filter((p) => p.status === 'ltfu').length / active.length) * 100);
+        }).filter(p => p.status !== 'discharged');
+        if (!enrolled.length) return null;
+        return Math.round((enrolled.filter((p) => p.status === 'ltfu').length / enrolled.length) * 100);
       }
 
       case 'dm_patients':
         return patients.filter((p: Patient) =>
           (p.cond === 'DM' || p.cond === 'DM+HTN') &&
-          p.status === 'active' &&
+          (p.status === 'active' || p.status === 'completed') &&
           p.visits?.some((v: Visit) => +v.month === m && +(v.year ?? year) === year),
         ).length || null;
 
       case 'htn_patients':
         return patients.filter((p: Patient) =>
           (p.cond === 'HTN' || p.cond === 'DM+HTN') &&
-          p.status === 'active' &&
+          (p.status === 'active' || p.status === 'completed') &&
           p.visits?.some((v: Visit) => +v.month === m && +(v.year ?? year) === year),
         ).length || null;
 
@@ -760,29 +789,65 @@ export default function AnalyticsBuilder({
       {/* ── Bar breakdown chart (drug/combo metrics) ──────── */}
       {isBarMetric(metricA) && barDataA && barDataA.length > 0 && (
         <div style={CARD}>
-          <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 16 }}>
+          <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>
             {defA.label}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {barDataA.map((d) => (
-              <div key={d.label}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontFamily: FONT, fontSize: 12, color: '#475569', fontWeight: 500 }}>{d.label}</span>
-                  <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: d.color }}>
-                    {d.value}{defA.unit === '%' ? '%' : ' patients'}
-                  </span>
+          {(metricA === 'htn_drug_combo' || metricA === 'dm_drug_combo') && (
+            <div style={{ fontFamily: FONT, fontSize: 11, color: '#64748b', marginBottom: 16 }}>
+              Bar = number of patients · <span style={{ color: '#10b981', fontWeight: 700 }}>Green %</span> = controlled ({metricA === 'htn_drug_combo' ? 'BP <140/90' : 'FBS <7'})
+            </div>
+          )}
+          {!['htn_drug_combo','dm_drug_combo'].includes(metricA) && (
+            <div style={{ marginBottom: 16 }} />
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {barDataA.map((d) => {
+              const maxVal = Math.max(...barDataA.map(x => x.value));
+              const barPct = Math.round((d.value / maxVal) * 100);
+              const isCombo = metricA === 'htn_drug_combo' || metricA === 'dm_drug_combo';
+              return (
+                <div key={d.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                    <span style={{ fontFamily: FONT, fontSize: 12, color: '#475569', fontWeight: 600, maxWidth: '60%' }}>{d.label}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {isCombo && d.controlRate !== undefined && (
+                        <span style={{
+                          fontFamily: FONT, fontSize: 11, fontWeight: 700,
+                          color: d.controlRate >= 50 ? '#10b981' : d.controlRate >= 30 ? '#f59e0b' : '#ef4444',
+                          background: d.controlRate >= 50 ? 'rgba(16,185,129,0.1)' : d.controlRate >= 30 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+                          padding: '2px 8px', borderRadius: 9999,
+                        }}>
+                          {d.controlRate}% controlled
+                        </span>
+                      )}
+                      <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: d.color }}>
+                        {isCombo ? `${d.value} pts` : defA.unit === '%' ? `${d.value}%` : d.value}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ height: 8, background: '#f1f5f9', borderRadius: 9999, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${defA.unit === '%' ? d.value : barPct}%`,
+                      background: d.color,
+                      borderRadius: 9999,
+                      transition: 'width 0.4s ease',
+                    }} />
+                  </div>
+                  {isCombo && d.controlRate !== undefined && (
+                    <div style={{ height: 4, background: '#f1f5f9', borderRadius: 9999, overflow: 'hidden', marginTop: 2 }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${d.controlRate}%`,
+                        background: d.controlRate >= 50 ? '#10b981' : d.controlRate >= 30 ? '#f59e0b' : '#ef4444',
+                        borderRadius: 9999,
+                        transition: 'width 0.4s ease',
+                      }} />
+                    </div>
+                  )}
                 </div>
-                <div style={{ height: 8, background: '#f1f5f9', borderRadius: 9999, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${defA.unit === '%' ? d.value : Math.round((d.value / Math.max(...barDataA.map(x=>x.value))) * 100)}%`,
-                    background: d.color,
-                    borderRadius: 9999,
-                    transition: 'width 0.4s ease',
-                  }} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
