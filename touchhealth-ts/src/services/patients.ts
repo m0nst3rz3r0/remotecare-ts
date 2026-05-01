@@ -542,7 +542,7 @@ export function filterPatients(
   return patients
     .filter((p) => {
       switch (filter) {
-        case 'active':    return p.status === 'active';
+        case 'active':    return p.status === 'active' || p.status === 'completed';
         case 'ltfu':      return p.status === 'ltfu';
         case 'due':       return isDueFn(p);
         case 'completed': return p.status === 'completed';
@@ -573,9 +573,10 @@ export function countByCondition(patients: Patient[]) {
 
 export function countByStatus(patients: Patient[]) {
   return {
-    active:    patients.filter((p) => p.status === 'active').length,
-    ltfu:      patients.filter((p) => p.status === 'ltfu').length,
-    completed: patients.filter((p) => p.status === 'completed').length,
+    active:     patients.filter((p) => p.status === 'active' || p.status === 'completed').length,
+    ltfu:       patients.filter((p) => p.status === 'ltfu').length,
+    completed:  patients.filter((p) => p.status === 'completed').length,
+    discharged: patients.filter((p) => p.status === 'discharged').length,
   };
 }
 
