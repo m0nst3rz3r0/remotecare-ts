@@ -455,7 +455,6 @@ export default function AnalyticsBuilder({
 
   // Bar data for drug/combo breakdown metrics
   const barDataA = useMemo(() => computeBarData(metricA, patients), [metricA, patients]);
-  const barDataB = useMemo(() => computeBarData(metricB, patients), [metricB, patients]);
 
   const isBarMetric = (id: MetricId) =>
     ['drug_class_coverage','bp_by_drug','sugar_by_drug','htn_drug_combo','dm_drug_combo'].includes(id);
