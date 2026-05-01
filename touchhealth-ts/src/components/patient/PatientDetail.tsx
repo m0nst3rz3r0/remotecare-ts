@@ -31,14 +31,17 @@ function conditionChipCls(cond: Patient['cond']): string {
 }
 
 function patientStatusLabel(status: Patient['status']) {
-  if (status === 'ltfu') return 'LTFU';
-  if (status === 'completed') return 'COMPLETED';
+  if (status === 'ltfu')       return 'LTFU';
+  if (status === 'completed')  return 'COMPLETED';
+  if (status === 'discharged') return 'DISCHARGED';
   return 'ACTIVE';
 }
 
 function statusGradient(status: Patient['status']) {
-  if (status === 'ltfu')      return 'linear-gradient(135deg,#0f1f26 0%,#7f1d1d 100%)';
-  if (status === 'completed') return 'linear-gradient(135deg,#0f1f26 0%,#005469 100%)';
+  if (status === 'ltfu')       return 'linear-gradient(135deg,#0f1f26 0%,#7f1d1d 100%)';
+  if (status === 'completed')  return 'linear-gradient(135deg,#0f1f26 0%,#005469 100%)';
+  if (status === 'discharged') return 'linear-gradient(135deg,#0f1f26 0%,#3b0764 100%)';
+  return 'linear-gradient(135deg,#0f1f26 0%,#064e3b 100%)';
   return 'linear-gradient(135deg,#0f1f26 0%,#005469 100%)';
 }
 
@@ -186,12 +189,14 @@ function PatientActionBar({
   onMeds,
   onToggleLTFU,
   onDelete,
+  onDischarge,
 }: {
   patient: Patient;
   onVisit: () => void;
   onMeds: () => void;
   onToggleLTFU: () => void;
   onDelete: () => void;
+  onDischarge: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [deletePhase, setDeletePhase] = useState<'idle' | 'confirm'>('idle');
@@ -509,6 +514,37 @@ function PatientActionBar({
                 </div>
                 <button
                   type="button"
+                  onClick={() => { onDischarge(); setMenuOpen(false); }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '9px 14px',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#fcd34d',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+                    textAlign: 'left',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(217,119,6,0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '15px', fontVariationSettings: "'FILL' 1" }}>
+                    output
+                  </span>
+                  Discharge from Programme
+                </button>
+                <button
+                  type="button"
                   onClick={handleDeleteClick}
                   style={{
                     display: 'flex',
@@ -687,6 +723,11 @@ export default function PatientDetail() {
             onMeds={() => openMedModal(patient.id)}
             onToggleLTFU={() => setStatus(patient.id, patient.status === 'ltfu' ? 'active' : 'ltfu')}
             onDelete={() => deletePatient(patient.id)}
+            onDischarge={() => {
+              if (confirm(`Discharge ${patient.code} from the programme? This permanently removes them from active clinic lists and cannot be undone.`)) {
+                setStatus(patient.id, 'discharged');
+              }
+            }}
           />
         </div>
 
@@ -1356,9 +1397,15 @@ export default function PatientDetail() {
 
       {/* Status action row (bottom) — secondary status actions */}
       <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--cream)] flex gap-2 flex-wrap justify-end">
-        {patient.status !== 'completed' ? (
-          <Button size="sm" variant="ghost" label="Mark Completed" onClick={() => setStatus(patient.id, 'completed')} />
-        ) : null}
+        {patient.status === 'active' && (
+          <Button size="sm" variant="ghost" label="✓ Save & Complete Visit" onClick={() => setStatus(patient.id, 'completed')} />
+        )}
+        {patient.status === 'completed' && (
+          <Button size="sm" variant="ghost" label="↩ Re-activate Patient" onClick={() => setStatus(patient.id, 'active')} />
+        )}
+        {patient.status === 'discharged' && (
+          <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>Discharged from programme</span>
+        )}
       </div>
     </div>
   );
