@@ -6,15 +6,27 @@
 // ════════════════════════════════════════════════════════════
 
 import type { Medication } from '../../types';
-import { Microscope, AlertTriangle, Pill } from 'lucide-react';
+import { Microscope, AlertTriangle, Pill, Ban, Zap, Search } from 'lucide-react';
 import {
   checkInteractions,
   checkDiagnosisWarnings,
   severityDisplay,
   type DetectedInteraction,
   type DetectedDiagnosisWarning,
+  type SeverityIcon,
 } from '../../data/drugInteractions';
 import { useMemo } from 'react';
+
+// Helper to render severity icon
+function SeverityIcon({ name, size = 10 }: { name: SeverityIcon; size?: number }) {
+  switch (name) {
+    case 'ban': return <Ban size={size} />;
+    case 'alert-triangle': return <AlertTriangle size={size} />;
+    case 'zap': return <Zap size={size} />;
+    case 'search': return <Search size={size} />;
+    default: return null;
+  }
+}
 
 // ── shared pill + card styles ────────────────────────────────
 const drugPill = {
@@ -117,8 +129,9 @@ function DrugDrugCard({
           padding: '2px 8px', borderRadius: 9999,
           background: disp.bg, color: disp.color,
           fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+          display: 'inline-flex', alignItems: 'center', gap: 4,
         }}>
-          {disp.icon} {disp.label}
+          <SeverityIcon name={disp.icon} size={10} /> {disp.label}
         </span>
         {drug1Name && <span style={drugPill}>{drug1Name}</span>}
         {drug2Name && (
@@ -169,8 +182,9 @@ function DiagnosisDrugCard({
           padding: '2px 8px', borderRadius: 9999,
           background: disp.bg, color: disp.color,
           fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+          display: 'inline-flex', alignItems: 'center', gap: 4,
         }}>
-          {disp.icon} {disp.label}
+          <SeverityIcon name={disp.icon} size={10} /> {disp.label}
         </span>
         <span style={drugPill}>{drugName}</span>
         <span style={{ fontSize: 10, color: '#6f797d' }}>in patient with</span>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import {
   loadUsers,
@@ -205,10 +206,10 @@ export default function AuthPage() {
                 <div
                   style={{
                     position: 'absolute', left: '12px', top: '50%',
-                    transform: 'translateY(-50%)', color: '#516169', fontSize: '16px',
+                    transform: 'translateY(-50%)', color: '#516169',
                   }}
                 >
-                  🔒
+                  <Lock size={18} />
                 </div>
                 <input
                   value={password}
@@ -239,7 +240,7 @@ export default function AuthPage() {
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded hover:bg-gray-100 transition-colors"
                   style={{ color: '#64748b' }}
                 >
-                  <span style={{ fontSize: '16px' }}>{showPassword ? '👁️' : '👁'}</span>
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>

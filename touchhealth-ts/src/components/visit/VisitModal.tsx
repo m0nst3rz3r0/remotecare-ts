@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, Star, X } from 'lucide-react';
+import { Check, ChevronDown, Star, X, Stethoscope } from 'lucide-react';
 import type { HbA1cQuarter, Medication, Patient, SugarTestType } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
 import { usePatientStore } from '../../store/usePatientStore';
@@ -655,7 +655,7 @@ export default function VisitModal() {
               <SectionCard title="4. Comorbidity / Associated Diagnosis" color="#b45309" bg="rgba(180,83,9,.03)" defaultOpen={false}>
                 {/* Info banner showing registered condition */}
                 <div style={{ background: 'rgba(180,83,9,.07)', border: '1px solid rgba(180,83,9,.2)', borderRadius: '6px', padding: '10px 12px', marginBottom: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <span style={{ fontSize: '16px', lineHeight: 1, marginTop: '1px' }}>🩺</span>
+                  <Stethoscope size={16} color="#92400e" style={{ marginTop: '1px' }} />
                   <div>
                     <div style={{ fontSize: '11px', fontWeight: 700, color: '#92400e', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '3px' }}>
                       Registered Condition: {patient.cond}
@@ -679,7 +679,7 @@ export default function VisitModal() {
                   }}
                   onTogglePrimary={toggleComorbidityPrimary}
                 />
-                <div style={{ fontSize: '11px', color: '#516169', marginTop: '6px' }}>★ = Primary diagnosis · E11/I10 are locked (registered condition). Add e.g. E11.2 (Diabetic nephropathy), I11 (Hypertensive heart disease), E78.5 (Dyslipidaemia)…</div>
+                <div style={{ fontSize: '11px', color: '#516169', marginTop: '6px', display: 'flex', alignItems: 'center', gap: 4 }}><Star size={10} /> = Primary diagnosis · E11/I10 are locked (registered condition). Add e.g. E11.2 (Diabetic nephropathy), I11 (Hypertensive heart disease), E78.5 (Dyslipidaemia)…</div>
               </SectionCard>
 
               {/* ── 5. INVESTIGATIONS ──────────────────────── */}

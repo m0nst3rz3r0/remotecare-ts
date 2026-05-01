@@ -570,18 +570,20 @@ export const DRUG_INTERACTIONS: DrugInteraction[] = [
 
 // ── SEVERITY DISPLAY ─────────────────────────────────────────
 
+export type SeverityIcon = 'ban' | 'alert-triangle' | 'zap' | 'search';
+
 export function severityDisplay(s: InteractionSeverity): {
-  label: string; bg: string; color: string; icon: string;
+  label: string; bg: string; color: string; icon: SeverityIcon;
 } {
   switch (s) {
     case 'contraindicated':
-      return { label: 'CONTRAINDICATED', bg: '#7f1d1d', color: '#fff', icon: '🚫' };
+      return { label: 'CONTRAINDICATED', bg: '#7f1d1d', color: '#fff', icon: 'ban' };
     case 'major':
-      return { label: 'MAJOR',           bg: '#fee2e2', color: '#7f1d1d', icon: '⚠️' };
+      return { label: 'MAJOR',           bg: '#fee2e2', color: '#7f1d1d', icon: 'alert-triangle' };
     case 'moderate':
-      return { label: 'MODERATE',        bg: '#fef3c7', color: '#78350f', icon: '⚡' };
+      return { label: 'MODERATE',        bg: '#fef3c7', color: '#78350f', icon: 'zap' };
     case 'monitor':
-      return { label: 'MONITOR',         bg: '#dbeafe', color: '#1e3a8a', icon: '🔍' };
+      return { label: 'MONITOR',         bg: '#dbeafe', color: '#1e3a8a', icon: 'search' };
   }
 }
 

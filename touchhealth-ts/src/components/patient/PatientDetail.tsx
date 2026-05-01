@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, AlertOctagon, Calendar, FlaskConical } from 'lucide-react';
+import { AlertTriangle, AlertOctagon, Calendar, FlaskConical, Star, Ban, Zap, Search } from 'lucide-react';
 import type { HbA1cQuarter, Patient } from '../../types';
 import {
   bpClass,
@@ -1131,7 +1131,7 @@ export default function PatientDetail() {
                           {hasWarnings && (
                             <div style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(220,38,38,.2)' }}>
                               <div style={{ background: '#7f1d1d', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 13 }}>⚠️</span>
+                                <AlertTriangle size={13} color="#fff" />
                                 <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, fontSize: 10, color: '#fff', textTransform: 'uppercase', letterSpacing: '.5px' }}>
                                   Medication Alerts — {ddInteractions.length + dxWarnings.length} warning{ddInteractions.length + dxWarnings.length > 1 ? 's' : ''} at time of visit
                                 </span>
@@ -1204,7 +1204,7 @@ export default function PatientDetail() {
                                     color: d.isPrimary ? '#005469' : '#516169',
                                     fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
                                   }}>
-                                    {d.isPrimary && <span style={{ fontSize: 9 }}>★</span>}
+                                    {d.isPrimary && <Star size={9} />}
                                     <span style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: 10 }}>{d.code}</span>
                                     <span>{d.description}</span>
                                   </span>
