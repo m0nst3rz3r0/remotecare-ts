@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, AlertOctagon, Calendar, FlaskConical, Star, Ban, Zap, Search } from 'lucide-react';
+import { AlertTriangle, AlertOctagon, Calendar, FlaskConical, Star } from 'lucide-react';
 import type { HbA1cQuarter, Patient } from '../../types';
 import {
   bpClass,
