@@ -41,6 +41,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { BarChart3, AlertTriangle, CheckCircle2, Target } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -166,8 +167,8 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
           <h2 style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '26px', fontWeight: 800, color: INK, marginBottom: '4px' }}>Admin Overview</h2>
           <p style={{ fontSize: '13px', color: '#6b7280' }}>Regional clinical performance · <strong>{scopeLabel}</strong></p>
         </div>
-        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', color: '#1d4ed8', fontWeight: 600 }}>
-          📊 {patients.length} patients in scope
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', color: '#1d4ed8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <BarChart3 size={16} /> {patients.length} patients in scope
         </div>
       </div>
 
@@ -184,7 +185,7 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
         const bs = backupStatus();
         return (
           <div style={{ borderRadius: 10, background: bs.isDue ? '#fef3c7' : '#f0fdf4', border: `1px solid ${bs.isDue ? '#fde68a' : '#86efac'}`, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 24 }}>{bs.isDue ? '⚠️' : '✅'}</span>
+            {bs.isDue ? <AlertTriangle size={24} color="#b45309" /> : <CheckCircle2 size={24} color="#15803d" />}
             <div>
               <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, fontSize: 12, color: bs.isDue ? '#78350f' : '#14532d' }}>
                 {bs.isDue ? 'Backup Overdue' : 'Data Protected'}
@@ -679,8 +680,8 @@ export default function AdminPage() {
       {/* Superadmin scope filter bar */}
       {superAdmin && (activePage === 'overview' || activePage === 'trends') && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px', flexWrap: 'wrap', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px 14px', boxShadow: '0 1px 2px rgba(0,0,0,.04)' }}>
-          <span style={{ fontSize: '11px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            🔭 Scope:
+          <span style={{ fontSize: '11px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Target size={14} /> Scope:
           </span>
           <select
             value={scopeRegion}
