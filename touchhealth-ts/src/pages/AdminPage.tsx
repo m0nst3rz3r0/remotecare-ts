@@ -926,9 +926,9 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
 
         {/* Patient List for SMS */}
         {(() => {
-          // Filter patients by selected hospital
+          // Filter patients by selected hospital (include 'active' and 'completed' status)
           const facilityPatients = smsHospital
-            ? patients.filter((p) => p.hospital === smsHospital && p.status === 'active')
+            ? patients.filter((p) => p.hospital === smsHospital && (p.status === 'active' || p.status === 'completed'))
             : [];
 
           // Filter by tab
