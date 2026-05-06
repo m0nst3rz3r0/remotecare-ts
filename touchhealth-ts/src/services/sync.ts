@@ -6,6 +6,8 @@ import {
   getSyncCount,
   setSyncCount,
 } from './storage';
+import { syncDevicePrefixFromCloud } from './deviceManager';
+import { getSession } from './auth';
 
 export interface SyncResult {
   success: boolean;
@@ -114,6 +116,16 @@ export async function syncToCloud(
 
     setLastSync();
     setSyncCount(patients.length);
+
+    // Sync device prefix from cloud (admin may have assigned one remotely)
+    const session = getSession();
+    if (session) {
+      syncDevicePrefixFromCloud(
+        session.sessionRegion,
+        session.sessionDistrict,
+        session.sessionHospital
+      ).catch(err => console.warn('Device prefix sync failed:', err));
+    }
 
     return {
       success: true,

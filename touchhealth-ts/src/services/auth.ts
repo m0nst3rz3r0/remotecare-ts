@@ -17,6 +17,7 @@
 import type { User, SessionUser, UserRole, Hospital } from '../types';
 import { hashPassword, verifyPassword } from './crypto';
 import { supabase } from './supabase';
+import { registerDevice } from './deviceManager';
 
 // ── STORAGE KEYS ─────────────────────────────────────────────
 
@@ -304,6 +305,15 @@ export async function login(params: {
   };
 
   saveSession(sessionUser);
+
+  // Register this device in the cloud for remote prefix management
+  // Fire-and-forget: don't block login if this fails
+  registerDevice(
+    sessionUser.sessionRegion,
+    sessionUser.sessionDistrict,
+    sessionUser.sessionHospital
+  ).catch(err => console.warn('Device registration failed:', err));
+
   return { success: true, user: sessionUser, offline: isOffline };
 }
 
