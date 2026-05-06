@@ -11,7 +11,6 @@ import {
 } from '../../services/patients';
 import { getHospitalsByRegionDistrict } from '../../services/auth';
 import { getDevicePrefix } from '../../services/devicePrefix';
-import { maskPhone } from '../../utils/phone';
 import { encryptPhone } from '../../services/phoneEncryption';
 
 // ── Design tokens ────────────────────────────────────────────
