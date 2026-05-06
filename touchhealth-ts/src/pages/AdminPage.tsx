@@ -39,7 +39,8 @@ import Alert from '../components/ui/Alert';
 import BackupPanel from '../components/ui/BackupPanel';
 import { backupStatus } from '../services/backup';
 import { sendSMS as sendSMSService, daysUntilAppointment } from '../services/sms';
-import { loadSMSConfig, loadSMSLog, saveSMSLog } from '../services/storage';
+import { loadSMSConfig, saveSMSConfig, loadSMSLog, saveSMSLog } from '../services/storage';
+import type { SMSConfig } from '../types';
 import { maskPhone } from '../utils/phone';
 import DirectoryPage from './DirectoryPage';
 import AnalyticsBuilder from './AnalyticsBuilder';
@@ -301,12 +302,20 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
   const [availablePrefixes, setAvailablePrefixes] = useState<string[]>([]);
 
   // SMS (for Admin's facility)
-  const smsConfig = useMemo(() => loadSMSConfig(), []);
+  const [smsConfig, setSmsConfig]     = useState<SMSConfig>(() => loadSMSConfig());
   const [smsLog,    setSmsLog]      = useState(() => loadSMSLog());
   const [smsSending, setSmsSending] = useState<Record<string, boolean>>({});
   const [smsLang,   setSmsLang]     = useState<'en' | 'sw'>('en');
   const [smsTab,    setSmsTab]      = useState<'ltfu' | 'overdue' | 'reminder' | 'all'>('reminder');
   const [smsHospital, setSmsHospital] = useState<string>('');
+  const [smsConfigSaved, setSmsConfigSaved] = useState(false);
+
+  // Save SMS config handler
+  const handleSaveSMSConfig = () => {
+    saveSMSConfig(smsConfig);
+    setSmsConfigSaved(true);
+    setTimeout(() => setSmsConfigSaved(false), 2000);
+  };
 
   // Superadmin own password change
   const [selfPwCurrent, setSelfPwCurrent] = useState('');
@@ -858,6 +867,94 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
             No devices registered yet. Devices will appear here after they log in and sync.
           </div>
         )}
+      </div>
+
+      {/* ── SMS Configuration ─────────────────────────── */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 mb-4">
+        <div className="font-sans font-bold text-slate-800 text-[13px] mb-1 flex items-center gap-2">
+          <Smartphone size={16} />
+          <span>SMS Configuration</span>
+          {!smsConfig.apiKey && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
+              Demo Mode
+            </span>
+          )}
+          {smsConfig.apiKey && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+              Live Mode
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+          Configure Africa's Talking API credentials to send real SMS. Leave empty for demo mode (simulated sending).
+          Get API key from <a href="https://africastalking.com" target="_blank" rel="noopener noreferrer" className="text-teal-700 hover:underline">africastalking.com</a>.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+          <div>
+            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">API Key</label>
+            <input
+              type="password"
+              className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px]"
+              value={smsConfig.apiKey}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, apiKey: e.target.value }))}
+              placeholder="Enter Africa's Talking API Key"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">API Secret</label>
+            <input
+              type="password"
+              className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px]"
+              value={smsConfig.apiSecret}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, apiSecret: e.target.value }))}
+              placeholder="Enter API Secret"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Sender ID</label>
+            <input
+              type="text"
+              className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px]"
+              value={smsConfig.senderId}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, senderId: e.target.value }))}
+              placeholder="e.g. TouchHealth"
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              className="px-4 py-1.5 rounded bg-teal-700 text-white text-[12px] font-bold hover:bg-teal-800 disabled:opacity-50"
+              onClick={handleSaveSMSConfig}
+            >
+              {smsConfigSaved ? 'Saved!' : 'Save Config'}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">English Template</label>
+            <textarea
+              rows={2}
+              className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
+              value={smsConfig.template}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, template: e.target.value }))}
+              placeholder="Dear {name}, your appointment is at {hospital} on {date}."
+            />
+            <p className="text-[10px] text-slate-400 mt-1">Variables: {'{name}'}, {'{hospital}'}, {'{date}'}</p>
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Swahili Template</label>
+            <textarea
+              rows={2}
+              className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
+              value={smsConfig.templateSw}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, templateSw: e.target.value }))}
+              placeholder="Habari {name}, ziara yako ni {hospital} tarehe {date}."
+            />
+            <p className="text-[10px] text-slate-400 mt-1">Variables: {'{name}'}, {'{hospital}'}, {'{date}'}</p>
+          </div>
+        </div>
       </div>
 
       {/* ── SMS Management ────────────────────────────── */}
