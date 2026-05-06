@@ -3,10 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>RemoteCare · DM/HTN Dashboard</title>
+    <script>
+      // Cache busting: force reload when app version changes
+      (function() {
+        const APP_VERSION = '2.0.1-20250506';
+        const storedVersion = localStorage.getItem('rc_app_version');
+        if (storedVersion && storedVersion !== APP_VERSION) {
+          localStorage.setItem('rc_app_version', APP_VERSION);
+          location.reload(true);
+        } else {
+          localStorage.setItem('rc_app_version', APP_VERSION);
+        }
+      })();
+    </script>
     <meta name="description" content="RemoteCare NCD Management System — Tanzania DM/HTN Programme" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"

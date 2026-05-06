@@ -306,6 +306,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
   const [smsSending, setSmsSending] = useState<Record<string, boolean>>({});
   const [smsLang,   setSmsLang]     = useState<'en' | 'sw'>('en');
   const [smsTab,    setSmsTab]      = useState<'ltfu' | 'overdue' | 'reminder' | 'all'>('reminder');
+  const [smsHospital, setSmsHospital] = useState<string>('');
 
   // Superadmin own password change
   const [selfPwCurrent, setSelfPwCurrent] = useState('');
@@ -670,7 +671,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
       {/* ── Device Prefix ────────────────────────────────── */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 mb-4">
         <div className="font-sans font-bold text-slate-800 text-[13px] mb-1 flex items-center gap-2">
-          <span>📱 Device Prefix</span>
+          <span>Device Prefix</span>
           {savedPrefix && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
               Active: <span className="font-mono">{savedPrefix}</span>
@@ -720,7 +721,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
       {/* ── Remote Device Management ───────────────────── */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 mb-4">
         <div className="font-sans font-bold text-slate-800 text-[13px] mb-1 flex items-center gap-2">
-          <span>🖥️ Remote Device Management</span>
+          <span>Remote Device Management</span>
         </div>
         <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
           Manage all devices at this facility remotely. Assign prefixes (A–Z) to each device
@@ -864,36 +865,49 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
         <div className="font-sans font-bold text-slate-800 text-[13px] mb-1 flex items-center gap-2">
           <Smartphone size={16} />
           <span>SMS Reminders</span>
-          <span className="text-[11px] font-normal text-slate-500">
-            (Facility: {currentUser?.sessionHospital || 'Not assigned'})
-          </span>
         </div>
         <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
-          Send appointment reminders to patients at your facility. Patients with phone numbers will receive SMS reminders.
+          Send appointment reminders to patients at your facility. Select a hospital to view its patients.
         </p>
 
-        {/* SMS Tabs */}
-        <div className="flex gap-2 mb-4">
-          {[
-            { k: 'ltfu', l: 'LTFU' },
-            { k: 'overdue', l: 'Overdue' },
-            { k: 'reminder', l: 'Reminders' },
-            { k: 'all', l: 'All' },
-          ].map((t) => (
-            <button
-              key={t.k}
-              className={`px-3 py-1 rounded text-[11px] font-bold transition-colors ${
-                smsTab === t.k
-                  ? 'bg-teal-700 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-              onClick={() => setSmsTab(t.k as typeof smsTab)}
-            >
-              {t.l}
-            </button>
-          ))}
+        {/* Hospital Selection & SMS Tabs */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <select
-            className="ml-auto border border-slate-300 rounded px-2 py-1 text-[11px] bg-white"
+            className="border border-slate-300 rounded px-3 py-1.5 text-[12px] bg-white flex-shrink-0"
+            value={smsHospital}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSmsHospital(e.target.value)}
+          >
+            <option value="">Select Hospital...</option>
+            {hospitals.map((h: Hospital) => (
+              <option key={h.id} value={h.name}>
+                {h.name} ({h.district})
+              </option>
+            ))}
+          </select>
+
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { k: 'ltfu', l: 'LTFU' },
+              { k: 'overdue', l: 'Overdue' },
+              { k: 'reminder', l: 'Reminders' },
+              { k: 'all', l: 'All' },
+            ].map((t) => (
+              <button
+                key={t.k}
+                className={`px-3 py-1 rounded text-[11px] font-bold transition-colors ${
+                  smsTab === t.k
+                    ? 'bg-teal-700 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+                onClick={() => setSmsTab(t.k as typeof smsTab)}
+              >
+                {t.l}
+              </button>
+            ))}
+          </div>
+
+          <select
+            className="sm:ml-auto border border-slate-300 rounded px-2 py-1 text-[11px] bg-white"
             value={smsLang}
             onChange={(e) => setSmsLang(e.target.value as 'en' | 'sw')}
           >
@@ -902,12 +916,20 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
           </select>
         </div>
 
+        {/* Selected Hospital Display */}
+        {smsHospital && (
+          <div className="mb-3 px-3 py-2 bg-slate-50 rounded border border-slate-200">
+            <span className="text-[11px] text-slate-600">Selected Facility: </span>
+            <span className="text-[11px] font-bold text-slate-800">{smsHospital}</span>
+          </div>
+        )}
+
         {/* Patient List for SMS */}
         {(() => {
-          // Filter patients by admin's session hospital
-          const facilityPatients = patients.filter(
-            (p) => p.hospital === currentUser?.sessionHospital && p.status === 'active'
-          );
+          // Filter patients by selected hospital
+          const facilityPatients = smsHospital
+            ? patients.filter((p) => p.hospital === smsHospital && p.status === 'active')
+            : [];
 
           // Filter by tab
           const filteredPatients = facilityPatients.filter((p) => {
@@ -922,10 +944,18 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
             }
           });
 
+          if (!smsHospital) {
+            return (
+              <div className="text-center py-6 text-slate-500 text-[12px]">
+                Please select a hospital from the dropdown above to view patients.
+              </div>
+            );
+          }
+
           if (filteredPatients.length === 0) {
             return (
               <div className="text-center py-6 text-slate-500 text-[12px]">
-                No patients match the selected filter at your facility.
+                No patients match the selected filter at {smsHospital}.
               </div>
             );
           }
