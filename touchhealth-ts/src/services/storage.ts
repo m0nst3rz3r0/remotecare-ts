@@ -55,6 +55,8 @@ export async function syncPatientsWithCloud() {
         sex: p.sex,
         cond: p.cond,
         enrol: p.enrol,
+        // p.phone is AES-GCM ciphertext ("enc:v1:...") — never a raw number.
+        // Decryption only happens in sms.ts at send time.
         phone: p.phone ?? null,
         address: p.address ?? null,
         status: p.status,

@@ -3,6 +3,7 @@ import { Calendar, AlertTriangle, Check, Smartphone, ClipboardList, Settings } f
 import { useAuthStore } from '../store/useAuthStore';
 import { usePatientStore, selectVisiblePatients, selectSelectedPatient } from '../store/usePatientStore';
 import { isDue } from '../services/clinical';
+import { maskPhone } from '../utils/phone';
 import {
   daysUntilAppointment,
   sendSMS as sendSMSService,
@@ -399,7 +400,7 @@ export default function LTFUPage() {
                       {log.ptCode}
                     </button>
                   </td>
-                  <td style={{ padding: '10px 14px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '11px', color: '#516169' }}>{log.phone}</td>
+                  <td style={{ padding: '10px 14px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '11px', color: '#516169' }}>{maskPhone(log.phone)}</td>
                   <td style={{ padding: '10px 14px', color: INK, maxWidth: '320px' }}>
                     <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px' }}>{log.message}</div>
                     {log.note && <div style={{ fontSize: '10px', color: '#d97706', marginTop: '2px' }}>{log.note}</div>}

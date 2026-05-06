@@ -2,6 +2,7 @@ import type { Patient, SMSConfig, SMSLogEntry } from '@/types';
 import { loadSMSConfig, loadSMSLog, saveSMSLog } from './storage';
 import { getLastVisit, nextVisitDate, today } from './clinical';
 import type { ClinicSettings } from '@/types';
+import { decryptPhone } from './phoneEncryption';
 
 // ════════════════════════════════════════════════════
 // SMS SERVICE — Africa's Talking / Generic API
@@ -58,11 +59,19 @@ export async function sendSMS(
   const nextDate = getPatientNextDate(patient, clinicCfg);
   const message  = buildSMSMessage(patient, cfg, lang, nextDate);
 
+  // Decrypt phone number — only here, only for this send operation
+  const rawPhone = await decryptPhone(
+    patient.phone,
+    patient.region,
+    patient.district,
+    patient.hospital,
+  );
+
   const entry: SMSLogEntry = {
     id:       `sms${Date.now()}`,
     ptId:     patient.id,
     ptCode:   patient.code,
-    phone:    patient.phone ?? '',
+    phone:    rawPhone ?? '',   // raw number used for actual send; masked in display layer
     message,
     provider: cfg.provider,
     lang,
@@ -133,10 +142,18 @@ export function smsAlreadySentRecently(patientId: number, withinDays = 3): boole
 }
 
 export function exportSMSLogCSV(log: SMSLogEntry[]): string {
-  const header = ['Patient', 'Phone', 'Message', 'Provider', 'Status', 'Sent At', 'Hospital'];
+  // Phone numbers in the log are raw (decrypted at send time).
+  // We mask them in the CSV export so the file is safe to share.
+  const header = ['Patient', 'Phone (masked)', 'Message', 'Provider', 'Status', 'Sent At', 'Hospital'];
   const rows = log.map(l => [
-    l.ptCode, l.phone, `"${l.message.replace(/"/g, '""')}"`,
+    l.ptCode, maskPhoneForExport(l.phone), `"${l.message.replace(/"/g, '""')}"`,
     l.provider, l.status, l.sentAt ?? '', l.hospital ?? '',
   ]);
   return [header, ...rows].map(r => r.join(',')).join('\r\n');
+}
+
+/** Simple mask for export: keep last 3 digits only. */
+function maskPhoneForExport(phone: string): string {
+  if (!phone || phone.length <= 3) return phone;
+  return '*'.repeat(phone.length - 3) + phone.slice(-3);
 }

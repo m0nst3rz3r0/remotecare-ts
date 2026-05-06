@@ -17,6 +17,7 @@ import {
   updateUserPassword,
 } from '../services/auth';
 import { isControlled, isDue } from '../services/clinical';
+import { getDevicePrefix, setDevicePrefix } from '../services/devicePrefix';
 
 // Components
 import SyncBar from '../components/ui/SyncBar';
@@ -273,6 +274,12 @@ function SettingsView() {
   const [pwNew,      setPwNew]      = useState('');
   const [pwErr,      setPwErr]      = useState<string | null>(null);
   const [pwOk,        setPwOk]        = useState<string | null>(null);
+
+  // Device Prefix
+  const [dpValue,   setDpValue]   = useState(() => getDevicePrefix() ?? '');
+  const [dpErr,     setDpErr]     = useState<string | null>(null);
+  const [dpOk,      setDpOk]      = useState<string | null>(null);
+  const savedPrefix = getDevicePrefix();
 
   // Superadmin own password change
   const [selfPwCurrent, setSelfPwCurrent] = useState('');
@@ -608,6 +615,56 @@ function SettingsView() {
           </div>
         </div>
       )}
+
+      {/* ── Device Prefix ────────────────────────────────── */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 mb-4">
+        <div className="font-sans font-bold text-slate-800 text-[13px] mb-1 flex items-center gap-2">
+          <span>📱 Device Prefix</span>
+          {savedPrefix && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+              Active: <span className="font-mono">{savedPrefix}</span>
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+          Assign a unique letter (A–Z) to this device so patient codes never
+          collide with a second tablet at the same facility.{' '}
+          <strong>Example:</strong> Device A generates <code className="bg-slate-100 px-1 rounded">KG-BK-ZMZ-A-M0001</code>,
+          Device B generates <code className="bg-slate-100 px-1 rounded">KG-BK-ZMZ-B-M0001</code>.
+          Both devices still see <em>all</em> patients at the facility.
+        </p>
+        {dpErr && <div className="text-[11px] text-red-600 font-semibold mb-2">{dpErr}</div>}
+        {dpOk  && <div className="text-[11px] text-emerald-700 font-semibold mb-2">{dpOk}</div>}
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            maxLength={1}
+            placeholder="e.g. A"
+            value={dpValue}
+            onChange={(e) => { setDpValue(e.target.value.toUpperCase()); setDpErr(null); setDpOk(null); }}
+            className="w-16 border border-slate-300 rounded px-3 py-1.5 text-center font-mono text-lg font-bold uppercase bg-slate-50 focus:outline-none focus:border-teal-500"
+          />
+          <button
+            className="px-4 py-1.5 rounded bg-teal-700 text-white text-[12px] font-bold hover:bg-teal-800"
+            onClick={() => {
+              try {
+                setDevicePrefix(dpValue);
+                setDpOk(`Device prefix set to "${dpValue.toUpperCase()}" — new patients will use this prefix.`);
+                setDpErr(null);
+              } catch (e: unknown) {
+                setDpErr(e instanceof Error ? e.message : 'Invalid prefix');
+              }
+            }}
+          >
+            Save Prefix
+          </button>
+          {savedPrefix && (
+            <span className="text-[10px] text-slate-400 italic">
+              ⚠ Changing prefix does not rename existing patients.
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* ── Backup & Restore ────────────────────────────── */}
       <BackupPanel />

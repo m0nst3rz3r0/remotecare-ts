@@ -10,6 +10,9 @@ import {
   type RegisterPatientParams,
 } from '../../services/patients';
 import { getHospitalsByRegionDistrict } from '../../services/auth';
+import { getDevicePrefix } from '../../services/devicePrefix';
+import { maskPhone } from '../../utils/phone';
+import { encryptPhone } from '../../services/phoneEncryption';
 
 // ── Design tokens ────────────────────────────────────────────
 const INK     = '#0f1f26';
@@ -103,11 +106,12 @@ export default function RegisterForm() {
 
   const previewCode = useMemo(() => {
     if (!region || !district || !hospital || !sex) return '—';
-    const { code: rawCode } = generatePatientCode(patients, region, district, hospital, sex);
+    const dp = getDevicePrefix();
+    const { code: rawCode } = generatePatientCode(patients, region, district, hospital, sex, dp);
     return ensureUniqueCode(patients, rawCode);
   }, [patients, region, district, hospital, sex]);
 
-  const onRegister = () => {
+  const onRegister = async () => {
     setError(null);
     setSuccess(null);
     if (!currentUser)                      { setError('Please sign in again.');          return; }
@@ -116,15 +120,22 @@ export default function RegisterForm() {
     if (!cond)                             { setError('Please select condition.');        return; }
     if (!age)                              { setError('Please enter patient age.');       return; }
 
+    // Encrypt the phone number before it ever reaches localStorage or Supabase
+    const rawPhone = phone.trim() || undefined;
+    const encryptedPhone = rawPhone
+      ? await encryptPhone(rawPhone, region, district, hospital)
+      : undefined;
+
     const res = registerPatient({
       region, district, hospital,
       age:  typeof age === 'number' ? age : 0,
       sex:  sex  as Sex,
       cond: cond as Condition,
       enrol,
-      phone:   phone.trim()   || undefined,
-      address: address.trim() || undefined,
+      phone:        encryptedPhone,         // ciphertext — never the raw number
+      address:      address.trim() || undefined,
       currentUser,
+      devicePrefix: getDevicePrefix(),
     } as RegisterPatientParams);
 
     if (!res.success) { setError(res.error ?? 'Unable to register patient.'); return; }

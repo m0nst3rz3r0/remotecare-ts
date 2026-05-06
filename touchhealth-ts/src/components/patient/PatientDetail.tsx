@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, AlertOctagon, Calendar, FlaskConical, Star } from 'lucide-react';
 import type { HbA1cQuarter, Patient } from '../../types';
+import { maskPhone } from '../../utils/phone';
 import {
   bpClass,
   getCurrentMeds,
@@ -710,7 +711,7 @@ export default function PatientDetail() {
             </div>
             {patient.phone || patient.address ? (
               <div className="mt-1 text-white/80 text-[13px]">
-                {patient.phone ? `Phone: ${patient.phone}` : null}
+                {patient.phone ? `Phone: ${maskPhone(patient.phone)}` : null}
                 {patient.phone && patient.address ? ' · ' : null}
                 {patient.address ? patient.address : null}
               </div>

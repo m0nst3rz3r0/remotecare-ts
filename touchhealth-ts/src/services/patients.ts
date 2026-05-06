@@ -128,22 +128,35 @@ export function nextPatientSeq(
 
 /**
  * Generate a full patient code.
- * Format: [Region2]-[District2]-[Hospital3]-[G][NNNN]
  *
- * Examples:
- *   KG-BK-ZMZ-M0001  (1st male, Zamzam, Bukoba, Kagera)
- *   KG-BK-ZMZ-F0001  (1st female, same location)
- *   DS-IL-MHN-M0042  (42nd male, Muhimbili, Ilala, Dar es Salaam)
+ * Without device prefix (legacy):
+ *   Format: [Region2]-[District2]-[Hospital3]-[G][NNNN]
+ *   Example: KG-BK-ZMZ-M0001
+ *
+ * With device prefix (multi-device):
+ *   Format: [Region2]-[District2]-[Hospital3]-[Device]-[G][NNNN]
+ *   Example: KG-BK-ZMZ-A-M0001  (Device A)
+ *            KG-BK-ZMZ-B-M0001  (Device B — no collision!)
+ *
+ * All devices at the same facility still share the RG-DT-HSP
+ * prefix, so they see each other's patients. The device letter
+ * only creates separate sequence namespaces.
  */
 export function generatePatientCode(
   patients: Patient[],
   region: string,
   district: string,
   hospitalName: string,
-  sex: Sex
+  sex: Sex,
+  devicePrefix?: string | null   // optional: single A–Z letter
 ): GeneratedCode {
   const genderChar = sex === 'M' ? 'M' : 'F';
-  const locationPrefix = buildLocationPrefix(region, district, hospitalName);
+  const baseLocationPrefix = buildLocationPrefix(region, district, hospitalName);
+  // If a device prefix is set, append it to the sequence namespace
+  const locationPrefix = devicePrefix
+    ? `${baseLocationPrefix}-${devicePrefix}`
+    : baseLocationPrefix;
+
   const seq = nextPatientSeq(patients, locationPrefix, genderChar);
   const seqStr = String(seq).padStart(4, '0');
   const code = `${locationPrefix}-${genderChar}${seqStr}`;
@@ -193,6 +206,8 @@ export interface RegisterPatientParams {
   phone?: string;
   address?: string;
   currentUser: SessionUser | null;
+  /** Single A–Z letter identifying this device within the facility. */
+  devicePrefix?: string | null;
 }
 
 export function registerPatient(
@@ -218,8 +233,9 @@ export function registerPatient(
     return { success: false, error: 'Please enter the enrolment date.' };
   }
 
-  // Generate code
-  const { code: rawCode } = generatePatientCode(patients, region, district, hospital, sex);
+  // Generate code — include device prefix to prevent multi-device collisions
+  const { devicePrefix } = params;
+  const { code: rawCode } = generatePatientCode(patients, region, district, hospital, sex, devicePrefix);
   const code = ensureUniqueCode(patients, rawCode);
 
   const newPatient: Patient = {
