@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import PageWrapper from '../components/layout/PageWrapper';
-import type { Hospital, Patient, User } from '../types';
+import type { Hospital, Patient, User, SMSConfig } from '../types';
 import { usePatientStore } from '../store/usePatientStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUIStore } from '../store/useUIStore';
@@ -37,6 +37,9 @@ import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import BackupPanel from '../components/ui/BackupPanel';
 import { backupStatus } from '../services/backup';
+import { sendSMS as sendSMSService, patientsNeedingReminders, daysUntilAppointment } from '../services/sms';
+import { loadSMSConfig, saveSMSConfig, loadSMSLog, saveSMSLog } from '../services/storage';
+import { maskPhone } from '../utils/phone';
 import DirectoryPage from './DirectoryPage';
 import AnalyticsBuilder from './AnalyticsBuilder';
 
@@ -51,7 +54,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { BarChart3, AlertTriangle, CheckCircle2, Target } from 'lucide-react';
+import { BarChart3, AlertTriangle, CheckCircle2, Target, Smartphone } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -254,7 +257,7 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
 
 
 // ── Settings view ────────────────────────────────────────────
-function SettingsView() {
+function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clinicSettings: any }) {
   const currentUser = useAuthStore((s) => s.currentUser);
   const superAdmin  = currentUser?.isSuperAdmin === true;
 
@@ -295,6 +298,13 @@ function SettingsView() {
   const [deviceLoading, setDeviceLoading] = useState(false);
   const [deviceErr,     setDeviceErr]     = useState<string | null>(null);
   const [availablePrefixes, setAvailablePrefixes] = useState<string[]>([]);
+
+  // SMS (for Admin's facility)
+  const [smsConfig, setSmsConfig]   = useState<SMSConfig>(() => loadSMSConfig());
+  const [smsLog,    setSmsLog]      = useState(() => loadSMSLog());
+  const [smsSending, setSmsSending] = useState<Record<string, boolean>>({});
+  const [smsLang,   setSmsLang]     = useState<'en' | 'sw'>('en');
+  const [smsTab,    setSmsTab]      = useState<'ltfu' | 'overdue' | 'reminder' | 'all'>('reminder');
 
   // Superadmin own password change
   const [selfPwCurrent, setSelfPwCurrent] = useState('');
@@ -817,6 +827,150 @@ function SettingsView() {
         )}
       </div>
 
+      {/* ── SMS Management ────────────────────────────── */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 mb-4">
+        <div className="font-sans font-bold text-slate-800 text-[13px] mb-1 flex items-center gap-2">
+          <Smartphone size={16} />
+          <span>SMS Reminders</span>
+          <span className="text-[11px] font-normal text-slate-500">
+            (Facility: {currentUser?.sessionHospital || 'Not assigned'})
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+          Send appointment reminders to patients at your facility. Patients with phone numbers will receive SMS reminders.
+        </p>
+
+        {/* SMS Tabs */}
+        <div className="flex gap-2 mb-4">
+          {[
+            { k: 'ltfu', l: 'LTFU' },
+            { k: 'overdue', l: 'Overdue' },
+            { k: 'reminder', l: 'Reminders' },
+            { k: 'all', l: 'All' },
+          ].map((t) => (
+            <button
+              key={t.k}
+              className={`px-3 py-1 rounded text-[11px] font-bold transition-colors ${
+                smsTab === t.k
+                  ? 'bg-teal-700 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+              onClick={() => setSmsTab(t.k as typeof smsTab)}
+            >
+              {t.l}
+            </button>
+          ))}
+          <select
+            className="ml-auto border border-slate-300 rounded px-2 py-1 text-[11px] bg-white"
+            value={smsLang}
+            onChange={(e) => setSmsLang(e.target.value as 'en' | 'sw')}
+          >
+            <option value="en">English</option>
+            <option value="sw">Swahili</option>
+          </select>
+        </div>
+
+        {/* Patient List for SMS */}
+        {(() => {
+          // Filter patients by admin's session hospital
+          const facilityPatients = patients.filter(
+            (p) => p.hospital === currentUser?.sessionHospital && p.status === 'active'
+          );
+
+          // Get patients needing reminders
+          const reminderPatients = patientsNeedingReminders(facilityPatients, clinicSettings, 30);
+
+          // Filter by tab
+          const filteredPatients = facilityPatients.filter((p) => {
+            if (!p.phone) return false;
+            const days = daysUntilAppointment(p, clinicSettings);
+            switch (smsTab) {
+              case 'ltfu': return days < 0 && Math.abs(days) > 30;
+              case 'overdue': return days < 0 && Math.abs(days) <= 30;
+              case 'reminder': return days >= 0 && days <= 7;
+              case 'all': return true;
+              default: return true;
+            }
+          });
+
+          if (filteredPatients.length === 0) {
+            return (
+              <div className="text-center py-6 text-slate-500 text-[12px]">
+                No patients match the selected filter at your facility.
+              </div>
+            );
+          }
+
+          return (
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <table className="w-full text-[12px]">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Patient</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Phone</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Status</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPatients.slice(0, 20).map((patient) => {
+                    const days = daysUntilAppointment(patient, clinicSettings);
+                    let statusLabel = '';
+                    let statusColor = '';
+                    if (days < 0) {
+                      statusLabel = `${Math.abs(days)}d overdue`;
+                      statusColor = 'text-red-600';
+                    } else if (days <= 7) {
+                      statusLabel = `Due in ${days}d`;
+                      statusColor = 'text-amber-600';
+                    } else {
+                      statusLabel = `Due in ${days}d`;
+                      statusColor = 'text-emerald-600';
+                    }
+
+                    return (
+                      <tr key={patient.id} className="border-b border-slate-100 last:border-0">
+                        <td className="px-3 py-2">
+                          <div className="font-medium text-slate-800">{patient.code}</div>
+                          <div className="text-[10px] text-slate-500">{patient.region} · {patient.district}</div>
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">{maskPhone(patient.phone || '')}</td>
+                        <td className={`px-3 py-2 font-medium ${statusColor}`}>{statusLabel}</td>
+                        <td className="px-3 py-2">
+                          <button
+                            className="px-3 py-1 rounded bg-teal-700 text-white text-[11px] font-bold hover:bg-teal-800 disabled:opacity-50"
+                            disabled={smsSending[patient.id] || !patient.phone}
+                            onClick={async () => {
+                              if (!patient.phone) return;
+                              setSmsSending((prev) => ({ ...prev, [patient.id]: true }));
+                              try {
+                                const entry = await sendSMSService(patient, smsLang, smsConfig, clinicSettings);
+                                const updated = [entry, ...smsLog];
+                                setSmsLog(updated);
+                                saveSMSLog(updated);
+                              } finally {
+                                setSmsSending((prev) => ({ ...prev, [patient.id]: false }));
+                              }
+                            }}
+                          >
+                            {smsSending[patient.id] ? 'Sending...' : 'Send SMS'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {filteredPatients.length > 20 && (
+                <div className="px-3 py-2 text-[11px] text-slate-500 border-t border-slate-200">
+                  Showing 20 of {filteredPatients.length} patients. Use filters to narrow results.
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
       {/* ── Backup & Restore ────────────────────────────── */}
       <BackupPanel />
 
@@ -826,10 +980,11 @@ function SettingsView() {
 
 // ── Main AdminPage ────────────────────────────────────────────
 export default function AdminPage() {
-  const activePage  = useUIStore((s) => s.activePage);
-  const patients    = usePatientStore((s) => s.patients);
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const superAdmin  = currentUser?.isSuperAdmin === true;
+  const activePage      = useUIStore((s) => s.activePage);
+  const clinicSettings  = useUIStore((s) => s.clinicSettings);
+  const patients        = usePatientStore((s) => s.patients);
+  const currentUser     = useAuthStore((s) => s.currentUser);
+  const superAdmin      = currentUser?.isSuperAdmin === true;
 
   const [hospitals,     setHospitals]     = useState<Hospital[]>(() => loadHospitals());
 
@@ -935,8 +1090,8 @@ export default function AdminPage() {
       )}
 
       {activePage === 'directory'       && <DirectoryPage />}
-      {activePage === 'settings'         && <SettingsView />}
-      {activePage === 'user-management'   && <SettingsView />}
+      {activePage === 'settings'         && <SettingsView patients={patients} clinicSettings={clinicSettings} />}
+      {activePage === 'user-management'   && <SettingsView patients={patients} clinicSettings={clinicSettings} />}
     </PageWrapper>
   );
 }
