@@ -9,7 +9,10 @@
 // Masking rules (Tanzanian +255 or 0XXX format):
 //   +255 744 123 456  →  +255 *** *** 456
 //   0744123456        →  074*****456
+//   Encrypted          →  *********456 (last 3 of ciphertext)
 // ════════════════════════════════════════════════════════════
+
+const ENC_PREFIX = 'enc:v1:';
 
 /**
  * Mask a phone number for display.
@@ -19,6 +22,14 @@
 export function maskPhone(phone: string | undefined): string {
   if (!phone) return '—';
   const t = phone.trim();
+
+  // Handle encrypted phones - show compact masked format
+  if (t.startsWith(ENC_PREFIX)) {
+    // Encrypted format: enc:v1:iv_b64:ct_b64 (very long)
+    // Show last 3 chars of the ciphertext portion only
+    const last3 = t.slice(-3);
+    return `*********${last3}`;
+  }
 
   // International format: +255 7XX XXX XXX  (15 chars)
   const intl = t.match(/^(\+255\s?)(\d{3})\s?(\d{3})\s?(\d{3})$/);
