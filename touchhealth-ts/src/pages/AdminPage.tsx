@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import PageWrapper from '../components/layout/PageWrapper';
-import type { Hospital, Patient, User, SMSConfig } from '../types';
+import type { Hospital, Patient, User } from '../types';
 import { usePatientStore } from '../store/usePatientStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUIStore } from '../store/useUIStore';
