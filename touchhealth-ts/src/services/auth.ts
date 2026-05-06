@@ -296,7 +296,7 @@ export async function login(params: {
     displayName:     String(foundUser['display_name'] ?? foundUser['displayName'] ?? ''),
     role:            resolvedRole,
     hospital:        String(foundUser['hospital'] ?? ''),
-    sessionHospital: resolvedRole === 'doctor' ? (hospital || String(foundUser['hospital'] ?? '')) : 'RemoteCare',
+    sessionHospital: hospital || String(foundUser['hospital'] ?? ''),
     sessionRegion:   String(foundUser['region'] ?? ''),
     sessionDistrict: String(foundUser['district'] ?? ''),
     isSuperAdmin,

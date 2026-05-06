@@ -17,6 +17,7 @@ export interface DeviceRecord {
   id: string;
   facility_id: string;
   prefix: string | null;
+  assigned_doctor_id: string | null;
   last_seen: string;
   device_info: {
     userAgent: string;
@@ -24,6 +25,11 @@ export interface DeviceRecord {
     screen: string;
   };
   created_at: string;
+  assigned_doctor?: {
+    id: string;
+    display_name: string;
+    username: string;
+  } | null;
 }
 
 /** Generate or retrieve persistent hardware ID for this device */
@@ -227,4 +233,44 @@ export function timeSinceLastSeen(lastSeenIso: string): string {
   if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)}m ago`;
   if (diffMs < 86400000) return `${Math.floor(diffMs / 3600000)}h ago`;
   return `${Math.floor(diffMs / 86400000)}d ago`;
+}
+
+/** Assign a doctor to a device */
+export async function assignDoctorToDevice(deviceId: string, doctorId: string | null): Promise<boolean> {
+  const { error } = await supabase
+    .from(DEVICE_REGISTRY_TABLE)
+    .update({ assigned_doctor_id: doctorId, last_seen: new Date().toISOString() })
+    .eq('id', deviceId);
+
+  if (error) {
+    console.error('Failed to assign doctor:', error);
+    return false;
+  }
+
+  return true;
+}
+
+/** Fetch devices with their assigned doctors for a facility */
+export async function getFacilityDevicesWithDoctors(
+  region: string,
+  district: string,
+  hospital: string
+): Promise<DeviceRecord[]> {
+  const facilityId = buildFacilityId(region, district, hospital);
+
+  const { data, error } = await supabase
+    .from(DEVICE_REGISTRY_TABLE)
+    .select(`
+      *,
+      assigned_doctor:users!assigned_doctor_id(id, display_name, username)
+    `)
+    .eq('facility_id', facilityId)
+    .order('last_seen', { ascending: false });
+
+  if (error) {
+    console.error('Failed to fetch devices with doctors:', error);
+    return [];
+  }
+
+  return (data || []) as DeviceRecord[];
 }

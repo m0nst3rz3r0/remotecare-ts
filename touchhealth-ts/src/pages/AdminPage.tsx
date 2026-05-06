@@ -19,9 +19,10 @@ import {
 import { isControlled, isDue } from '../services/clinical';
 import { getDevicePrefix, setDevicePrefix } from '../services/devicePrefix';
 import {
-  getFacilityDevices,
+  getFacilityDevicesWithDoctors,
   assignDevicePrefix,
   unassignDevicePrefix,
+  assignDoctorToDevice,
   formatDeviceInfo,
   timeSinceLastSeen,
   getAvailablePrefixes,
@@ -321,7 +322,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
     setDeviceLoading(true);
     setDeviceErr(null);
     try {
-      const facilityDevices = await getFacilityDevices(
+      const facilityDevices = await getFacilityDevicesWithDoctors(
         currentUser.sessionRegion,
         currentUser.sessionDistrict,
         currentUser.sessionHospital
@@ -753,11 +754,13 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                   <th className="px-3 py-2 text-left font-semibold text-slate-700">Last Seen</th>
                   <th className="px-3 py-2 text-left font-semibold text-slate-700">Prefix</th>
                   <th className="px-3 py-2 text-left font-semibold text-slate-700">Action</th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-700">Doctor</th>
                 </tr>
               </thead>
               <tbody>
                 {devices.map((device) => {
                   const info = formatDeviceInfo(device);
+                  const assignedDoctor = device.assigned_doctor;
                   return (
                     <tr key={device.id} className="border-b border-slate-100 last:border-0">
                       <td className="px-3 py-2">
@@ -777,7 +780,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                       <td className="px-3 py-2">
                         {device.prefix ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded bg-teal-50 text-teal-700 text-[12px] font-bold border border-teal-200">
-                            {device.prefix}
+                            Device {device.prefix}
                           </span>
                         ) : (
                           <span className="text-slate-400 italic">Not assigned</span>
@@ -812,6 +815,35 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                               Remove
                             </button>
                           )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col gap-1">
+                          {assignedDoctor ? (
+                            <span className="text-[11px] text-slate-700 font-medium">
+                              Dr. {assignedDoctor.display_name}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">Unassigned</span>
+                          )}
+                          <select
+                            className="border border-slate-300 rounded px-2 py-1 text-[11px] bg-white w-full"
+                            value={device.assigned_doctor_id || ''}
+                            onChange={async (e: React.ChangeEvent<HTMLSelectElement>) => {
+                              const doctorId = e.target.value || null;
+                              await assignDoctorToDevice(device.id, doctorId);
+                              loadDevices();
+                            }}
+                          >
+                            <option value="">Assign Doctor...</option>
+                            {users
+                              .filter((u: User) => u.role === 'doctor')
+                              .map((doctor: User) => (
+                                <option key={doctor.id} value={doctor.id}>
+                                  Dr. {doctor.displayName}
+                                </option>
+                              ))}
+                          </select>
                         </div>
                       </td>
                     </tr>
