@@ -37,8 +37,8 @@ import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import BackupPanel from '../components/ui/BackupPanel';
 import { backupStatus } from '../services/backup';
-import { sendSMS as sendSMSService, patientsNeedingReminders, daysUntilAppointment } from '../services/sms';
-import { loadSMSConfig, saveSMSConfig, loadSMSLog, saveSMSLog } from '../services/storage';
+import { sendSMS as sendSMSService, daysUntilAppointment } from '../services/sms';
+import { loadSMSConfig, loadSMSLog, saveSMSLog } from '../services/storage';
 import { maskPhone } from '../utils/phone';
 import DirectoryPage from './DirectoryPage';
 import AnalyticsBuilder from './AnalyticsBuilder';
@@ -300,7 +300,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
   const [availablePrefixes, setAvailablePrefixes] = useState<string[]>([]);
 
   // SMS (for Admin's facility)
-  const [smsConfig, setSmsConfig]   = useState<SMSConfig>(() => loadSMSConfig());
+  const smsConfig = useMemo(() => loadSMSConfig(), []);
   const [smsLog,    setSmsLog]      = useState(() => loadSMSLog());
   const [smsSending, setSmsSending] = useState<Record<string, boolean>>({});
   const [smsLang,   setSmsLang]     = useState<'en' | 'sw'>('en');
@@ -876,9 +876,6 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
           const facilityPatients = patients.filter(
             (p) => p.hospital === currentUser?.sessionHospital && p.status === 'active'
           );
-
-          // Get patients needing reminders
-          const reminderPatients = patientsNeedingReminders(facilityPatients, clinicSettings, 30);
 
           // Filter by tab
           const filteredPatients = facilityPatients.filter((p) => {
