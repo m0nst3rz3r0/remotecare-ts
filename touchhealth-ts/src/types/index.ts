@@ -1,7 +1,6 @@
 // ════════════════════════════════════════════════════════════
 // TOUCH HEALTH · DM/HTN NCD MANAGEMENT SYSTEM
 // src/types/index.ts — All TypeScript type definitions
-// Tanzania NCD Programme · Bukoba Municipal Council
 // ════════════════════════════════════════════════════════════
 
 // ── ENUMS ────────────────────────────────────────────────────
@@ -12,7 +11,6 @@ export type Condition = 'HTN' | 'DM' | 'DM+HTN';
 
 export type PatientStatus = 'active' | 'ltfu' | 'completed' | 'discharged';
 
-// ADDED 'auto' role to handle new device logins
 export type UserRole = 'admin' | 'doctor' | 'auto';
 
 export type SugarTestType = 'FBS' | 'RBS' | '2HPP';
@@ -23,7 +21,30 @@ export type StockoutStatus = 'out' | 'low' | 'adequate';
 
 export type SMSStatus = 'queued' | 'sent' | 'failed' | 'demo';
 
-export type SMSProvider = 'at' | 'twilio';
+// ── FIX: open provider type — supports any bulk-SMS gateway ──
+// Values map to Edge Function provider routing.
+// 'at'       = Africa's Talking  (default Tanzania)
+// 'bongolive' = Bongolive        (TCRA-registered, local)
+// 'nexah'     = Nexah            (TCRA-registered, local)
+// 'twilio'    = Twilio           (international fallback)
+// 'vonage'    = Vonage / Nexmo   (international fallback)
+// 'infobip'   = Infobip
+// 'custom'    = any REST endpoint via SMSConfig.customEndpoint
+export type SMSProvider =
+  | 'at'
+  | 'bongolive'
+  | 'nexah'
+  | 'twilio'
+  | 'vonage'
+  | 'infobip'
+  | 'custom';
+
+// Reason driving an SMS — used for state-based template selection
+export type SMSReason =
+  | 'reminder'           // appointment within 7 days
+  | 'missed_appointment' // overdue — negative days remaining
+  | 'ltfu_warning'       // patient status is ltfu
+  | 'welcome';           // first enrolment, no visits yet
 
 export type ExportFormat = 'csv' | 'json';
 
@@ -68,9 +89,7 @@ export interface SessionUser {
   sessionHospital: string;
   sessionRegion: string;
   sessionDistrict: string;
-  // ── NEW: carry superadmin flag into session ──────────────
   isSuperAdmin: boolean;
-  // ── NEW: carry admin's assigned region/district ──────────
   adminRegion: string;
   adminDistrict: string;
 }
@@ -139,7 +158,7 @@ export interface Visit {
   };
   diagnoses?: Diagnosis[];
   investigations?: InvestigationResult[];
-  drugWarnings?: string[];  // medication warning summaries saved at time of visit
+  drugWarnings?: string[];
 }
 
 // ── DIAGNOSIS ────────────────────────────────────────────────
@@ -224,9 +243,9 @@ export interface GlucoseClassification {
 export interface ClinicSettings {
   days: ClinicDayIndex[];
   interval: number;
-  openHour: number;     // 0-23, default 8  (clinic opens)
-  closeHour: number;    // 0-23, default 17 (clinic closes — after this, today→overdue)
-  autoLtfuDays: number; // days overdue before auto-LTFU, default 21
+  openHour: number;
+  closeHour: number;
+  autoLtfuDays: number;
 }
 
 // ── PATIENT CODE GENERATION ───────────────────────────────────
@@ -235,6 +254,7 @@ export interface CodeComponents {
   regionPrefix: string;
   districtPrefix: string;
   hospitalPrefix: string;
+  devicePrefix?: string;  // optional A-Z letter
   genderChar: 'M' | 'F';
   sequence: number;
 }
@@ -251,22 +271,38 @@ export interface SMSConfig {
   apiKey: string;
   apiSecret: string;
   senderId: string;
+  // Africa's Talking
+  atUsername?: string;
+  // Custom REST endpoint (provider === 'custom')
+  customEndpoint?: string;
+  customHeaders?: Record<string, string>;
+  // Templates keyed by reason — fallback to template/templateSw for 'reminder'
   template: string;
   templateSw: string;
+  templateMissed?: string;
+  templateMissedSw?: string;
+  templateLtfu?: string;
+  templateLtfuSw?: string;
+  templateWelcome?: string;
+  templateWelcomeSw?: string;
 }
 
 export interface SMSLogEntry {
   id: string;
   ptId: number;
   ptCode: string;
-  phone: string;
+  phone: string;        // raw at send-time, masked on export
   message: string;
   provider: SMSProvider;
+  reason: SMSReason;
   lang: 'en' | 'sw';
   sentAt: string;
   status: SMSStatus;
   hospital: string;
   note?: string;
+  messageId?: string;   // gateway message ID for delivery tracking
+  cost?: string;        // gateway cost string (e.g. "TZS 25.0000")
+  retryCount?: number;
 }
 
 // ── DRUG SUPPLY / STOCKOUT ────────────────────────────────────
