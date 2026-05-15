@@ -2,6 +2,11 @@
 // TOUCH HEALTH · DM/HTN NCD MANAGEMENT SYSTEM
 // src/services/patients.ts — Patient CRUD, code generation,
 //   visit management, HbA1c, status transitions
+//
+// FIX: loadPatients / savePatients are no longer defined here.
+//      They are imported from storage.ts (single source of truth).
+//      This eliminates the dual-write bug where two independent
+//      copies operated against the same localStorage key.
 // ════════════════════════════════════════════════════════════
 
 import type {
@@ -23,24 +28,13 @@ import { Diagnosis } from '../data/icd10';
 import { InvestigationResult } from '../data/investigations';
 import { today, getLastVisit } from './clinical';
 
-// ── STORAGE KEY ───────────────────────────────────────────────
+// ── RE-EXPORT FROM STORAGE (single source of truth) ──────────
+// All callers that previously imported loadPatients/savePatients
+// from this file will still compile — they just get the canonical
+// versions now.
+export { loadPatients, savePatients } from './storage';
 
-const PATIENTS_KEY = 'zmz2_pts';
-
-// ── STORAGE HELPERS ───────────────────────────────────────────
-
-export function loadPatients(): Patient[] {
-  try {
-    const raw = localStorage.getItem(PATIENTS_KEY);
-    return raw ? (JSON.parse(raw) as Patient[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function savePatients(patients: Patient[]): void {
-  localStorage.setItem(PATIENTS_KEY, JSON.stringify(patients));
-}
+// ── PATIENT VISIBILITY ────────────────────────────────────────
 
 /**
  * Returns patients visible to the current user.
@@ -77,7 +71,6 @@ export function mkPrefix(name: string, len: number): string {
   for (let i = 0; i < upper.length && result.length < len; i++) {
     if (i === 0 || CONSONANTS.includes(upper[i])) result += upper[i];
   }
-  // Pad with remaining chars if still short
   while (result.length < len) {
     result += upper[result.length] ?? 'X';
   }
@@ -102,10 +95,14 @@ export function buildLocationPrefix(
 }
 
 /**
- * Find the next available sequence number for a given location prefix + gender.
- * Scans all existing patients to prevent collisions.
+ * Find the next available sequence number for a given namespace prefix + gender.
  *
- * Format searched: 'KG-BK-ZMZ-M####'
+ * The namespace is: locationPrefix[-deviceLetter]-G
+ * e.g.  'KG-BK-ZMZ-A-M' for Device A males at Zamzam.
+ *
+ * Because every device in a facility sees ALL patients (they sync),
+ * this scan correctly avoids numbers already used by other devices
+ * in the same device-letter namespace.
  */
 export function nextPatientSeq(
   patients: Patient[],
@@ -118,7 +115,6 @@ export function nextPatientSeq(
     .map((p) => {
       const parts = p.code.split('-');
       const last = parts[parts.length - 1];
-      // Strip leading gender char, parse number
       return parseInt(last.replace(/^[MF]/, ''), 10) || 0;
     })
     .filter((n) => !isNaN(n));
@@ -129,18 +125,21 @@ export function nextPatientSeq(
 /**
  * Generate a full patient code.
  *
- * Without device prefix (legacy):
- *   Format: [Region2]-[District2]-[Hospital3]-[G][NNNN]
- *   Example: KG-BK-ZMZ-M0001
+ * WITHOUT device prefix (legacy / single-device):
+ *   KG-BK-ZMZ-M0001
  *
- * With device prefix (multi-device):
- *   Format: [Region2]-[District2]-[Hospital3]-[Device]-[G][NNNN]
- *   Example: KG-BK-ZMZ-A-M0001  (Device A)
- *            KG-BK-ZMZ-B-M0001  (Device B — no collision!)
+ * WITH device prefix (multi-device per facility):
+ *   KG-BK-ZMZ-A-M0001  (Device A)
+ *   KG-BK-ZMZ-B-M0001  (Device B — different namespace, no collision)
  *
- * All devices at the same facility still share the RG-DT-HSP
- * prefix, so they see each other's patients. The device letter
- * only creates separate sequence namespaces.
+ * All devices at the same facility share the RG-DT-HSP prefix so they
+ * see each other's patients after sync. The device letter only creates
+ * separate sequence namespaces to prevent same-number collisions when
+ * two tablets register a patient simultaneously without connectivity.
+ *
+ * The sequence counter is derived from ALL patients in the store
+ * (not just those with the same device letter), because the store
+ * contains synced patients from every device in the facility.
  */
 export function generatePatientCode(
   patients: Patient[],
@@ -148,11 +147,12 @@ export function generatePatientCode(
   district: string,
   hospitalName: string,
   sex: Sex,
-  devicePrefix?: string | null   // optional: single A–Z letter
+  devicePrefix?: string | null
 ): GeneratedCode {
   const genderChar = sex === 'M' ? 'M' : 'F';
   const baseLocationPrefix = buildLocationPrefix(region, district, hospitalName);
-  // If a device prefix is set, append it to the sequence namespace
+
+  // Namespace: RG-DT-HSP[-DeviceLetter]
   const locationPrefix = devicePrefix
     ? `${baseLocationPrefix}-${devicePrefix}`
     : baseLocationPrefix;
@@ -165,6 +165,7 @@ export function generatePatientCode(
     regionPrefix:   mkPrefix(region, 2),
     districtPrefix: mkPrefix(district, 2),
     hospitalPrefix: mkPrefix(hospitalName, 3),
+    devicePrefix:   devicePrefix ?? undefined,
     genderChar,
     sequence:       seq,
   };
@@ -173,8 +174,9 @@ export function generatePatientCode(
 }
 
 /**
- * Safety check: ensure a generated code is truly unique.
- * Increments sequence until no collision found.
+ * Safety check: ensure a generated code is truly unique across
+ * all patients currently in the store.  Increments the trailing
+ * sequence until no collision is found.
  */
 export function ensureUniqueCode(patients: Patient[], code: string): string {
   let safe = code;
@@ -216,7 +218,6 @@ export function registerPatient(
 ): PatientResult {
   const { region, district, hospital, age, sex, cond, enrol, phone, address } = params;
 
-  // Validation
   if (!region || !district || !hospital) {
     return { success: false, error: 'Please select Region, District and Facility.' };
   }
@@ -233,7 +234,6 @@ export function registerPatient(
     return { success: false, error: 'Please enter the enrolment date.' };
   }
 
-  // Generate code — include device prefix to prevent multi-device collisions
   const { devicePrefix } = params;
   const { code: rawCode } = generatePatientCode(patients, region, district, hospital, sex, devicePrefix);
   const code = ensureUniqueCode(patients, rawCode);
@@ -248,7 +248,7 @@ export function registerPatient(
     phone:       phone?.trim() || undefined,
     address:     address?.trim() || undefined,
     status:      'active',
-    hospital:    hospital,
+    hospital,
     region,
     district,
     visits:      [],
@@ -298,7 +298,6 @@ export interface RecordVisitParams {
   nextDate?:    string;
   nextNote?:    string;
   scheduledBy?: string;
-  // New clinical fields
   clinicalNotes?: string;
   differentialDx?: string;
   diagnoses?: Diagnosis[];
@@ -316,7 +315,6 @@ export interface RecordVisitParams {
     footExamination?: 'normal' | 'abnormal' | 'ulcer' | 'amputation';
     otherFindings?: string;
   };
-  // HbA1c (DM patients only)
   hba1cValue?:   number;
   hba1cQuarter?: HbA1cQuarter;
   hba1cYear?:    number;
@@ -338,7 +336,6 @@ export function recordVisit(
       diagnoses, investigations, drugWarnings,
     } = params;
 
-    // Build visit record
     const visit: Visit = {
       id:        'v' + Date.now(),
       month,
@@ -361,20 +358,17 @@ export function recordVisit(
       drugWarnings:        att ? drugWarnings         ?? undefined : undefined,
     };
 
-    // Keep all existing visits except one with the exact same date (prevent true duplicates only)
     const visits = [
       ...(p.visits ?? []).filter((v) => v.date !== date),
       visit,
     ];
 
-    // Sync medications
     let medications = [...(p.medications ?? [])];
     if (att && meds.length) {
       medications = medications.filter((m) => m.date !== date);
       medications.push({ date, meds });
     }
 
-    // Scheduled next appointment
     let scheduledNext: ScheduledAppointment | undefined = p.scheduledNext;
     if (nextDate) {
       scheduledNext = {
@@ -385,11 +379,9 @@ export function recordVisit(
       };
     }
 
-    // HbA1c entry (DM / DM+HTN only, if value provided)
     let hba1c = [...(p.hba1c ?? [])];
     if (att && hba1cValue && hba1cQuarter && (p.cond === 'DM' || p.cond === 'DM+HTN')) {
       const yr = hba1cYear ?? new Date(date).getFullYear();
-      // Replace existing entry for same year+quarter
       hba1c = hba1c.filter(
         (h) => !(h.year === yr && h.quarter === hba1cQuarter)
       );
@@ -454,10 +446,6 @@ export function clearScheduledAppointment(
   });
 }
 
-/**
- * Bulk-confirm all predicted appointments for active patients
- * that don't yet have a manual schedule.
- */
 export function confirmAllPredicted(
   patients: Patient[],
   getNextDate: (patient: Patient) => Date,
@@ -504,8 +492,6 @@ export function addHbA1cEntry(
 ): Patient[] {
   return patients.map((p) => {
     if (p.id !== patientId) return p;
-
-    // Only allow for DM / DM+HTN patients
     if (p.cond !== 'DM' && p.cond !== 'DM+HTN') return p;
 
     const fullEntry: HbA1cEntry = {
@@ -513,7 +499,6 @@ export function addHbA1cEntry(
       date: entry.date ?? today(),
     };
 
-    // Replace existing entry for same year + quarter
     const hba1c = [
       ...(p.hba1c ?? []).filter(
         (h) => !(h.year === fullEntry.year && h.quarter === fullEntry.quarter)
@@ -603,19 +588,12 @@ export function countBySex(patients: Patient[]) {
   };
 }
 
-/** Patients enrolled in a given calendar year */
 export function enrolledInYear(patients: Patient[], year: number): Patient[] {
   return patients.filter(
     (p) => p.enrol && new Date(p.enrol).getFullYear() === year
   );
 }
 
-// ── EXPORT / CSV HELPERS ──────────────────────────────────────
-
-/**
- * Flatten a patient list to CSV-ready rows (de-identified for DHIS2).
- * No patient names, phone numbers, or addresses included.
- */
 export function patientsToAggregateRows(
   patients: Patient[],
   year: number,
@@ -642,127 +620,4 @@ export function patientsToAggregateRows(
       visitCount: (p.visits ?? []).filter((v) => v.att).length,
     };
   });
-}
-
-// ── SAMPLE DATA SEEDING ────────────────────────────────────────
-
-const DEFAULT_PATIENTS: Patient[] = [
-  {
-    id: 1,
-    code: 'BRH001',
-    enrol: '2024-01-15',
-    age: 45,
-    sex: 'F',
-    cond: 'DM+HTN',
-    status: 'active',
-    hospital: 'Bukoba Regional Hospital',
-    region: 'Kagera',
-    district: 'Bukoba Municipal',
-    phone: '',
-    address: '',
-    visits: [
-      { id: 'v1', month: 1, year: 2024, date: '2024-01-15', att: true, sbp: 140, dbp: 90, sugar: 7.2, sugarType: 'FBS', weight: 65, height: 160, bmi: 25.4, notes: '', meds: [] },
-      { id: 'v2', month: 2, year: 2024, date: '2024-02-15', att: true, sbp: 135, dbp: 85, sugar: 6.8, sugarType: 'FBS', weight: 64, height: 160, bmi: 25.0, notes: '', meds: [] },
-      { id: 'v3', month: 3, year: 2024, date: '', att: false, sbp: null, dbp: null, sugar: null, sugarType: 'FBS', weight: null, height: null, bmi: null, notes: '', meds: [] },
-    ],
-    medications: [],
-    hba1c: [],
-    callLog: [],
-    scheduledNext: undefined,
-  },
-  {
-    id: 2,
-    code: 'BRH002',
-    enrol: '2024-02-20',
-    age: 52,
-    sex: 'M',
-    cond: 'HTN',
-    status: 'active',
-    hospital: 'Bukoba Regional Hospital',
-    region: 'Kagera',
-    district: 'Bukoba Municipal',
-    phone: '',
-    address: '',
-    visits: [
-      { id: 'v4', month: 2, year: 2024, date: '2024-02-20', att: true, sbp: 150, dbp: 95, sugar: null, sugarType: 'FBS', weight: 75, height: 170, bmi: 26.0, notes: '', meds: [] },
-      { id: 'v5', month: 3, year: 2024, date: '2024-03-20', att: true, sbp: 145, dbp: 90, sugar: null, sugarType: 'FBS', weight: 74, height: 170, bmi: 25.6, notes: '', meds: [] },
-    ],
-    medications: [],
-    hba1c: [],
-    callLog: [],
-    scheduledNext: undefined,
-  },
-  {
-    id: 3,
-    code: 'BRH003',
-    enrol: '2024-03-10',
-    age: 38,
-    sex: 'F',
-    cond: 'DM',
-    status: 'ltfu',
-    hospital: 'Bukoba Regional Hospital',
-    region: 'Kagera',
-    district: 'Bukoba Municipal',
-    phone: '',
-    address: '',
-    visits: [
-      { id: 'v6', month: 3, year: 2024, date: '2024-03-10', att: true, sbp: 120, dbp: 80, sugar: 8.5, sugarType: 'FBS', weight: 58, height: 155, bmi: 24.1, notes: '', meds: [] },
-    ],
-    medications: [],
-    hba1c: [],
-    callLog: [],
-    scheduledNext: undefined,
-  },
-  {
-    id: 4,
-    code: 'BRH004',
-    enrol: '2023-12-05',
-    age: 60,
-    sex: 'M',
-    cond: 'DM+HTN',
-    status: 'active',
-    hospital: 'Bukoba Regional Hospital',
-    region: 'Kagera',
-    district: 'Bukoba Municipal',
-    phone: '',
-    address: '',
-    visits: [
-      { id: 'v7', month: 12, year: 2023, date: '2023-12-05', att: true, sbp: 160, dbp: 100, sugar: 9.1, sugarType: 'FBS', weight: 80, height: 165, bmi: 29.4, notes: '', meds: [] },
-      { id: 'v8', month: 1, year: 2024, date: '2024-01-05', att: true, sbp: 155, dbp: 95, sugar: 8.8, sugarType: 'FBS', weight: 79, height: 165, bmi: 29.0, notes: '', meds: [] },
-      { id: 'v9', month: 2, year: 2024, date: '2024-02-05', att: true, sbp: 150, dbp: 92, sugar: 8.2, sugarType: 'FBS', weight: 78, height: 165, bmi: 28.6, notes: '', meds: [] },
-      { id: 'v10', month: 3, year: 2024, date: '2024-03-05', att: true, sbp: 148, dbp: 90, sugar: 7.9, sugarType: 'FBS', weight: 77, height: 165, bmi: 28.3, notes: '', meds: [] },
-    ],
-    medications: [],
-    hba1c: [],
-    callLog: [],
-    scheduledNext: undefined,
-  },
-  {
-    id: 5,
-    code: 'BRH005',
-    enrol: '2024-01-28',
-    age: 41,
-    sex: 'F',
-    cond: 'DM',
-    status: 'active',
-    hospital: 'Bukoba Regional Hospital',
-    region: 'Kagera',
-    district: 'Bukoba Municipal',
-    phone: '',
-    address: '',
-    visits: [
-      { id: 'v11', month: 1, year: 2024, date: '2024-01-28', att: true, sbp: 118, dbp: 78, sugar: 7.5, sugarType: 'FBS', weight: 62, height: 158, bmi: 24.8, notes: '', meds: [] },
-      { id: 'v12', month: 2, year: 2024, date: '2024-02-28', att: true, sbp: 115, dbp: 75, sugar: 7.1, sugarType: 'FBS', weight: 61, height: 158, bmi: 24.4, notes: '', meds: [] },
-    ],
-    medications: [],
-    hba1c: [],
-    callLog: [],
-    scheduledNext: undefined,
-  },
-];
-
-export function seedPatients(): void {
-  if (!loadPatients().length) {
-    savePatients(DEFAULT_PATIENTS);
-  }
 }
