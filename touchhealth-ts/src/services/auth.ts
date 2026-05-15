@@ -541,3 +541,15 @@ export function getUserInitials(displayName: string): string {
     .toUpperCase()
     .slice(0, 2);
 }
+
+// ── Re-exports for backward compatibility ─────────────────────
+// loadUsers, saveUsers, loadHospitals, saveHospitals moved to
+// storage.ts (single source of truth).  Re-exported here so
+// every existing caller (AdminPage, AuthPage, DirectoryPage,
+// NavTabs, Sidebar) compiles without touching those files.
+export {
+  loadUsers,
+  saveUsers,
+  loadHospitals,
+  saveHospitals,
+} from './storage';
