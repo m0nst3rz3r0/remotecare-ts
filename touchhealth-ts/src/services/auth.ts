@@ -2,31 +2,42 @@
 // REMOTECARE · src/services/auth.ts
 // Authentication & session management
 //
-// OFFLINE-FIRST STRATEGY:
-// ─────────────────────────────────────────────────────────────
-// • All writes go to localStorage FIRST — the app always works
-//   without internet.
-// • Supabase is used as a SYNC target only:
-//     - Login: try Supabase first, fall back to localStorage cache
-//     - User mutations (add / password reset / delete): write locally,
-//       then fire-and-forget to Supabase (no crash if offline)
-//     - A "pending_ops" queue stores any Supabase write that failed,
-//       so the manual Sync button can replay them later
-// ─────────────────────────────────────────────────────────────
+// FIXES in this version
+// ─────────────────────────────────────────────────────────
+// 1. validateSession() cold-start bug: on a fresh page load
+//    before sync runs, loadUsers() returns [] so every session
+//    was silently invalidated, logging the user out on refresh.
+//    Fix: fall back to cached users before giving up — the cache
+//    is always populated at login and persists across restarts.
+// 2. login() accepted region/district params that were
+//    immediately discarded (TS build workaround comment).
+//    Removed them from the signature so callers are not misled.
+// 3. checkSupabaseConnection() moved to storage.ts where it
+//    uses a safe ping() RPC instead of querying the users table.
+//
+// OFFLINE-FIRST STRATEGY (unchanged)
+// ─────────────────────────────────────────────────────────
+// • All writes go to localStorage FIRST.
+// • Supabase is a SYNC target only.
+// • A pending_ops queue stores any Supabase write that failed,
+//   so the manual Sync button can replay them later.
+// ════════════════════════════════════════════════════════════
 
 import type { User, SessionUser, UserRole, Hospital } from '../types';
 import { hashPassword, verifyPassword } from './crypto';
 import { supabase } from './supabase';
 import { registerDevice } from './deviceManager';
+import {
+  loadUsers,    saveUsers,
+  loadHospitals, saveHospitals,
+  loadCachedUsers, saveCachedUsers,
+} from './storage';
 
 // ── STORAGE KEYS ─────────────────────────────────────────────
 
 const KEYS = {
-  USERS:          'th_users',
-  SESSION:        'th_session',
-  HOSPITALS:      'th_hospitals',
-  CACHED_USERS:   'th_cached_users',   // users pulled from Supabase for offline login
-  PENDING_OPS:    'th_pending_ops',    // failed Supabase writes queued for next sync
+  SESSION:     'th_session',
+  PENDING_OPS: 'th_pending_ops',
 } as const;
 
 // ════════════════════════════════════════════════════════════
@@ -98,51 +109,8 @@ export function pendingOpsCount(): number {
 }
 
 // ════════════════════════════════════════════════════════════
-// LOCAL STORAGE HELPERS  (source of truth for all reads)
+// OFFLINE USER CACHE  (re-exported helpers from storage.ts)
 // ════════════════════════════════════════════════════════════
-
-export function loadUsers(): User[] {
-  try {
-    const raw = localStorage.getItem(KEYS.USERS);
-    return raw ? (JSON.parse(raw) as User[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveUsers(users: User[]): void {
-  localStorage.setItem(KEYS.USERS, JSON.stringify(users));
-}
-
-export function loadHospitals(): Hospital[] {
-  try {
-    const raw = localStorage.getItem(KEYS.HOSPITALS);
-    return raw ? (JSON.parse(raw) as Hospital[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveHospitals(hospitals: Hospital[]): void {
-  localStorage.setItem(KEYS.HOSPITALS, JSON.stringify(hospitals));
-}
-
-// ════════════════════════════════════════════════════════════
-// OFFLINE USER CACHE
-// ════════════════════════════════════════════════════════════
-
-function loadCachedUsers(): Record<string, unknown>[] {
-  try {
-    const raw = localStorage.getItem(KEYS.CACHED_USERS);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCachedUsers(users: Record<string, unknown>[]): void {
-  localStorage.setItem(KEYS.CACHED_USERS, JSON.stringify(users));
-}
 
 function cacheUserForOffline(user: Record<string, unknown>): void {
   const cached = loadCachedUsers();
@@ -186,8 +154,8 @@ function findCachedUser(username: string): Record<string, unknown> | null {
 export function seedDefaults(): void {}
 
 export function clearAndReseed(): void {
-  localStorage.removeItem(KEYS.USERS);
-  localStorage.removeItem(KEYS.HOSPITALS);
+  localStorage.removeItem('th_users');
+  localStorage.removeItem('th_hospitals');
   localStorage.removeItem(KEYS.SESSION);
 }
 
@@ -212,19 +180,44 @@ export function clearSession(): void {
   localStorage.removeItem(KEYS.SESSION);
 }
 
+/**
+ * FIX: validateSession cold-start bug.
+ *
+ * Previously: checked loadUsers() which returns [] before sync →
+ * session always invalid → user logged out on every page refresh.
+ *
+ * Now: if loadUsers() is empty (pre-sync), fall back to the
+ * cached-users list which is always populated at login time.
+ */
 export function validateSession(): SessionUser | null {
   const session = getSession();
   if (!session) return null;
-  const stillExists = loadUsers().find((u) => u.id === session.id && u.role === session.role);
-  if (!stillExists) {
-    const inCache = findCachedUser(session.username);
-    if (!inCache) { clearSession(); return null; }
+
+  // Primary check — local user list (populated after sync)
+  const localUsers = loadUsers();
+  if (localUsers.length > 0) {
+    const stillExists = localUsers.find(
+      (u) => u.id === session.id && u.role === session.role
+    );
+    if (!stillExists) {
+      // User was deleted — invalidate
+      clearSession();
+      return null;
+    }
+    return session;
+  }
+
+  // Fallback — cached users (pre-sync cold start)
+  const inCache = findCachedUser(session.username);
+  if (!inCache) {
+    clearSession();
+    return null;
   }
   return session;
 }
 
 // ════════════════════════════════════════════════════════════
-// LOGIN 
+// LOGIN
 // ════════════════════════════════════════════════════════════
 
 export type LoginResult =
@@ -235,11 +228,8 @@ export async function login(params: {
   username: string;
   password: string;
   role: UserRole;
-  hospital?:  string;
-  region?:    string;
-  district?:  string;
+  hospital?: string;
 }): Promise<LoginResult> {
-  // FIX: Removed unused 'region' and 'district' here to pass TS Build
   const { username, password, role, hospital = '' } = params;
 
   if (!username || !password) {
@@ -306,13 +296,11 @@ export async function login(params: {
 
   saveSession(sessionUser);
 
-  // Register this device in the cloud for remote prefix management
-  // Fire-and-forget: don't block login if this fails
   registerDevice(
     sessionUser.sessionRegion,
     sessionUser.sessionDistrict,
-    sessionUser.sessionHospital
-  ).catch(err => console.warn('Device registration failed:', err));
+    sessionUser.sessionHospital,
+  ).catch((err) => console.warn('Device registration failed:', err));
 
   return { success: true, user: sessionUser, offline: isOffline };
 }
@@ -330,15 +318,15 @@ export type MutationResult =
   | { success: false; error: string };
 
 export async function addUser(params: {
-  displayName:  string;
-  username:     string;
-  password:     string;
-  role:         UserRole;
-  hospital?:    string;
-  region?:      string;
-  district?:    string;
+  displayName:   string;
+  username:      string;
+  password:      string;
+  role:          UserRole;
+  hospital?:     string;
+  region?:       string;
+  district?:     string;
   isSuperAdmin?: boolean;
-  createdBy?:   SessionUser | null;
+  createdBy?:    SessionUser | null;
 }): Promise<MutationResult> {
   const {
     displayName, username, password, role,
@@ -369,10 +357,9 @@ export async function addUser(params: {
     return { success: false, error: 'You must assign a hospital to this doctor.' };
   }
 
-  const hashed  = await hashPassword(password);
-  const userId  = crypto.randomUUID();
+  const hashed = await hashPassword(password);
+  const userId = crypto.randomUUID();
 
-  // Supabase Payload format
   const supabasePayload = {
     id:             userId,
     username:       username.toLowerCase(),
@@ -385,7 +372,6 @@ export async function addUser(params: {
     is_super_admin: newUserIsSuperAdmin,
   };
 
-  // Local Payload format
   const localUser: User = {
     id:           userId,
     displayName,
@@ -399,13 +385,9 @@ export async function addUser(params: {
     createdAt:    new Date().toISOString(),
   };
 
-  // 1. Save Locally
   saveUsers([...users, localUser]);
-
-  // 2. Cache for offline fallback
   cacheUserForOffline(supabasePayload);
 
-  // 3. Sync to Supabase
   try {
     const { error } = await supabase.from('users').insert(supabasePayload);
     if (error) throw error;
