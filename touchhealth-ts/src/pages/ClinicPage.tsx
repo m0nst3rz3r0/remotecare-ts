@@ -40,7 +40,6 @@ import {
   buildSMSMessage,
 } from '../services/sms';
 import { loadSMSConfig, loadClinicSettings } from '../services/storage';
-import { decryptPhone } from '../services/phoneEncryption';
 import type { Patient } from '../types';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -337,7 +336,6 @@ export default function ClinicPage() {
   const [selected, setSelected]     = useState<Set<number>>(new Set());
   const [smsLang, setSmsLang]       = useState<'en' | 'sw'>('sw');
   const [bulkState, setBulkState]   = useState<BulkSendState>({ phase: 'idle' });
-  const [smsResult, setSmsResult]   = useState<{ sent: number; skipped: number; failed: number } | null>(null);
   const abortRef = useRef(false);
 
   const visible = useMemo(
@@ -475,14 +473,12 @@ export default function ClinicPage() {
     const skippedNoPhone = selectedRows.length - toSend.length;
     skipped += skippedNoPhone;
 
-    setSmsResult({ sent, skipped, failed });
     setBulkState({ phase: 'done', sent, skipped, failed });
     setSelected(new Set());
   }, [selectedRows, smsLang]);
 
   const resetSms = useCallback(() => {
     setBulkState({ phase: 'idle' });
-    setSmsResult(null);
     abortRef.current = true;
   }, []);
 
@@ -649,7 +645,7 @@ export default function ClinicPage() {
   }
 
   // ── Table with bulk-select header ──────────────────────────
-  function Table({ rows, empty, status }: { rows: ClinicRow[]; empty: string; status?: SlotStatus }) {
+  function Table({ rows, empty, status: _status }: { rows: ClinicRow[]; empty: string; status?: SlotStatus }) {
     const allWithPhone = rows.filter(r => r.patient.phone);
     const allSelected  = allWithPhone.length > 0 && allWithPhone.every(r => selected.has(r.patient.id));
     const someSelected = allWithPhone.some(r => selected.has(r.patient.id));
