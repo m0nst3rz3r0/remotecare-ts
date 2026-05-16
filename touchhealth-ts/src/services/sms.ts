@@ -219,12 +219,16 @@ export async function sendSMS(
       await new Promise((r) => setTimeout(r, 1000 * attempt));
     }
     try {
+      const facilityId = [patient.region, patient.district, patient.hospital]
+        .join('_').toLowerCase().replace(/\s+/g, '_');
+
       const { data, error } = await supabase.functions.invoke('send-sms', {
         body: {
           provider:       cfg.provider,
           phone:          rawPhone,
           message,
           senderId:       cfg.senderId,
+          facilityId,
           // Provider-specific extras
           atUsername:     cfg.atUsername,
           customEndpoint: cfg.customEndpoint,
