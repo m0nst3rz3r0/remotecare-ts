@@ -23,6 +23,11 @@ import type {
   PatientStatus, Visit,
 } from '@/types';
 
+// Supabase returns untyped rows when no database schema is generated.
+// This alias makes all .map() / .forEach() callbacks explicit so
+// strict-mode TypeScript does not complain about implicit `any`.
+type SupabaseRow = Record<string, unknown>;
+
 // ── STORAGE KEYS ─────────────────────────────────────────────
 
 const KEYS = {
@@ -301,14 +306,14 @@ export async function syncPatientsWithCloud() {
       const canonicalCloud = Array.from(cloudByCode.values()) as Array<Record<string, unknown>>;
 
       // Delete ghost patients from Supabase
-      const keepIds = new Set(canonicalCloud.map((p) => normalize(p.id)));
+      const keepIds = new Set(canonicalCloud.map((p: SupabaseRow) => normalize(p.id)));
       const ghostIds = cloudPatients
-        .map((p) => normalize(p.id))
-        .filter((id) => !keepIds.has(id));
+        .map((p: SupabaseRow) => normalize(p.id))
+        .filter((id: number) => !keepIds.has(id));
       if (ghostIds.length > 0) {
         const { data: gv } = await supabase
           .from('visits').select('id').in('patient_id', ghostIds);
-        const gvIds = (gv ?? []).map((v) => v.id);
+        const gvIds = (gv ?? []).map((v: SupabaseRow) => v.id);
         if (gvIds.length > 0) {
           await supabase.from('medications').delete().in('visit_id', gvIds);
           await supabase.from('visits').delete().in('id', gvIds);
@@ -321,26 +326,26 @@ export async function syncPatientsWithCloud() {
       const { data: allMeds }   = await supabase.from('medications').select('*');
 
       const medsByVisit = new Map<string, unknown[]>();
-      (allMeds ?? []).forEach((m) => {
+      (allMeds ?? []).forEach((m: SupabaseRow) => {
         const key = String(m.visit_id);
         if (!medsByVisit.has(key)) medsByVisit.set(key, []);
         medsByVisit.get(key)!.push(m);
       });
 
       const visitsByPatient = new Map<string, Visit[]>();
-      (allVisits ?? []).forEach((v) => {
+      (allVisits ?? []).forEach((v: SupabaseRow) => {
         const key = String(v.patient_id);
         if (!visitsByPatient.has(key)) visitsByPatient.set(key, []);
         visitsByPatient.get(key)!.push({
           ...v,
-          att:                v.att === true || v.att === 'true' || v.att === 1,
-          sugarType:          v.sugar_type ?? '',
-          presentingComplaint:v.presenting_complaint ?? '',
-          physicalExam:       v.physical_exam ?? undefined,
-          diagnoses:          v.diagnoses ?? [],
-          investigations:     v.investigations ?? [],
-          drugWarnings:       v.drug_warnings ?? [],
-          meds:               medsByVisit.get(String(v.id)) ?? [],
+          att:                 v.att === true || v.att === 'true' || v.att === 1,
+          sugarType:           v.sugar_type ?? '',
+          presentingComplaint: v.presenting_complaint ?? '',
+          physicalExam:        v.physical_exam ?? undefined,
+          diagnoses:           v.diagnoses ?? [],
+          investigations:      v.investigations ?? [],
+          drugWarnings:        v.drug_warnings ?? [],
+          meds:                medsByVisit.get(String(v.id)) ?? [],
         } as Visit);
       });
 
@@ -428,11 +433,11 @@ export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: s
     }
 
     const keepCloudIds = new Set(
-      Array.from(cloudByCode.values()).map((p) => Number(p.id))
+      Array.from(cloudByCode.values()).map((p: Record<string, unknown>) => Number(p.id))
     );
     const ghostCloudIds = (allCloudPatients ?? [])
-      .map((p) => Number(p.id))
-      .filter((id) => !keepCloudIds.has(id));
+      .map((p: SupabaseRow) => Number(p.id))
+      .filter((id: number) => !keepCloudIds.has(id));
 
     const totalRemoved =
       (localPatients.length - localCanonical.length) + ghostCloudIds.length;
@@ -440,7 +445,7 @@ export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: s
     if (ghostCloudIds.length > 0) {
       const { data: ghostVisits } = await supabase
         .from('visits').select('id').in('patient_id', ghostCloudIds);
-      const ghostVisitIds = (ghostVisits ?? []).map((v) => v.id);
+      const ghostVisitIds = (ghostVisits ?? []).map((v: SupabaseRow) => v.id);
       if (ghostVisitIds.length > 0) {
         await supabase.from('medications').delete().in('visit_id', ghostVisitIds);
         await supabase.from('visits').delete().in('id', ghostVisitIds);
@@ -492,7 +497,7 @@ export async function diagnoseSyncIssue(): Promise<string> {
   const { data: pts, error: pe } = await supabase.from('patients').select('*');
   if (pe) return `❌ Cannot read patients: ${pe.message}`;
   lines.push(`✅ Patients in Supabase: ${pts?.length ?? 0}`);
-  pts?.forEach((p) => lines.push(`  [${p.id}] code=${p.code} status=${p.status}`));
+  pts?.forEach((p: SupabaseRow) => lines.push(`  [${p.id}] code=${p.code} status=${p.status}`));
 
   const { data: vis, error: ve } = await supabase.from('visits').select('*');
   if (ve) return `❌ Cannot read visits: ${ve.message}`;
