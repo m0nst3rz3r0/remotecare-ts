@@ -30,7 +30,7 @@ const FILTERS: Array<{ id: PatientFilter; label: string }> = [
   { id: 'active',    label: 'Active'    },
   { id: 'due',       label: 'Due'       },
   { id: 'ltfu',      label: 'LTFU'      },
-  { id: 'completed', label: 'Completed' },
+  { id: 'completed', label: 'Seen today' },
 ];
 
 // ── Today's date string ───────────────────────────────────────

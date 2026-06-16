@@ -9,6 +9,7 @@ export type Sex = 'M' | 'F';
 
 export type Condition = 'HTN' | 'DM' | 'DM+HTN';
 
+/** Programme membership. `completed` is legacy — visit completion is tracked per visit, not status. */
 export type PatientStatus = 'active' | 'ltfu' | 'completed' | 'discharged';
 
 export type UserRole = 'admin' | 'doctor' | 'auto';

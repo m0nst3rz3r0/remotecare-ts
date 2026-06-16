@@ -34,10 +34,21 @@ import { today, getLastVisit } from './clinical';
 // versions now.
 export { loadPatients, savePatients } from './storage';
 
-export const ACTIVE_PATIENT_STATUSES: ReadonlyArray<PatientStatus> = ['active', 'completed'];
+/** Patients still enrolled in routine follow-up (not LTFU or discharged). */
+export const ACTIVE_PATIENT_STATUSES: ReadonlyArray<PatientStatus> = ['active'];
 
 export function isActivePatientStatus(status: PatientStatus): boolean {
   return ACTIVE_PATIENT_STATUSES.includes(status);
+}
+
+/** Legacy: `completed` was wrongly used as a programme status; treat as still monitored. */
+export function normalizeLegacyPatientStatus(status: PatientStatus): PatientStatus {
+  return status === 'completed' ? 'active' : status;
+}
+
+export function isSeenToday(patient: Patient): boolean {
+  const today = new Date().toISOString().split('T')[0];
+  return (patient.visits ?? []).some((v) => v.att && v.date === today);
 }
 
 // ── PATIENT VISIBILITY ────────────────────────────────────────
@@ -273,8 +284,9 @@ export function setPatientStatus(
   patientId: number,
   status: PatientStatus
 ): Patient[] {
+  const next = normalizeLegacyPatientStatus(status);
   return patients.map((p) =>
-    p.id === patientId ? { ...p, status } : p
+    p.id === patientId ? { ...p, status: next } : p
   );
 }
 
@@ -553,7 +565,7 @@ export function filterPatients(
         case 'active':    return isActivePatientStatus(p.status);
         case 'ltfu':      return p.status === 'ltfu';
         case 'due':       return isDueFn(p);
-        case 'completed': return p.status === 'completed';
+        case 'completed': return isActivePatientStatus(p.status) && isSeenToday(p);
         default:          return true;
       }
     })
@@ -583,7 +595,7 @@ export function countByStatus(patients: Patient[]) {
   return {
     active:     patients.filter((p) => isActivePatientStatus(p.status)).length,
     ltfu:       patients.filter((p) => p.status === 'ltfu').length,
-    completed:  patients.filter((p) => p.status === 'completed').length,
+    seenToday:  patients.filter((p) => isActivePatientStatus(p.status) && isSeenToday(p)).length,
     discharged: patients.filter((p) => p.status === 'discharged').length,
   };
 }

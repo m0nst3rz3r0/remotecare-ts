@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { countByStatus, filterPatients, isActivePatientStatus, recordVisit } from './patients';
+import {
+  countByStatus,
+  filterPatients,
+  isActivePatientStatus,
+  isSeenToday,
+  normalizeLegacyPatientStatus,
+  recordVisit,
+} from './patients';
 import type { Patient } from '../types';
 
 const mkPatient = (overrides: Partial<Patient>): Patient => ({
@@ -19,10 +26,15 @@ const mkPatient = (overrides: Partial<Patient>): Patient => ({
 });
 
 describe('patient status semantics', () => {
-  it('treats active and completed as active-programme statuses', () => {
+  it('treats only active as enrolled in routine follow-up', () => {
     expect(isActivePatientStatus('active')).toBe(true);
-    expect(isActivePatientStatus('completed')).toBe(true);
+    expect(isActivePatientStatus('completed')).toBe(false);
     expect(isActivePatientStatus('ltfu')).toBe(false);
+  });
+
+  it('maps legacy completed programme status back to active', () => {
+    expect(normalizeLegacyPatientStatus('completed')).toBe('active');
+    expect(normalizeLegacyPatientStatus('ltfu')).toBe('ltfu');
   });
 
   it('uses the same active definition in status counts and filters', () => {
@@ -34,8 +46,23 @@ describe('patient status semantics', () => {
     const counts = countByStatus(patients);
     const filtered = filterPatients(patients, 'active', '', () => false);
 
-    expect(counts.active).toBe(2);
-    expect(filtered.map((p) => p.id)).toEqual([1, 2]);
+    expect(counts.active).toBe(1);
+    expect(filtered.map((p) => p.id)).toEqual([1]);
+  });
+
+  it('treats the completed filter as seen today, not programme status', () => {
+    const today = new Date().toISOString().split('T')[0];
+    const patients = [
+      mkPatient({
+        id: 1,
+        visits: [{ id: 'v1', month: 6, date: today, att: true }],
+      }),
+      mkPatient({ id: 2, status: 'completed' }),
+    ];
+    const filtered = filterPatients(patients, 'completed', '', () => false);
+
+    expect(isSeenToday(patients[0])).toBe(true);
+    expect(filtered.map((p) => p.id)).toEqual([1]);
   });
 
   it('reactivates a patient when an attended visit is recorded', () => {

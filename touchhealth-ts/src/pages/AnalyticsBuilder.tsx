@@ -28,6 +28,7 @@ import { Line } from 'react-chartjs-2';
 import { usePatientStore } from '../store/usePatientStore';
 import { TZ_GEO }         from '../utils/geo';
 import { getMonthlyStats } from '../services/clinical';
+import { isActivePatientStatus } from '../services/patients';
 import type { Patient, Visit } from '../types';
 
 ChartJS.register(
@@ -135,7 +136,7 @@ function computeBarData(metricId: MetricId, patients: Patient[]): BarData[] | nu
   const COLORS = ['#1a56db','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#a78bfa','#34d399'];
 
   if (metricId === 'drug_class_coverage') {
-    const all = patients.filter(p => p.status === 'active' || p.status === 'completed');
+    const all = patients.filter(p => isActivePatientStatus(p.status));
     if (!all.length) return null;
     const allClasses = { ...HTN_CLASSES, ...DM_CLASSES };
     return Object.keys(allClasses).map((cls, i) => ({
@@ -178,7 +179,7 @@ function computeBarData(metricId: MetricId, patients: Patient[]): BarData[] | nu
   if (metricId === 'htn_drug_combo') {
     const htnPts = patients.filter(p =>
       (p.cond === 'HTN' || p.cond === 'DM+HTN') &&
-      (p.status === 'active' || p.status === 'completed')
+      (isActivePatientStatus(p.status))
     );
     if (!htnPts.length) return null;
     const comboMap = new Map<string, Patient[]>();
@@ -210,7 +211,7 @@ function computeBarData(metricId: MetricId, patients: Patient[]): BarData[] | nu
   if (metricId === 'dm_drug_combo') {
     const dmPts = patients.filter(p =>
       (p.cond === 'DM' || p.cond === 'DM+HTN') &&
-      (p.status === 'active' || p.status === 'completed')
+      (isActivePatientStatus(p.status))
     );
     if (!dmPts.length) return null;
     const comboMap = new Map<string, Patient[]>();
@@ -282,7 +283,7 @@ function computeSeries(
       }
 
       case 'treatment_rate': {
-        const active = patients.filter(p => p.status === 'active' || p.status === 'completed');
+        const active = patients.filter(p => isActivePatientStatus(p.status));
         if (!active.length) return null;
         const onTreatment = active.filter(p =>
           p.visits?.some(v => +v.month === m && +(v.year ?? year) === year && v.att && (v.meds ?? []).length > 0)
@@ -326,14 +327,14 @@ function computeSeries(
       case 'dm_patients':
         return patients.filter((p: Patient) =>
           (p.cond === 'DM' || p.cond === 'DM+HTN') &&
-          (p.status === 'active' || p.status === 'completed') &&
+          (isActivePatientStatus(p.status)) &&
           p.visits?.some((v: Visit) => +v.month === m && +(v.year ?? year) === year),
         ).length || null;
 
       case 'htn_patients':
         return patients.filter((p: Patient) =>
           (p.cond === 'HTN' || p.cond === 'DM+HTN') &&
-          (p.status === 'active' || p.status === 'completed') &&
+          (isActivePatientStatus(p.status)) &&
           p.visits?.some((v: Visit) => +v.month === m && +(v.year ?? year) === year),
         ).length || null;
 

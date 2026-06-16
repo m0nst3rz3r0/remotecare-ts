@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, AlertOctagon, Calendar, FlaskConical, Star, ChevronDown, Check, Undo2 } from 'lucide-react';
+import { AlertTriangle, AlertOctagon, Calendar, FlaskConical, Star, ChevronDown } from 'lucide-react';
 import type { HbA1cQuarter, Patient } from '../../types';
 import { maskPhone } from '../../utils/phone';
 import {
@@ -21,7 +21,6 @@ import { useUIStore } from '../../store/useUIStore';
 import AdherenceGrid from './AdherenceGrid';
 import Chip from '../ui/Chip';
 import Alert from '../ui/Alert';
-import Button from '../ui/Button';
 
 type DetailTab = 'visits' | 'bp' | 'glucose' | 'hba1c' | 'notesDx';
 
@@ -33,14 +32,12 @@ function conditionChipCls(cond: Patient['cond']): string {
 
 function patientStatusLabel(status: Patient['status']) {
   if (status === 'ltfu')       return 'LTFU';
-  if (status === 'completed')  return 'COMPLETED';
   if (status === 'discharged') return 'DISCHARGED';
   return 'ACTIVE';
 }
 
 function statusGradient(status: Patient['status']) {
   if (status === 'ltfu')       return 'linear-gradient(135deg,#0f1f26 0%,#7f1d1d 100%)';
-  if (status === 'completed')  return 'linear-gradient(135deg,#0f1f26 0%,#005469 100%)';
   if (status === 'discharged') return 'linear-gradient(135deg,#0f1f26 0%,#3b0764 100%)';
   return 'linear-gradient(135deg,#0f1f26 0%,#064e3b 100%)';
 }
@@ -1390,18 +1387,11 @@ export default function PatientDetail() {
         </div>
       </div>
 
-      {/* Status action row (bottom) — secondary status actions */}
-      <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--cream)] flex gap-2 flex-wrap justify-end">
-        {patient.status === 'active' && (
-          <Button size="sm" variant="ghost" icon={<Check size={12} />} label="Save & Complete Visit" onClick={() => setStatus(patient.id, 'completed')} />
-        )}
-        {patient.status === 'completed' && (
-          <Button size="sm" variant="ghost" icon={<Undo2 size={12} />} label="Re-activate Patient" onClick={() => setStatus(patient.id, 'active')} />
-        )}
-        {patient.status === 'discharged' && (
+      {patient.status === 'discharged' && (
+        <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--cream)] flex justify-end">
           <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>Discharged from programme</span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

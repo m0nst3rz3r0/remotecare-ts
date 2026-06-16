@@ -61,11 +61,22 @@ function persist<T>(key: string, value: T): void {
 
 // ── PATIENTS ─────────────────────────────────────────────────
 
+function normalizeLegacyPatientStatuses(patients: Patient[]): Patient[] {
+  return patients.map((p) =>
+    p.status === 'completed' ? { ...p, status: 'active' as PatientStatus } : p
+  );
+}
+
 export function loadPatients(): Patient[] {
-  return load<Patient[]>(KEYS.PATIENTS, []);
+  const raw = load<Patient[]>(KEYS.PATIENTS, []);
+  const normalized = normalizeLegacyPatientStatuses(raw);
+  if (normalized.some((p, i) => p.status !== raw[i]?.status)) {
+    persist(KEYS.PATIENTS, normalized);
+  }
+  return normalized;
 }
 export function savePatients(patients: Patient[]): void {
-  persist(KEYS.PATIENTS, patients);
+  persist(KEYS.PATIENTS, normalizeLegacyPatientStatuses(patients));
 }
 
 // ── USERS ────────────────────────────────────────────────────
