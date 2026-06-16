@@ -1,8 +1,6 @@
-import { useMemo } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUIStore }   from '../../store/useUIStore';
 import { usePatientStore, selectTopbarCounts } from '../../store/usePatientStore';
-import { loadUsers }    from '../../services/auth';
 
 export default function NavTabs() {
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -10,7 +8,6 @@ export default function NavTabs() {
   const navigateTo  = useUIStore((s) => s.navigateTo);
   const patients    = usePatientStore((s) => s.patients);
   const counts      = selectTopbarCounts(patients);
-  const doctorCount = useMemo(() => loadUsers().filter((u) => u.role === 'doctor').length, []);
 
   // Admin/SuperAdmin use the sidebar instead
   if (!currentUser || currentUser.role !== 'doctor') return null;
@@ -21,9 +18,6 @@ export default function NavTabs() {
     { id: 'clinic',   label: 'Clinic',   icon: 'local_hospital' },
     { id: 'reports',  label: 'Reports',  icon: 'analytics' },
   ];
-
-  // suppress unused warning
-  void doctorCount;
 
   return (
     <nav style={{

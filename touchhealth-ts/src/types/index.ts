@@ -268,8 +268,9 @@ export interface GeneratedCode {
 
 export interface SMSConfig {
   provider: SMSProvider;
-  apiKey: string;
-  apiSecret: string;
+  // Deprecated client fields kept optional for backward compatibility.
+  apiKey?: string;
+  apiSecret?: string;
   senderId: string;
   // Africa's Talking
   atUsername?: string;

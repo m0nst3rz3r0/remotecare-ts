@@ -34,6 +34,12 @@ import { today, getLastVisit } from './clinical';
 // versions now.
 export { loadPatients, savePatients } from './storage';
 
+export const ACTIVE_PATIENT_STATUSES: ReadonlyArray<PatientStatus> = ['active', 'completed'];
+
+export function isActivePatientStatus(status: PatientStatus): boolean {
+  return ACTIVE_PATIENT_STATUSES.includes(status);
+}
+
 // ── PATIENT VISIBILITY ────────────────────────────────────────
 
 /**
@@ -395,7 +401,8 @@ export function recordVisit(
       hba1c.push(entry);
     }
 
-    return { ...p, visits, medications, scheduledNext, hba1c };
+    const nextStatus: PatientStatus = att ? 'active' : p.status;
+    return { ...p, visits, medications, scheduledNext, hba1c, status: nextStatus };
   });
 }
 
@@ -441,7 +448,7 @@ export function clearScheduledAppointment(
 ): Patient[] {
   return patients.map((p) => {
     if (p.id !== patientId) return p;
-    const { scheduledNext, ...rest } = p;
+    const { scheduledNext: _scheduledNext, ...rest } = p;
     return rest as Patient;
   });
 }
@@ -543,7 +550,7 @@ export function filterPatients(
   return patients
     .filter((p) => {
       switch (filter) {
-        case 'active':    return p.status === 'active' || p.status === 'completed';
+        case 'active':    return isActivePatientStatus(p.status);
         case 'ltfu':      return p.status === 'ltfu';
         case 'due':       return isDueFn(p);
         case 'completed': return p.status === 'completed';
@@ -574,7 +581,7 @@ export function countByCondition(patients: Patient[]) {
 
 export function countByStatus(patients: Patient[]) {
   return {
-    active:     patients.filter((p) => p.status === 'active' || p.status === 'completed').length,
+    active:     patients.filter((p) => isActivePatientStatus(p.status)).length,
     ltfu:       patients.filter((p) => p.status === 'ltfu').length,
     completed:  patients.filter((p) => p.status === 'completed').length,
     discharged: patients.filter((p) => p.status === 'discharged').length,

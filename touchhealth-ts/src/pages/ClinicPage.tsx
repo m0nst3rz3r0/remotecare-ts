@@ -562,9 +562,11 @@ export default function ClinicPage() {
           }}>
             {p.cond}
           </span>
-          {!hasPhone && (
-            <span style={{ marginLeft: 4, fontSize: 9, color: '#9a3412' }}>📵</span>
-          )}
+                  {!hasPhone && (
+                    <span style={{ marginLeft: 4, fontSize: 9, color: '#9a3412', display: 'inline-flex', alignItems: 'center' }}>
+                      <AlertTriangle size={10} />
+                    </span>
+                  )}
         </td>
 
         {/* Appointment date */}
@@ -833,7 +835,7 @@ export default function ClinicPage() {
                 color: on ? (isToday ? '#fff' : '#0d6e87') : '#516169',
                 boxShadow: isToday && on ? '0 0 0 3px rgba(13,110,135,.2)' : 'none',
               }}>
-                {DAYS_SHORT[d]}{isToday && <span style={{ marginLeft: 3, fontSize: 8 }}>●</span>}
+                {DAYS_SHORT[d]}{isToday && <span style={{ marginLeft: 3, fontSize: 8, display: 'inline-flex' }}><Check size={9} /></span>}
               </button>
             );
           })}
@@ -941,7 +943,7 @@ export default function ClinicPage() {
           {todayRows.filter(r => r.slotStatus === 'overdue').length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: '#dc2626', marginBottom: 8 }}>
-                ! Missed today — clinic closed
+                Missed today — clinic closed
               </div>
               <Table rows={todayRows.filter(r => r.slotStatus === 'overdue')} empty="" status="overdue" />
             </div>
@@ -1062,7 +1064,7 @@ export default function ClinicPage() {
               <>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800, fontSize: 13, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: '#4ade80' }}>✓ {bulkState.sent} sent</span>
+                    <span style={{ color: '#4ade80', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={12} /> {bulkState.sent} sent</span>
                     {bulkState.failed > 0 && <span style={{ color: '#f87171' }}>· {bulkState.failed} failed</span>}
                     {bulkState.skipped > 0 && <span style={{ color: 'rgba(255,255,255,.45)', fontSize: 11 }}>· {bulkState.skipped} skipped</span>}
                   </div>

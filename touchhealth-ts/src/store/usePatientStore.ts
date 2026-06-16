@@ -28,6 +28,7 @@ import {
   clearScheduledAppointment,
   confirmAllPredicted,
   filterPatients,
+  isActivePatientStatus,
   type RegisterPatientParams,
   type RecordVisitParams,
 } from '../services/patients';
@@ -221,7 +222,7 @@ export const selectSelectedPatient = (
 /** Summary counts for topbar */
 export const selectTopbarCounts = (patients: Patient[]) => ({
   total:      patients.length,
-  active:     patients.filter((p) => p.status === 'active').length,
+  active:     patients.filter((p) => isActivePatientStatus(p.status)).length,
   due:        patients.filter((p) => isDue(p)).length,
   ltfu:       patients.filter((p) => p.status === 'ltfu').length,
   controlled: patients.filter((p) => {

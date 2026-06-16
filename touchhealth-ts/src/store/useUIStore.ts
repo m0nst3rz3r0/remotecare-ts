@@ -12,7 +12,7 @@ const CLINIC_KEY = 'th_clinic';
 
 const CLINIC_DEFAULTS: ClinicSettings = {
   days: [1, 3, 5], interval: 30,
-  openHour: 8, closeHour: 17, autoLtfuDays: 21,
+  openHour: 7, closeHour: 18, autoLtfuDays: 21,
 };
 
 function loadClinicSettings(): ClinicSettings {

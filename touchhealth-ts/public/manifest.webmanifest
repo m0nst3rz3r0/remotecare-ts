@@ -1,0 +1,23 @@
+{
+  "name": "RemoteCare NCD",
+  "short_name": "RemoteCare",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0d6e87",
+  "description": "Offline-first DM/HTN patient management for clinic teams.",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

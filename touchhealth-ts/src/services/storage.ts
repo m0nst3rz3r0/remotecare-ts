@@ -202,7 +202,7 @@ export async function checkSupabaseConnection(): Promise<boolean> {
 
 export async function syncPatientsWithCloud() {
   try {
-    console.log('🔄 Full System Sync initiated...');
+    console.log('[SYNC] Full System Sync initiated...');
 
     // ── Deduplicate local patients by code before pushing ──
     const rawLocal = loadPatients();
@@ -396,7 +396,7 @@ export async function syncPatientsWithCloud() {
     return { success: true };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Network or internal error';
-    console.error('⚠️ Sync System Error:', msg);
+    console.error('[SYNC] Sync System Error:', msg);
     return { success: false, error: msg };
   }
 }
@@ -495,13 +495,13 @@ export async function diagnoseSyncIssue(): Promise<string> {
   const lines: string[] = [];
 
   const { data: pts, error: pe } = await supabase.from('patients').select('*');
-  if (pe) return `❌ Cannot read patients: ${pe.message}`;
-  lines.push(`✅ Patients in Supabase: ${pts?.length ?? 0}`);
+  if (pe) return `ERROR Cannot read patients: ${pe.message}`;
+  lines.push(`OK Patients in Supabase: ${pts?.length ?? 0}`);
   pts?.forEach((p: SupabaseRow) => lines.push(`  [${p.id}] code=${p.code} status=${p.status}`));
 
   const { data: vis, error: ve } = await supabase.from('visits').select('*');
-  if (ve) return `❌ Cannot read visits: ${ve.message}`;
-  lines.push(`\n✅ Visits in Supabase: ${vis?.length ?? 0}`);
+  if (ve) return `ERROR Cannot read visits: ${ve.message}`;
+  lines.push(`\nOK Visits in Supabase: ${vis?.length ?? 0}`);
   if (vis && vis.length > 0) {
     lines.push(`First visit raw fields:`);
     Object.entries(vis[0]).forEach(([k, val]) =>
@@ -510,8 +510,8 @@ export async function diagnoseSyncIssue(): Promise<string> {
   }
 
   const { data: meds, error: me } = await supabase.from('medications').select('*');
-  if (me) lines.push(`\n⚠️ Medications error: ${me.message}`);
-  else lines.push(`\n✅ Medications in Supabase: ${meds?.length ?? 0}`);
+  if (me) lines.push(`\nWARN Medications error: ${me.message}`);
+  else lines.push(`\nOK Medications in Supabase: ${meds?.length ?? 0}`);
 
   const report = lines.join('\n');
   console.log('=== SYNC DIAGNOSTIC ===\n' + report);

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Lock, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeOff, UserCircle2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import {
   loadUsers,
@@ -167,7 +167,7 @@ export default function AuthPage() {
                     transform: 'translateY(-50%)', color: '#516169', fontSize: '16px',
                   }}
                 >
-                  ●
+                  <UserCircle2 size={18} />
                 </div>
                 <input
                   value={username}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, AlertOctagon, Calendar, FlaskConical, Star } from 'lucide-react';
+import { AlertTriangle, AlertOctagon, Calendar, FlaskConical, Star, ChevronDown, Check, Undo2 } from 'lucide-react';
 import type { HbA1cQuarter, Patient } from '../../types';
 import { maskPhone } from '../../utils/phone';
 import {
@@ -43,7 +43,6 @@ function statusGradient(status: Patient['status']) {
   if (status === 'completed')  return 'linear-gradient(135deg,#0f1f26 0%,#005469 100%)';
   if (status === 'discharged') return 'linear-gradient(135deg,#0f1f26 0%,#3b0764 100%)';
   return 'linear-gradient(135deg,#0f1f26 0%,#064e3b 100%)';
-  return 'linear-gradient(135deg,#0f1f26 0%,#005469 100%)';
 }
 
 
@@ -159,13 +158,8 @@ function NotesDxCard({
               Labs {labCount}
             </span>
           )}
-          <span style={{
-            fontSize: 12, color: 'rgba(255,255,255,.5)',
-            transition: 'transform .2s',
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            display: 'inline-block',
-          }}>
-            ▼
+          <span style={{ color: 'rgba(255,255,255,.5)', transition: 'transform .2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-flex' }}>
+            <ChevronDown size={14} />
           </span>
         </div>
       </button>
@@ -656,6 +650,12 @@ export default function PatientDetail() {
     return !isHbA1cAtTarget(latestHbA1c.value);
   }, [isDM, latestHbA1c]);
 
+  const trendForYear = useMemo(() => {
+    if (!patient || !hba1cYear) return 'insufficient-data';
+    if (!patient.hba1c?.length) return 'insufficient-data';
+    return getHbA1cTrend(patient, hba1cYear);
+  }, [patient, hba1cYear]);
+
   if (!patient) {
     return (
       <div className="h-full border-l border-[var(--border)] bg-white flex items-center justify-center">
@@ -666,12 +666,6 @@ export default function PatientDetail() {
 
   const status = patient.status;
   const shouldShowHbA1cTab = isDM;
-
-  const trendForYear = useMemo(() => {
-    if (!patient || !hba1cYear) return 'insufficient-data';
-    if (!patient.hba1c?.length) return 'insufficient-data';
-    return getHbA1cTrend(patient, hba1cYear);
-  }, [patient, hba1cYear]);
 
   const trendLabel = (() => {
     switch (trendForYear) {
@@ -1399,10 +1393,10 @@ export default function PatientDetail() {
       {/* Status action row (bottom) — secondary status actions */}
       <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--cream)] flex gap-2 flex-wrap justify-end">
         {patient.status === 'active' && (
-          <Button size="sm" variant="ghost" label="✓ Save & Complete Visit" onClick={() => setStatus(patient.id, 'completed')} />
+          <Button size="sm" variant="ghost" icon={<Check size={12} />} label="Save & Complete Visit" onClick={() => setStatus(patient.id, 'completed')} />
         )}
         {patient.status === 'completed' && (
-          <Button size="sm" variant="ghost" label="↩ Re-activate Patient" onClick={() => setStatus(patient.id, 'active')} />
+          <Button size="sm" variant="ghost" icon={<Undo2 size={12} />} label="Re-activate Patient" onClick={() => setStatus(patient.id, 'active')} />
         )}
         {patient.status === 'discharged' && (
           <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>Discharged from programme</span>

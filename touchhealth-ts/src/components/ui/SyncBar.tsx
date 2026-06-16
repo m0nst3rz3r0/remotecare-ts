@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getLastSync, syncPatientsWithCloud } from '../../services/storage';
 import { useAuthStore } from '../../store/useAuthStore';
 import Button from './Button';
+import { AlertTriangle, RefreshCw, UserCircle2 } from 'lucide-react';
 
 type ConnState = 'online' | 'offline' | 'syncing';
 
@@ -77,7 +78,10 @@ export default function SyncBar() {
             {conn === 'syncing' ? 'Synchronizing…' : `Last Sync: ${formatLastSync(lastSyncAt)}`}
           </div>
           <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
-            <span className="text-emerald-600">👤 {currentUser?.displayName || 'Unknown User'}</span>
+            <span className="text-emerald-600 inline-flex items-center gap-1">
+              <UserCircle2 size={12} />
+              {currentUser?.displayName || 'Unknown User'}
+            </span>
             <span className="opacity-50">|</span>
             <span>
               {currentUser?.isSuperAdmin
@@ -92,7 +96,7 @@ export default function SyncBar() {
           <Button
             size="xs"
             variant="ghost"
-            icon={<span>↻</span>}
+            icon={<RefreshCw size={12} />}
             label={conn === 'syncing' ? 'Syncing…' : 'Sync Now'}
             onClick={handleSync}
             disabled={conn === 'syncing'}
@@ -102,7 +106,7 @@ export default function SyncBar() {
 
       {syncError && (
         <div className="mt-1 text-[11px] text-red-600 font-medium" title={syncError}>
-          ⚠ {syncError}
+          <span className="inline-flex items-center gap-1"><AlertTriangle size={12} /> {syncError}</span>
         </div>
       )}
     </div>

@@ -17,6 +17,7 @@ import {
   updateUserPassword,
 } from '../services/auth';
 import { isControlled, isDue } from '../services/clinical';
+import { isActivePatientStatus } from '../services/patients';
 import { getDevicePrefix, setDevicePrefix } from '../services/devicePrefix';
 import {
   getFacilityDevicesWithDoctors,
@@ -38,7 +39,13 @@ import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import BackupPanel from '../components/ui/BackupPanel';
 import { backupStatus } from '../services/backup';
-import { sendSMS as sendSMSService, daysUntilAppointment } from '../services/sms';
+import {
+  sendSMS as sendSMSService,
+  daysUntilAppointment,
+  buildSMSMessage,
+  getPatientNextDate,
+  getPatientSMSReason,
+} from '../services/sms';
 import { loadSMSConfig, saveSMSConfig, loadSMSLog, saveSMSLog } from '../services/storage';
 import type { SMSConfig } from '../types';
 import { maskPhone } from '../utils/phone';
@@ -56,7 +63,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { BarChart3, AlertTriangle, CheckCircle2, Target, Smartphone } from 'lucide-react';
+import { BarChart3, AlertTriangle, CheckCircle2, Target, Smartphone, X } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -157,7 +164,7 @@ function GlucoseControlChart({ patients, year }: { patients: Patient[]; year: nu
 function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Patient[]; hospitals: Hospital[]; year: number; scopeLabel: string }) {
   const stats = useMemo(() => {
     const total      = patients.length;
-    const active     = patients.filter((p) => p.status === 'active').length;
+    const active     = patients.filter((p) => isActivePatientStatus(p.status)).length;
     const ltfu       = patients.filter((p) => p.status === 'ltfu').length;
     const due        = patients.filter((p) => isDue(p)).length;
     const controlled = patients.filter((p) => isControlled(p)).length;
@@ -167,7 +174,7 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
 
   const facilityRows = useMemo(() => hospitals.map((h) => {
     const pts      = patients.filter((p) => p.hospital === h.name);
-    const active   = pts.filter((p) => p.status === 'active');
+    const active   = pts.filter((p) => isActivePatientStatus(p.status));
     const ctrlCount = active.filter((p) => isControlled(p)).length;
     const ctrlRate = active.length ? Math.round((ctrlCount / active.length) * 100) : null;
     const ltfu     = pts.filter((p) => p.status === 'ltfu').length;
@@ -305,6 +312,8 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
   const [smsConfig, setSmsConfig]     = useState<SMSConfig>(() => loadSMSConfig());
   const [smsLog,    setSmsLog]      = useState(() => loadSMSLog());
   const [smsSending, setSmsSending] = useState<Record<string, boolean>>({});
+  const [smsReason, setSmsReason] = useState<Record<string, 'reminder' | 'missed_appointment' | 'ltfu_warning' | 'welcome'>>({});
+  const [smsFeedback, setSmsFeedback] = useState<Record<string, string>>({});
   const [smsLang,   setSmsLang]     = useState<'en' | 'sw'>('en');
   const [smsTab,    setSmsTab]      = useState<'ltfu' | 'overdue' | 'reminder' | 'all'>('reminder');
   const [smsHospital, setSmsHospital] = useState<string>('');
@@ -324,7 +333,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
   const [selfPwOk,      setSelfPwOk]      = useState<string | null>(null);
 
   const refresh = () => { setHospitals(loadHospitals()); setUsers(loadUsers()); };
-  useEffect(() => { refresh(); }, []); // eslint-disable-line
+  useEffect(() => { refresh(); }, []);
 
   // Load devices for remote management
   const loadDevices = async () => {
@@ -391,7 +400,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
   }, [users, superAdmin, adminRegion, adminDistrict]);
 
   // Who can be deleted
-  const canDeleteUser = (u: User) => !(u.isSuperAdmin || u.username === 'admin' || u.username === 'alexalpha360');
+  const canDeleteUser = (u: User) => !(u.isSuperAdmin || u.role === 'admin');
 
   // Who shows in password reset list
   // Superadmin resets admins; admin resets doctors
@@ -874,43 +883,15 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
         <div className="font-sans font-bold text-slate-800 text-[13px] mb-1 flex items-center gap-2">
           <Smartphone size={16} />
           <span>SMS Configuration</span>
-          {!smsConfig.apiKey && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
-              Demo Mode
-            </span>
-          )}
-          {smsConfig.apiKey && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-              Live Mode
-            </span>
-          )}
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 text-[10px] font-bold border border-sky-200">
+            Server-managed secrets
+          </span>
         </div>
         <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
-          Configure Africa's Talking API credentials to send real SMS. Leave empty for demo mode (simulated sending).
-          Get API key from <a href="https://africastalking.com" target="_blank" rel="noopener noreferrer" className="text-teal-700 hover:underline">africastalking.com</a>.
+          Configure messaging behavior and templates. Provider secrets are managed server-side in the SMS edge function.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-          <div>
-            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">API Key</label>
-            <input
-              type="password"
-              className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px]"
-              value={smsConfig.apiKey}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, apiKey: e.target.value }))}
-              placeholder="Enter Africa's Talking API Key"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">API Secret</label>
-            <input
-              type="password"
-              className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px]"
-              value={smsConfig.apiSecret}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, apiSecret: e.target.value }))}
-              placeholder="Enter API Secret"
-            />
-          </div>
           <div>
             <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Sender ID</label>
             <input
@@ -1023,9 +1004,9 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
 
         {/* Patient List for SMS */}
         {(() => {
-          // Filter patients by selected hospital (include 'active' and 'completed' status)
+          // Filter patients by selected hospital using shared active-status semantics.
           const facilityPatients = smsHospital
-            ? patients.filter((p) => p.hospital === smsHospital && (p.status === 'active' || p.status === 'completed'))
+            ? patients.filter((p) => p.hospital === smsHospital && isActivePatientStatus(p.status))
             : [];
 
           // Filter by tab
@@ -1071,6 +1052,14 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                 <tbody>
                   {filteredPatients.slice(0, 20).map((patient) => {
                     const days = daysUntilAppointment(patient, clinicSettings);
+                    const resolvedReason = smsReason[patient.id] ?? getPatientSMSReason(patient, clinicSettings) ?? 'reminder';
+                    const preview = buildSMSMessage(
+                      patient,
+                      smsConfig,
+                      smsLang,
+                      getPatientNextDate(patient, clinicSettings),
+                      resolvedReason
+                    );
                     let statusLabel = '';
                     let statusColor = '';
                     if (days < 0) {
@@ -1093,17 +1082,45 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                         <td className="px-3 py-2 text-slate-600">{maskPhone(patient.phone || '')}</td>
                         <td className={`px-3 py-2 font-medium ${statusColor}`}>{statusLabel}</td>
                         <td className="px-3 py-2">
+                          <div className="flex flex-col gap-2">
+                            <select
+                              className="border border-slate-300 rounded px-2 py-1 text-[11px] bg-white"
+                              value={resolvedReason}
+                              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                                setSmsReason((prev) => ({
+                                  ...prev,
+                                  [patient.id]: e.target.value as 'reminder' | 'missed_appointment' | 'ltfu_warning' | 'welcome',
+                                }))
+                              }
+                            >
+                              <option value="reminder">Reminder</option>
+                              <option value="missed_appointment">Missed appointment</option>
+                              <option value="ltfu_warning">LTFU warning</option>
+                              <option value="welcome">Welcome</option>
+                            </select>
                           <button
                             className="px-3 py-1 rounded bg-teal-700 text-white text-[11px] font-bold hover:bg-teal-800 disabled:opacity-50"
                             disabled={smsSending[patient.id] || !patient.phone}
                             onClick={async () => {
                               if (!patient.phone) return;
+                              const proceed = window.confirm(
+                                `Send ${resolvedReason.replace('_', ' ')} SMS to ${patient.code}?\n\nPreview:\n${preview}`
+                              );
+                              if (!proceed) return;
                               setSmsSending((prev) => ({ ...prev, [patient.id]: true }));
+                              setSmsFeedback((prev) => ({ ...prev, [patient.id]: '' }));
                               try {
-                                const entry = await sendSMSService(patient, smsLang, smsConfig, clinicSettings);
+                                const entry = await sendSMSService(patient, smsLang, smsConfig, clinicSettings, resolvedReason);
                                 const updated = [entry, ...smsLog];
                                 setSmsLog(updated);
                                 saveSMSLog(updated);
+                                setSmsFeedback((prev) => ({
+                                  ...prev,
+                                  [patient.id]:
+                                    entry.status === 'sent' || entry.status === 'demo'
+                                      ? `Sent (${entry.status})`
+                                      : `Failed: ${entry.note ?? 'Unknown error'}`,
+                                }));
                               } finally {
                                 setSmsSending((prev) => ({ ...prev, [patient.id]: false }));
                               }
@@ -1111,6 +1128,15 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                           >
                             {smsSending[patient.id] ? 'Sending...' : 'Send SMS'}
                           </button>
+                          <div className="text-[10px] text-slate-500 max-w-[320px] truncate" title={preview}>
+                            Preview: {preview}
+                          </div>
+                          {smsFeedback[patient.id] && (
+                            <div className={`text-[10px] font-semibold ${smsFeedback[patient.id].startsWith('Failed') ? 'text-red-600' : 'text-emerald-700'}`}>
+                              {smsFeedback[patient.id]}
+                            </div>
+                          )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1224,7 +1250,7 @@ export default function AdminPage() {
               onClick={() => { setScopeRegion(''); setScopeDistrict(''); }}
               style={{ fontSize: '11px', fontWeight: 700, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
             >
-              ✕ Clear
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><X size={12} /> Clear</span>
             </button>
           )}
           <span style={{ fontSize: '11px', color: '#6b7280', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", marginLeft: 'auto' }}>

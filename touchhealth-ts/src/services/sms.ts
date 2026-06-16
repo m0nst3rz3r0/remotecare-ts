@@ -196,14 +196,6 @@ export async function sendSMS(
     retryCount:  0,
   };
 
-  // Demo mode — no API key configured
-  if (!cfg.apiKey) {
-    entry.status = 'demo';
-    entry.note   = 'Demo mode — add API key in SMS settings to send real messages';
-    appendToLog(entry);
-    return entry;
-  }
-
   if (!rawPhone) {
     entry.status = 'failed';
     entry.note   = 'Phone number could not be decrypted';

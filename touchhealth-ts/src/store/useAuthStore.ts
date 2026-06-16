@@ -73,4 +73,4 @@ export const useAuthStore = create<AuthState>((set) => ({
 export const selectIsAdmin  = (user: SessionUser | null) => user?.role === 'admin';
 export const selectIsDoctor = (user: SessionUser | null) => user?.role === 'doctor';
 export const selectIsSuperAdmin = (user: SessionUser | null) =>
-  user?.username === 'alexalpha360';
+  user?.isSuperAdmin === true;

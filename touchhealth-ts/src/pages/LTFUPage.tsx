@@ -779,7 +779,7 @@ export default function LTFUPage() {
                   <Check size={12} /> Saved
                 </span>
               )}
-              <span style={{ fontSize: 11, color: '#516169' }}>No API key = demo mode (messages logged, not sent)</span>
+              <span style={{ fontSize: 11, color: '#516169' }}>Provider secrets are managed server-side in the SMS edge function.</span>
             </div>
           </div>
         </div>
@@ -822,7 +822,7 @@ export default function LTFUPage() {
                 fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 10, fontWeight: 700,
               }}
             >
-              {selected.size > 0 ? `✓ ${selected.size} selected` : `Select all (${filteredPatients.filter(p => p.phone).length})`}
+              {selected.size > 0 ? `${selected.size} selected` : `Select all (${filteredPatients.filter(p => p.phone).length})`}
             </button>
           )}
           <input
@@ -884,7 +884,7 @@ export default function LTFUPage() {
                     {p.cond} · {p.sex === 'M' ? 'Male' : 'Female'} {p.age}y
                     {hasPhone
                       ? <span style={{ color: '#10b981' }}> · {maskPhone(p.phone!)}</span>
-                      : <span style={{ color: '#dc2626' }}> · 📵 No phone</span>}
+                      : <span style={{ color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: 4 }}> · <AlertTriangle size={10} /> No phone</span>}
                   </div>
 
                   {/* Row 3: reason tag + action buttons */}
@@ -1084,7 +1084,7 @@ export default function LTFUPage() {
               <>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800, fontSize: 13, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: '#4ade80' }}>✓ {bulkResult.sent} sent</span>
+                    <span style={{ color: '#4ade80', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={12} /> {bulkResult.sent} sent</span>
                     {bulkResult.failed  > 0 && <span style={{ color: '#f87171' }}>· {bulkResult.failed} failed</span>}
                     {bulkResult.skipped > 0 && <span style={{ color: 'rgba(255,255,255,.4)', fontSize: 11 }}>· {bulkResult.skipped} skipped</span>}
                   </div>

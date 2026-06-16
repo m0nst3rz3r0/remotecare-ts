@@ -32,14 +32,29 @@ npm run dev
 # http://localhost:3000
 ```
 
-### Default Login Credentials
+### Run checks
 
-| Role  | Username       | Password   |
-|-------|---------------|------------|
-| Admin | `admin`        | `admin123` |
-| Admin | `alexalpha360` | `admin123` |
+```bash
+npm run lint
+npm run test
+```
 
-> **Important:** Change default passwords immediately in production.
+---
+
+## Environment Setup
+
+Create `.env.local` for local development:
+
+```bash
+VITE_SUPABASE_URL=your_project_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+```
+
+SMS provider secrets are intentionally not stored in browser storage. Configure those only in the server-side edge function environment.
+
+### Access Provisioning
+
+Create users through admin controls and rotate credentials before pilot rollout. Do not use static shared credentials in field deployments.
 
 ---
 
@@ -140,6 +155,16 @@ Sequence is unique per location + gender combination. Collision-safe.
 - [ ] Connect DHIS2 export to `https://dhis2.moh.go.tz/api/dataValueSets`
 - [ ] Add CHW (Community Health Worker) role
 - [ ] USSD integration for feature phone patients
+
+---
+
+## Deployment Checklist
+
+- Confirm Supabase project URL/anon key are configured in deployment environment.
+- Configure `send-sms` edge function secrets for the selected SMS provider.
+- Run `npm run lint` and `npm run test` before every release.
+- Verify service worker registration and `manifest.webmanifest` are present in production build.
+- Validate backup/restore and sync flow on at least one low-connectivity device before rollout.
 
 ---
 
