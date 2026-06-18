@@ -7,7 +7,7 @@ import {
   normalizeLegacyPatientStatus,
   recordVisit,
 } from './patients';
-import type { Patient } from '../types';
+import type { Patient, Visit } from '../types';
 
 const mkPatient = (overrides: Partial<Patient>): Patient => ({
   id: 1,
@@ -22,6 +22,24 @@ const mkPatient = (overrides: Partial<Patient>): Patient => ({
   district: 'District A',
   visits: [],
   medications: [],
+  ...overrides,
+});
+
+const mkVisit = (overrides: Partial<Visit>): Visit => ({
+  id: 'v1',
+  month: 6,
+  year: 2026,
+  date: new Date().toISOString().split('T')[0],
+  att: true,
+  sbp: null,
+  dbp: null,
+  sugar: null,
+  sugarType: '',
+  weight: null,
+  height: null,
+  bmi: null,
+  notes: '',
+  meds: [],
   ...overrides,
 });
 
@@ -55,7 +73,7 @@ describe('patient status semantics', () => {
     const patients = [
       mkPatient({
         id: 1,
-        visits: [{ id: 'v1', month: 6, date: today, att: true }],
+        visits: [mkVisit({ date: today })],
       }),
       mkPatient({ id: 2, status: 'completed' }),
     ];
