@@ -1,18 +1,14 @@
 import type { Patient } from '../../types';
+import { getAdherenceMonthState } from '../../services/clinical';
 import { MONTHS_FULL } from '../../utils/geo';
 
 export default function AdherenceGrid({ patient }: { patient: Patient }) {
-  const visits = patient.visits ?? [];
-  const byMonth = new Map<number, { att: boolean }>();
+  const year = new Date().getFullYear();
+  const states = Array.from({ length: 12 }, (_, i) =>
+    getAdherenceMonthState(patient, i + 1, year),
+  );
 
-  for (const v of visits) {
-    // Visit.month is 1-12
-    if (v.month < 1 || v.month > 12) continue;
-    byMonth.set(v.month, { att: !!v.att });
-  }
-
-  // Calculate adherence score
-  const attendedCount = Array.from(byMonth.values()).filter(v => v.att).length;
+  const attendedCount = states.filter((s) => s === 'attended').length;
   const adherenceScore = Math.round((attendedCount / 12) * 100);
 
   return (
@@ -30,51 +26,57 @@ export default function AdherenceGrid({ patient }: { patient: Patient }) {
         {Array.from({ length: 12 }).map((_, i) => {
           const month = i + 1;
           const monthLabel = MONTHS_FULL[i].slice(0, 3);
-          const rec = byMonth.get(month);
+          const state = states[i];
 
-          const state = rec ? (rec.att ? 'attended' : 'missed') : 'pending';
-          const isFuture = month > new Date().getMonth() + 1;
-          
-          let bg, fg, icon = '';
-          
-          if (isFuture) {
-            bg = '#ffffff';
-            fg = '#bfc8cd';
-            icon = '';
-          } else if (state === 'attended') {
-            bg = '#dcfce7';
-            fg = '#16a34a';
-            icon = 'check';
-          } else if (state === 'missed') {
-            bg = '#fee2e2';
-            fg = '#dc2626';
-            icon = 'close';
-          } else {
-            bg = '#e8e8e6';
-            fg = '#64748b';
-            icon = 'schedule';
+          let bg: string;
+          let fg: string;
+          let icon = '';
+
+          switch (state) {
+            case 'attended':
+              bg = '#dcfce7';
+              fg = '#16a34a';
+              icon = 'check';
+              break;
+            case 'missed':
+              bg = '#fee2e2';
+              fg = '#dc2626';
+              icon = 'close';
+              break;
+            case 'future':
+              bg = '#ffffff';
+              fg = '#bfc8cd';
+              break;
+            case 'before_programme':
+              bg = '#f1f5f9';
+              fg = '#cbd5e1';
+              break;
+            default:
+              bg = '#e8e8e6';
+              fg = '#64748b';
+              icon = 'schedule';
           }
 
-          const opacity = isFuture ? 0.3 : 1;
+          const opacity = state === 'future' || state === 'before_programme' ? 0.45 : 1;
 
           return (
             <div
               key={month}
               className="rounded border flex flex-col items-center justify-center p-2"
-              style={{ 
-                background: bg, 
+              style={{
+                background: bg,
                 opacity,
                 height: '48px',
-                borderColor: '#e2e8f0'
+                borderColor: '#e2e8f0',
               }}
             >
               {icon && (
-                <span 
-                  className="material-symbols-outlined" 
-                  style={{ 
-                    fontSize: 16, 
+                <span
+                  className="material-symbols-outlined"
+                  style={{
+                    fontSize: 16,
                     color: fg,
-                    marginBottom: '2px'
+                    marginBottom: '2px',
                   }}
                 >
                   {icon}
@@ -90,4 +92,3 @@ export default function AdherenceGrid({ patient }: { patient: Patient }) {
     </div>
   );
 }
-

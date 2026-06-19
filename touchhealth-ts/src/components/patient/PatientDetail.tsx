@@ -16,6 +16,7 @@ import {
   formatDateLong,
 } from '../../services/clinical';
 import { usePatientStore } from '../../store/usePatientStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { checkInteractions, checkDiagnosisWarnings, severityDisplay } from '../../data/drugInteractions';
 import { useUIStore } from '../../store/useUIStore';
 import AdherenceGrid from './AdherenceGrid';
@@ -582,8 +583,11 @@ export default function PatientDetail() {
 
   const openVisitModal = useUIStore((s) => s.openVisitModal);
   const openMedModal = useUIStore((s) => s.openMedModal);
+  const clinicSettings = useUIStore((s) => s.clinicSettings);
+  const currentUser = useAuthStore((s) => s.currentUser);
 
   const setStatus = usePatientStore((s) => s.setStatus);
+  const recallPatient = usePatientStore((s) => s.recallPatient);
   const deletePatient = usePatientStore((s) => s.deletePatient);
 
   const [tab, setTab] = useState<DetailTab>('visits');
@@ -713,7 +717,17 @@ export default function PatientDetail() {
             patient={patient}
             onVisit={() => openVisitModal(patient.id)}
             onMeds={() => openMedModal(patient.id)}
-            onToggleLTFU={() => setStatus(patient.id, patient.status === 'ltfu' ? 'active' : 'ltfu')}
+            onToggleLTFU={() => {
+              if (patient.status === 'ltfu') {
+                recallPatient(
+                  patient.id,
+                  clinicSettings,
+                  currentUser?.displayName ?? currentUser?.username ?? '',
+                );
+              } else {
+                setStatus(patient.id, 'ltfu');
+              }
+            }}
             onDelete={() => deletePatient(patient.id)}
             onDischarge={() => {
               if (confirm(`Discharge ${patient.code} from the programme? This permanently removes them from active clinic lists and cannot be undone.`)) {

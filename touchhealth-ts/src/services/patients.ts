@@ -23,10 +23,11 @@ import type {
   ScheduledAppointment,
   GeneratedCode,
   CodeComponents,
+  ClinicSettings,
 } from '../types';
 import { Diagnosis } from '../data/icd10';
 import { InvestigationResult } from '../data/investigations';
-import { today, getLastVisit } from './clinical';
+import { today, getLastVisit, nextVisitDate } from './clinical';
 
 // ── RE-EXPORT FROM STORAGE (single source of truth) ──────────
 // All callers that previously imported loadPatients/savePatients
@@ -288,6 +289,29 @@ export function setPatientStatus(
   return patients.map((p) =>
     p.id === patientId ? { ...p, status: next } : p
   );
+}
+
+/** Recall from LTFU: reactivate and schedule a near-term follow-up so auto-LTFU does not immediately re-fire. */
+export function recallFromLtfu(
+  patients: Patient[],
+  patientId: number,
+  settings: ClinicSettings,
+  scheduledBy = '',
+): Patient[] {
+  const recallDate = nextVisitDate(new Date(), 14, settings.days);
+  return patients.map((p) => {
+    if (p.id !== patientId) return p;
+    return {
+      ...p,
+      status: 'active',
+      scheduledNext: {
+        date: recallDate.toISOString().split('T')[0],
+        note: 'Recalled from LTFU — schedule follow-up',
+        scheduledOn: today(),
+        scheduledBy,
+      },
+    };
+  });
 }
 
 export function deletePatient(

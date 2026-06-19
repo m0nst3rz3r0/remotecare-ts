@@ -21,6 +21,7 @@ import {
   deleteVisit,
   deletePatient,
   setPatientStatus,
+  recallFromLtfu,
   updateMedications,
   addHbA1cEntry,
   deleteHbA1cEntry,
@@ -56,6 +57,7 @@ interface PatientState {
   deleteVisit: (patientId: number, visitId: string) => void;
   deletePatient: (patientId: number) => void;
   setStatus: (patientId: number, status: PatientStatus) => void;
+  recallPatient: (patientId: number, settings: ClinicSettings, by?: string) => void;
   updateMedications: (patientId: number, meds: Medication[]) => void;
 
   // HbA1c
@@ -118,6 +120,12 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
   setStatus: (patientId, status) => {
     const updated = setPatientStatus(get().patients, patientId, status);
+    savePatients(updated);
+    set({ patients: updated });
+  },
+
+  recallPatient: (patientId, settings, by = '') => {
+    const updated = recallFromLtfu(get().patients, patientId, settings, by);
     savePatients(updated);
     set({ patients: updated });
   },

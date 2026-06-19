@@ -32,12 +32,15 @@
 //   template                   (for reminder — always set)
 // ════════════════════════════════════════════════════════════
 
-import type { Patient, SMSConfig, SMSLogEntry, SMSReason } from '@/types';
+import type { ClinicSettings, Patient, SMSConfig, SMSLogEntry, SMSReason } from '@/types';
+import { isDue } from './clinical';
+import { isActivePatientStatus } from './patients';
 import { loadSMSConfig, loadSMSLog, saveSMSLog } from './storage';
 import { getLastVisit, nextVisitDate, today } from './clinical';
-import type { ClinicSettings } from '@/types';
 import { decryptPhone } from './phoneEncryption';
 import { supabase } from './supabase';
+
+export type SmsPatientTab = 'ltfu' | 'overdue' | 'reminder' | 'all';
 
 // ── Message building ──────────────────────────────────────────
 
@@ -84,6 +87,33 @@ export function getPatientNextDate(patient: Patient, cfg: ClinicSettings): Date 
 export function daysUntilAppointment(patient: Patient, cfg: ClinicSettings): number {
   const nd = getPatientNextDate(patient, cfg);
   return Math.round((nd.getTime() - Date.now()) / 864e5);
+}
+
+export function filterPatientsForSmsTab(
+  patients: Patient[],
+  tab: SmsPatientTab,
+  cfg: ClinicSettings,
+  hospital?: string,
+): Patient[] {
+  let list = patients.filter((p) => p.status !== 'discharged');
+  if (hospital) list = list.filter((p) => p.hospital === hospital);
+
+  return list.filter((p) => {
+    if (!p.phone) return false;
+    switch (tab) {
+      case 'ltfu':
+        return p.status === 'ltfu';
+      case 'overdue':
+        return p.status === 'active' && isDue(p);
+      case 'reminder':
+        if (p.status !== 'active') return false;
+        return daysUntilAppointment(p, cfg) >= 0 && daysUntilAppointment(p, cfg) <= 7;
+      case 'all':
+        return p.status === 'ltfu' || isActivePatientStatus(p.status);
+      default:
+        return true;
+    }
+  });
 }
 
 /**

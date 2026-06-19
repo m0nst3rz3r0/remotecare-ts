@@ -45,6 +45,7 @@ import {
   buildSMSMessage,
   getPatientNextDate,
   getPatientSMSReason,
+  filterPatientsForSmsTab,
 } from '../services/sms';
 import { loadSMSConfig, saveSMSConfig, loadSMSLog, saveSMSLog } from '../services/storage';
 import type { SMSConfig } from '../types';
@@ -1004,23 +1005,12 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
 
         {/* Patient List for SMS */}
         {(() => {
-          // Filter patients by selected hospital using shared active-status semantics.
-          const facilityPatients = smsHospital
-            ? patients.filter((p) => p.hospital === smsHospital && isActivePatientStatus(p.status))
-            : [];
-
-          // Filter by tab
-          const filteredPatients = facilityPatients.filter((p) => {
-            if (!p.phone) return false;
-            const days = daysUntilAppointment(p, clinicSettings);
-            switch (smsTab) {
-              case 'ltfu': return days < 0 && Math.abs(days) > 30;
-              case 'overdue': return days < 0 && Math.abs(days) <= 30;
-              case 'reminder': return days >= 0 && days <= 7;
-              case 'all': return true;
-              default: return true;
-            }
-          });
+          const filteredPatients = filterPatientsForSmsTab(
+            patients,
+            smsTab,
+            clinicSettings,
+            smsHospital || undefined,
+          );
 
           if (!smsHospital) {
             return (

@@ -816,12 +816,105 @@ export function getMonthlyStats(patients: Patient[], month: number) {
   return {
     total: visits.length, attended: attended.length,
     missed: visits.length - attended.length,
-    attendanceRate: visits.length ? Math.round((attended.length / visits.length) * 100) : null,
+    attendanceRate: getMonthlyAttendanceRate(patients, month, new Date().getFullYear()),
     bpMeasured: withBP.length, bpControlled: bpCtrl.length,
     bpControlRate: withBP.length ? Math.round((bpCtrl.length / withBP.length) * 100) : null,
     glucoseMeasured: withSG.length, glucoseControlled: sgCtrl.length,
     glucoseControlRate: withSG.length ? Math.round((sgCtrl.length / withSG.length) * 100) : null,
   };
+}
+
+/** Programme attendance: enrolled patients expected in month vs those who attended. */
+export function getMonthlyAttendanceRate(
+  patients: Patient[],
+  month: number,
+  year: number = new Date().getFullYear(),
+): number | null {
+  const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+
+  const eligible = patients.filter((p) => {
+    if (p.status === 'discharged') return false;
+    const enrol = p.enrol ? new Date(p.enrol) : null;
+    const firstAttended = [...(p.visits ?? [])]
+      .filter((v) => v.att && v.date)
+      .map((v) => new Date(v.date))
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+    const programmeStart = enrol && !isNaN(enrol.getTime()) ? enrol : firstAttended;
+    if (!programmeStart || isNaN(programmeStart.getTime())) return false;
+    if (programmeStart > monthEnd) return false;
+    return true;
+  });
+
+  if (!eligible.length) return null;
+
+  const attended = eligible.filter((p) =>
+    (p.visits ?? []).some(
+      (v) => v.att && +v.month === month && +(v.year ?? year) === year,
+    ),
+  ).length;
+
+  return Math.round((attended / eligible.length) * 100);
+}
+
+export type AdherenceMonthState =
+  | 'attended'
+  | 'missed'
+  | 'pending'
+  | 'future'
+  | 'before_programme';
+
+/** Month cell state for the 12-month adherence grid. */
+export function getAdherenceMonthState(
+  patient: Patient,
+  month: number,
+  year: number = new Date().getFullYear(),
+): AdherenceMonthState {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  if (year > currentYear || (year === currentYear && month > currentMonth)) {
+    return 'future';
+  }
+
+  const visit = (patient.visits ?? []).find(
+    (v) => v.month === month && (v.year ?? year) === year,
+  );
+  if (visit) return visit.att ? 'attended' : 'missed';
+
+  const enrol = patient.enrol ? new Date(patient.enrol) : null;
+  const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+  if (enrol && !isNaN(enrol.getTime()) && enrol > monthEnd) return 'before_programme';
+
+  const lastAttended = [...(patient.visits ?? [])]
+    .filter((v) => v.att && v.date)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+  const programmeStart = enrol && !isNaN(enrol.getTime())
+    ? enrol
+    : lastAttended
+      ? new Date(lastAttended.date)
+      : null;
+
+  if (!programmeStart) return 'pending';
+  if (programmeStart > monthEnd) return 'before_programme';
+
+  if (lastAttended) {
+    const lastDate = new Date(lastAttended.date);
+    const lastMonth = lastDate.getMonth() + 1;
+    const lastYear = lastDate.getFullYear();
+    if (year > lastYear || (year === lastYear && month > lastMonth)) {
+      return 'missed';
+    }
+  } else {
+    const startMonth = programmeStart.getMonth() + 1;
+    const startYear = programmeStart.getFullYear();
+    if (year > startYear || (year === startYear && month > startMonth)) {
+      return 'missed';
+    }
+  }
+
+  return 'pending';
 }
 
 // ── DATE UTILITIES ────────────────────────────────────────────

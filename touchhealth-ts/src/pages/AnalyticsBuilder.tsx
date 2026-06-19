@@ -27,7 +27,7 @@ import {
 import { Line } from 'react-chartjs-2';
 import { usePatientStore } from '../store/usePatientStore';
 import { TZ_GEO }         from '../utils/geo';
-import { getMonthlyStats } from '../services/clinical';
+import { getMonthlyAttendanceRate, getMonthlyStats } from '../services/clinical';
 import { isActivePatientStatus } from '../services/patients';
 import type { Patient, Visit } from '../types';
 
@@ -274,13 +274,8 @@ function computeSeries(
         return stats.bpControlRate;
       }
 
-      case 'attendance': {
-        const visits = patients
-          .flatMap((p) => p.visits ?? [])
-          .filter((v: Visit) => +v.month === m && +(v.year ?? year) === year);
-        if (!visits.length) return null;
-        return Math.round((visits.filter((v: Visit) => v.att).length / visits.length) * 100);
-      }
+      case 'attendance':
+        return getMonthlyAttendanceRate(patients, m, year);
 
       case 'treatment_rate': {
         const active = patients.filter(p => isActivePatientStatus(p.status));

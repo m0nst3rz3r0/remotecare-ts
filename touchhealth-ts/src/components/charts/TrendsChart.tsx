@@ -10,6 +10,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { getMonthlyAttendanceRate } from '../../services/clinical';
 import type { Patient } from '../../types';
 import EnrolmentChart from './EnrolmentChart';
 import BPControlChart from './BPControlChart';
@@ -34,12 +35,7 @@ export default function TrendsChart({ patients, year }: { patients: Patient[]; y
 
     const series = labels.map((_, idx) => {
       const m = idx + 1;
-      const visits = patients.flatMap((p) => p.visits ?? []).filter(
-        (v) => +v.month === m && (v.year ?? new Date().getFullYear()) === year,
-      );
-      const total = visits.length;
-      const attended = visits.filter((v) => v.att).length;
-      return total ? Math.round((attended / total) * 100) : null;
+      return getMonthlyAttendanceRate(patients, m, year);
     });
 
     return { series, emerald, emeraldPale };
