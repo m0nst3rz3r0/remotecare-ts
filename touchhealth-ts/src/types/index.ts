@@ -305,6 +305,7 @@ export interface SMSLogEntry {
   messageId?: string;   // gateway message ID for delivery tracking
   cost?: string;        // gateway cost string (e.g. "TZS 25.0000")
   retryCount?: number;
+  sentBy?: string;        // display name of doctor/admin who triggered send
 }
 
 // ── DRUG SUPPLY / STOCKOUT ────────────────────────────────────

@@ -153,6 +153,23 @@ export function patientsNeedingReminders(
  * Build an index of last-sent timestamps per patient.
  * Call once per bulk operation — don't re-scan the log per patient.
  */
+export function getLastSmsForPatient(
+  log: SMSLogEntry[],
+  patientId: number,
+): SMSLogEntry | null {
+  return log
+    .filter((e) => e.ptId === patientId && (e.status === 'sent' || e.status === 'demo'))
+    .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())[0] ?? null;
+}
+
+export function formatSmsSentLabel(entry: SMSLogEntry | null): string | null {
+  if (!entry) return null;
+  const days = Math.floor((Date.now() - new Date(entry.sentAt).getTime()) / 86_400_000);
+  const when = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days}d ago`;
+  const by = entry.sentBy ? ` · ${entry.sentBy}` : '';
+  return `Sent ${when}${by}`;
+}
+
 function buildLastSentIndex(log: SMSLogEntry[]): Map<number, number> {
   const idx = new Map<number, number>();
   for (const entry of log) {
@@ -197,7 +214,8 @@ export async function sendSMS(
   lang: 'en' | 'sw',
   cfg: SMSConfig,
   clinicCfg: ClinicSettings,
-  reason?: SMSReason
+  reason?: SMSReason,
+  sentBy?: string,
 ): Promise<SMSLogEntry> {
   const resolvedReason = reason ?? getPatientSMSReason(patient, clinicCfg) ?? 'reminder';
   const nextDate = getPatientNextDate(patient, clinicCfg);
@@ -224,6 +242,7 @@ export async function sendSMS(
     status:      'queued',
     hospital:    patient.hospital,
     retryCount:  0,
+    sentBy:      sentBy?.trim() || undefined,
   };
 
   if (!rawPhone) {
@@ -287,7 +306,8 @@ export async function sendBulkSMS(
   patients: Patient[],
   lang: 'en' | 'sw',
   clinicCfg: ClinicSettings,
-  withinDays = 7
+  withinDays = 7,
+  sentBy?: string,
 ): Promise<{ sent: number; skipped: number; failed: number }> {
   const cfg = loadSMSConfig();
   const log  = loadSMSLog();
@@ -304,7 +324,7 @@ export async function sendBulkSMS(
     // Skip if already sent recently (use pre-built index — O(1))
     if (smsAlreadySentRecently(p.id, 3, lastSentIndex)) { skipped++; continue; }
 
-    const result = await sendSMS(p, lang, cfg, clinicCfg, reason);
+    const result = await sendSMS(p, lang, cfg, clinicCfg, reason, sentBy);
 
     if (result.status === 'sent' || result.status === 'demo') {
       sent++;

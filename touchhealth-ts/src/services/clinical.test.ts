@@ -51,4 +51,11 @@ describe('programme attendance metrics', () => {
     expect(getAdherenceMonthState(patient, 4, 2026)).toBe('attended');
     expect(getAdherenceMonthState(patient, 5, 2026)).toBe('missed');
   });
+
+  it('does not project attendance into future months', () => {
+    const patients = [mkPatient({ status: 'ltfu' })];
+    const now = new Date(2026, 5, 19);
+    expect(getMonthlyAttendanceRate(patients, 5, 2026, now)).toBe(0);
+    expect(getMonthlyAttendanceRate(patients, 7, 2026, now)).toBeNull();
+  });
 });

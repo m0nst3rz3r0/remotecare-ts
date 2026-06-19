@@ -829,7 +829,14 @@ export function getMonthlyAttendanceRate(
   patients: Patient[],
   month: number,
   year: number = new Date().getFullYear(),
+  now: Date = new Date(),
 ): number | null {
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  if (year > currentYear || (year === currentYear && month > currentMonth)) {
+    return null;
+  }
+
   const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
 
   const eligible = patients.filter((p) => {

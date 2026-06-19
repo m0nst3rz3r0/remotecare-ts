@@ -120,10 +120,11 @@ function StatusBadge({ status, days }: { status: string; days?: number }) {
 
 // ── Single-patient compose drawer ────────────────────────────
 function ComposeDrawer({
-  patient, lang, onClose, onSent,
+  patient, lang, sentBy, onClose, onSent,
 }: {
   patient: Patient;
   lang: 'en' | 'sw';
+  sentBy: string;
   onClose: () => void;
   onSent: (entry: SMSLogEntry) => void;
 }) {
@@ -141,7 +142,7 @@ function ComposeDrawer({
 
   const handleSend = async () => {
     setSending(true);
-    const entry = await sendSMSService(patient, lang, cfg, clinicCfg, reason);
+    const entry = await sendSMSService(patient, lang, cfg, clinicCfg, reason, sentBy);
     setResult(entry);
     setSent(true);
     setSending(false);
@@ -418,6 +419,8 @@ export default function LTFUPage() {
   const [bulkResult, setBulkResult] = useState<{ sent: number; skipped: number; failed: number } | null>(null);
   const abortRef = useRef(false);
 
+  const smsSenderName = currentUser?.displayName ?? currentUser?.username ?? 'Doctor';
+
   const visiblePatients = useMemo(
     () => selectVisiblePatients(patients, currentUser),
     [patients, currentUser],
@@ -494,7 +497,7 @@ export default function LTFUPage() {
       setBulkProgress({ current: i + 1, total: toSend.length });
       try {
         const reason = getPatientSMSReason(toSend[i], clinicCfg) ?? 'reminder';
-        const entry  = await sendSMSService(toSend[i], lang, cfg, clinicCfg, reason);
+        const entry  = await sendSMSService(toSend[i], lang, cfg, clinicCfg, reason, smsSenderName);
         entries.push(entry);
         (entry.status === 'sent' || entry.status === 'demo') ? sent++ : failed++;
       } catch { failed++; }
@@ -506,7 +509,7 @@ export default function LTFUPage() {
     setBulkResult({ sent, failed, skipped });
     setBulkPhase('done');
     setSelected(new Set());
-  }, [selectedPatients, lang, appendToLog]);
+  }, [selectedPatients, lang, appendToLog, smsSenderName]);
 
   const resetBulk = useCallback(() => {
     setBulkPhase('idle'); setBulkResult(null); abortRef.current = true;
@@ -566,6 +569,7 @@ export default function LTFUPage() {
         <ComposeDrawer
           patient={composePatient}
           lang={lang}
+          sentBy={smsSenderName}
           onClose={() => setComposePatient(null)}
           onSent={handleSingleSent}
         />

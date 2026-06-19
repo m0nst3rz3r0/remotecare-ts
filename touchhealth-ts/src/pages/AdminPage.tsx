@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PageWrapper from '../components/layout/PageWrapper';
-import type { Hospital, Patient, User } from '../types';
+import type { Hospital, Patient, SMSReason, User, ClinicSettings } from '../types';
 import { usePatientStore } from '../store/usePatientStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUIStore } from '../store/useUIStore';
@@ -46,6 +46,9 @@ import {
   getPatientNextDate,
   getPatientSMSReason,
   filterPatientsForSmsTab,
+  getLastSmsForPatient,
+  formatSmsSentLabel,
+  smsAlreadySentRecently,
 } from '../services/sms';
 import { loadSMSConfig, saveSMSConfig, loadSMSLog, saveSMSLog } from '../services/storage';
 import type { SMSConfig } from '../types';
@@ -64,7 +67,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { BarChart3, AlertTriangle, CheckCircle2, Target, Smartphone, X } from 'lucide-react';
+import { BarChart3, AlertTriangle, CheckCircle2, Target, Smartphone, X, Send, ChevronDown, ChevronUp } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -266,6 +269,128 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
 }
 
 
+// ── Admin bulk SMS confirm modal ─────────────────────────────
+function AdminBulkConfirmModal({
+  patients,
+  lang,
+  smsConfig,
+  clinicSettings,
+  smsReason,
+  onConfirm,
+  onCancel,
+}: {
+  patients: Patient[];
+  lang: 'en' | 'sw';
+  smsConfig: SMSConfig;
+  clinicSettings: ClinicSettings;
+  smsReason: Record<number, SMSReason>;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  const previews = useMemo(() => patients.map((p) => {
+    const reason = smsReason[p.id] ?? getPatientSMSReason(p, clinicSettings) ?? 'reminder';
+    const message = buildSMSMessage(
+      p,
+      smsConfig,
+      lang,
+      getPatientNextDate(p, clinicSettings),
+      reason,
+    );
+    return {
+      patient: p,
+      reason,
+      message,
+      hasPhone: !!p.phone,
+      recentlySent: smsAlreadySentRecently(p.id, 3),
+    };
+  }), [patients, lang, smsConfig, clinicSettings, smsReason]);
+
+  const sendable = previews.filter((p) => p.hasPhone && !p.recentlySent).length;
+  const skippedRecent = previews.filter((p) => p.hasPhone && p.recentlySent).length;
+  const noPhone = previews.filter((p) => !p.hasPhone).length;
+
+  return (
+    <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-900/55 backdrop-blur-[2px] p-4">
+      <div className="bg-white rounded-xl w-full max-w-xl max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="bg-slate-800 px-5 py-4 flex items-center justify-between">
+          <div>
+            <div className="font-bold text-white text-[15px]">Confirm bulk SMS</div>
+            <div className="text-[11px] text-white/50 mt-1">
+              {sendable} to send · {lang === 'sw' ? 'Swahili' : 'English'}
+              {skippedRecent > 0 ? ` · ${skippedRecent} skipped (sent recently)` : ''}
+            </div>
+          </div>
+          <button type="button" onClick={onCancel} className="text-white/50 hover:text-white p-1">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1">
+          {noPhone > 0 && (
+            <div className="px-5 py-2 bg-red-50 border-b border-red-100 text-[11px] text-red-800 flex items-center gap-2">
+              <AlertTriangle size={12} />
+              {noPhone} patient{noPhone > 1 ? 's' : ''} without phone will be skipped.
+            </div>
+          )}
+          {previews.map(({ patient: p, reason, message, hasPhone, recentlySent }) => (
+            <div
+              key={p.id}
+              className={`border-b border-slate-100 last:border-0 ${hasPhone && !recentlySent ? '' : 'opacity-50'}`}
+            >
+              <button
+                type="button"
+                onClick={() => setExpanded(expanded === p.id ? null : p.id)}
+                className={`w-full px-5 py-2.5 flex items-center justify-between text-left ${
+                  expanded === p.id ? 'bg-teal-50' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-[11px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded">
+                    {p.code}
+                  </span>
+                  <span className="text-[10px] text-slate-500">{reason.replace(/_/g, ' ')}</span>
+                  {!hasPhone && <span className="text-[9px] font-bold text-red-600">NO PHONE</span>}
+                  {recentlySent && <span className="text-[9px] font-bold text-amber-600">SENT RECENTLY</span>}
+                </div>
+                {expanded === p.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+              {expanded === p.id && (
+                <div className="px-5 pb-3 bg-teal-50/40">
+                  <div className="text-[10px] font-semibold text-slate-500 uppercase mb-1">Preview</div>
+                  <div className="text-[11px] italic text-slate-700 bg-white border border-slate-200 rounded-lg p-3">
+                    {message}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="px-5 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-[12px] font-bold"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={sendable === 0}
+            className="px-4 py-2 rounded-lg bg-teal-700 text-white text-[12px] font-bold disabled:opacity-50 flex items-center gap-2"
+          >
+            <Send size={13} />
+            Send to {sendable} patient{sendable !== 1 ? 's' : ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Settings view ────────────────────────────────────────────
 function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clinicSettings: any }) {
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -319,6 +444,117 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
   const [smsTab,    setSmsTab]      = useState<'ltfu' | 'overdue' | 'reminder' | 'all'>('reminder');
   const [smsHospital, setSmsHospital] = useState<string>('');
   const [smsConfigSaved, setSmsConfigSaved] = useState(false);
+  const [smsTemplateTab, setSmsTemplateTab] = useState<'reminder' | 'missed' | 'ltfu' | 'welcome'>('reminder');
+
+  const smsSenderName = currentUser?.displayName ?? currentUser?.username ?? 'Admin';
+
+  type SmsBulkPhase = 'idle' | 'confirm' | 'sending' | 'done';
+  const [smsSelected, setSmsSelected] = useState<Set<number>>(new Set());
+  const [smsBulkPhase, setSmsBulkPhase] = useState<SmsBulkPhase>('idle');
+  const [smsBulkProgress, setSmsBulkProgress] = useState({ current: 0, total: 0 });
+  const [smsBulkResult, setSmsBulkResult] = useState<{ sent: number; failed: number; skipped: number } | null>(null);
+  const smsBulkAbortRef = useRef(false);
+  const BULK_RATE_MS = 220;
+
+  const smsFilteredPatients = useMemo(() => {
+    if (!smsHospital) return [];
+    return filterPatientsForSmsTab(patients, smsTab, clinicSettings, smsHospital);
+  }, [patients, smsTab, clinicSettings, smsHospital]);
+
+  const smsSelectedPatients = useMemo(
+    () => smsFilteredPatients.filter((p) => smsSelected.has(p.id)),
+    [smsFilteredPatients, smsSelected],
+  );
+
+  const smsSelectableIds = useMemo(
+    () => smsFilteredPatients.filter((p) => p.phone).map((p) => p.id),
+    [smsFilteredPatients],
+  );
+
+  useEffect(() => {
+    setSmsSelected(new Set());
+    setSmsBulkPhase('idle');
+    setSmsBulkResult(null);
+  }, [smsHospital, smsTab]);
+
+  const toggleSmsSelect = useCallback((id: number) => {
+    setSmsSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllSms = useCallback(() => {
+    setSmsSelected(new Set(smsSelectableIds));
+  }, [smsSelectableIds]);
+
+  const clearSmsSelection = useCallback(() => {
+    setSmsSelected(new Set());
+    setSmsBulkPhase('idle');
+    setSmsBulkResult(null);
+  }, []);
+
+  const handleSmsBulkConfirm = useCallback(async () => {
+    const candidates = smsSelectedPatients.filter((p) => p.phone);
+    const toSend = candidates.filter((p) => !smsAlreadySentRecently(p.id, 3));
+    const skippedRecent = candidates.length - toSend.length;
+    const skippedNoPhone = smsSelectedPatients.length - candidates.length;
+
+    setSmsBulkPhase('sending');
+    setSmsBulkProgress({ current: 0, total: toSend.length });
+    smsBulkAbortRef.current = false;
+
+    let sent = 0;
+    let failed = 0;
+    const entries: Awaited<ReturnType<typeof sendSMSService>>[] = [];
+
+    for (let i = 0; i < toSend.length; i++) {
+      if (smsBulkAbortRef.current) break;
+      const p = toSend[i];
+      setSmsBulkProgress({ current: i + 1, total: toSend.length });
+      const reason = smsReason[p.id] ?? getPatientSMSReason(p, clinicSettings) ?? 'reminder';
+      try {
+        const entry = await sendSMSService(
+          p,
+          smsLang,
+          smsConfig,
+          clinicSettings,
+          reason,
+          smsSenderName,
+        );
+        entries.push(entry);
+        if (entry.status === 'sent' || entry.status === 'demo') sent++;
+        else failed++;
+      } catch {
+        failed++;
+      }
+      if (i < toSend.length - 1) await new Promise((r) => setTimeout(r, BULK_RATE_MS));
+    }
+
+    if (entries.length) {
+      const updated = [...entries, ...smsLog];
+      setSmsLog(updated);
+      saveSMSLog(updated);
+    }
+
+    setSmsBulkResult({ sent, failed, skipped: skippedRecent + skippedNoPhone });
+    setSmsBulkPhase('done');
+    setSmsSelected(new Set());
+  }, [
+    smsSelectedPatients,
+    smsReason,
+    clinicSettings,
+    smsLang,
+    smsConfig,
+    smsSenderName,
+    smsLog,
+  ]);
+
+  const smsBulkPct = smsBulkProgress.total
+    ? Math.round((smsBulkProgress.current / smsBulkProgress.total) * 100)
+    : 0;
 
   // Save SMS config handler
   const handleSaveSMSConfig = () => {
@@ -914,27 +1150,126 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">English Template</label>
-            <textarea
-              rows={2}
-              className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
-              value={smsConfig.template}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, template: e.target.value }))}
-              placeholder="Dear {name}, your appointment is at {hospital} on {date}."
-            />
-            <p className="text-[10px] text-slate-400 mt-1">Variables: {'{name}'}, {'{hospital}'}, {'{date}'}</p>
+          <div className="sm:col-span-2">
+            <div className="flex gap-2 flex-wrap mb-3">
+              {([
+                { id: 'reminder', label: 'Reminder' },
+                { id: 'missed', label: 'Missed visit' },
+                { id: 'ltfu', label: 'LTFU warning' },
+                { id: 'welcome', label: 'Welcome' },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={`px-3 py-1 rounded text-[11px] font-bold transition-colors ${
+                    smsTemplateTab === tab.id
+                      ? 'bg-teal-700 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                  onClick={() => setSmsTemplateTab(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div>
-            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Swahili Template</label>
-            <textarea
-              rows={2}
-              className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
-              value={smsConfig.templateSw}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, templateSw: e.target.value }))}
-              placeholder="Habari {name}, ziara yako ni {hospital} tarehe {date}."
-            />
-            <p className="text-[10px] text-slate-400 mt-1">Variables: {'{name}'}, {'{hospital}'}, {'{date}'}</p>
+
+          {smsTemplateTab === 'reminder' && (
+            <>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">English · Reminder</label>
+                <textarea
+                  rows={3}
+                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
+                  value={smsConfig.template}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, template: e.target.value }))}
+                  placeholder="Dear {name}, your appointment at {hospital} is on {date}."
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Swahili · Reminder</label>
+                <textarea
+                  rows={3}
+                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
+                  value={smsConfig.templateSw}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, templateSw: e.target.value }))}
+                  placeholder="Habari {name}, ziara yako {hospital} ni tarehe {date}."
+                />
+              </div>
+            </>
+          )}
+
+          {smsTemplateTab === 'missed' && (
+            <>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">English · Missed visit</label>
+                <textarea
+                  rows={3}
+                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
+                  value={smsConfig.templateMissed ?? ''}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, templateMissed: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Swahili · Missed visit</label>
+                <textarea
+                  rows={3}
+                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
+                  value={smsConfig.templateMissedSw ?? ''}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, templateMissedSw: e.target.value }))}
+                />
+              </div>
+            </>
+          )}
+
+          {smsTemplateTab === 'ltfu' && (
+            <>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">English · LTFU warning</label>
+                <textarea
+                  rows={3}
+                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
+                  value={smsConfig.templateLtfu ?? ''}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, templateLtfu: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Swahili · LTFU warning</label>
+                <textarea
+                  rows={3}
+                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
+                  value={smsConfig.templateLtfuSw ?? ''}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, templateLtfuSw: e.target.value }))}
+                />
+              </div>
+            </>
+          )}
+
+          {smsTemplateTab === 'welcome' && (
+            <>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">English · Welcome</label>
+                <textarea
+                  rows={3}
+                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
+                  value={smsConfig.templateWelcome ?? ''}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, templateWelcome: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Swahili · Welcome</label>
+                <textarea
+                  rows={3}
+                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
+                  value={smsConfig.templateWelcomeSw ?? ''}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, templateWelcomeSw: e.target.value }))}
+                />
+              </div>
+            </>
+          )}
+
+          <div className="sm:col-span-2">
+            <p className="text-[10px] text-slate-400">Variables: {'{name}'}, {'{hospital}'}, {'{date}'}</p>
           </div>
         </div>
       </div>
@@ -946,7 +1281,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
           <span>SMS Reminders</span>
         </div>
         <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
-          Send appointment reminders to patients at your facility. Select a hospital to view its patients.
+          Send appointment reminders to patients at your facility. Messages already sent by a doctor in the last 3 days are flagged to avoid duplicates.
         </p>
 
         {/* Hospital Selection & SMS Tabs */}
@@ -1004,43 +1339,47 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
         )}
 
         {/* Patient List for SMS */}
-        {(() => {
-          const filteredPatients = filterPatientsForSmsTab(
-            patients,
-            smsTab,
-            clinicSettings,
-            smsHospital || undefined,
-          );
+        {!smsHospital ? (
+          <div className="text-center py-6 text-slate-500 text-[12px]">
+            Please select a hospital from the dropdown above to view patients.
+          </div>
+        ) : smsFilteredPatients.length === 0 ? (
+          <div className="text-center py-6 text-slate-500 text-[12px]">
+            No patients match the selected filter at {smsHospital}.
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <button
+                type="button"
+                onClick={() =>
+                  smsSelected.size === smsSelectableIds.length ? clearSmsSelection() : selectAllSms()
+                }
+                className="text-[11px] font-bold text-teal-700 hover:text-teal-900"
+              >
+                {smsSelected.size > 0
+                  ? `${smsSelected.size} selected · Clear`
+                  : `Select all (${smsSelectableIds.length})`}
+              </button>
+              <span className="text-[10px] text-slate-500">
+                {smsFilteredPatients.length} patient{smsFilteredPatients.length !== 1 ? 's' : ''}
+              </span>
+            </div>
 
-          if (!smsHospital) {
-            return (
-              <div className="text-center py-6 text-slate-500 text-[12px]">
-                Please select a hospital from the dropdown above to view patients.
-              </div>
-            );
-          }
-
-          if (filteredPatients.length === 0) {
-            return (
-              <div className="text-center py-6 text-slate-500 text-[12px]">
-                No patients match the selected filter at {smsHospital}.
-              </div>
-            );
-          }
-
-          return (
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <div className="border border-slate-200 rounded-lg overflow-hidden max-h-[420px] overflow-y-auto">
               <table className="w-full text-[12px]">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <tr>
+                    <th className="px-3 py-2 w-8" />
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Patient</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Phone</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Status</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Last SMS</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPatients.slice(0, 20).map((patient) => {
+                  {smsFilteredPatients.map((patient) => {
                     const days = daysUntilAppointment(patient, clinicSettings);
                     const resolvedReason = smsReason[patient.id] ?? getPatientSMSReason(patient, clinicSettings) ?? 'reminder';
                     const preview = buildSMSMessage(
@@ -1050,9 +1389,15 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                       getPatientNextDate(patient, clinicSettings),
                       resolvedReason
                     );
+                    const lastSms = getLastSmsForPatient(smsLog, patient.id);
+                    const sentLabel = formatSmsSentLabel(lastSms);
+                    const recentlySent = smsAlreadySentRecently(patient.id, 3);
                     let statusLabel = '';
                     let statusColor = '';
-                    if (days < 0) {
+                    if (patient.status === 'ltfu') {
+                      statusLabel = 'LTFU';
+                      statusColor = 'text-red-600';
+                    } else if (days < 0) {
                       statusLabel = `${Math.abs(days)}d overdue`;
                       statusColor = 'text-red-600';
                     } else if (days <= 7) {
@@ -1066,11 +1411,35 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                     return (
                       <tr key={patient.id} className="border-b border-slate-100 last:border-0">
                         <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={smsSelected.has(patient.id)}
+                            disabled={!patient.phone}
+                            onChange={() => toggleSmsSelect(patient.id)}
+                            className="accent-teal-700"
+                            aria-label={`Select ${patient.code}`}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
                           <div className="font-medium text-slate-800">{patient.code}</div>
                           <div className="text-[10px] text-slate-500">{patient.region} · {patient.district}</div>
                         </td>
                         <td className="px-3 py-2 text-slate-600">{maskPhone(patient.phone || '')}</td>
                         <td className={`px-3 py-2 font-medium ${statusColor}`}>{statusLabel}</td>
+                        <td className="px-3 py-2">
+                          {sentLabel ? (
+                            <div className={`text-[10px] font-semibold ${recentlySent ? 'text-amber-700' : 'text-slate-600'}`}>
+                              {sentLabel}
+                              {recentlySent ? (
+                                <div className="text-[9px] font-bold uppercase tracking-wide text-amber-600 mt-0.5">
+                                  Already sent recently
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-400">Not sent</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2">
                           <div className="flex flex-col gap-2">
                             <select
@@ -1093,14 +1462,26 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                             disabled={smsSending[patient.id] || !patient.phone}
                             onClick={async () => {
                               if (!patient.phone) return;
+                              const duplicateNote = recentlySent && sentLabel
+                                ? `\n\nNote: ${sentLabel}.`
+                                : '';
                               const proceed = window.confirm(
-                                `Send ${resolvedReason.replace('_', ' ')} SMS to ${patient.code}?\n\nPreview:\n${preview}`
+                                recentlySent
+                                  ? `An SMS was already sent to ${patient.code} recently.${duplicateNote}\n\nSend another ${resolvedReason.replace('_', ' ')} message anyway?\n\nPreview:\n${preview}`
+                                  : `Send ${resolvedReason.replace('_', ' ')} SMS to ${patient.code}?\n\nPreview:\n${preview}`
                               );
                               if (!proceed) return;
                               setSmsSending((prev) => ({ ...prev, [patient.id]: true }));
                               setSmsFeedback((prev) => ({ ...prev, [patient.id]: '' }));
                               try {
-                                const entry = await sendSMSService(patient, smsLang, smsConfig, clinicSettings, resolvedReason);
+                                const entry = await sendSMSService(
+                                  patient,
+                                  smsLang,
+                                  smsConfig,
+                                  clinicSettings,
+                                  resolvedReason,
+                                  smsSenderName,
+                                );
                                 const updated = [entry, ...smsLog];
                                 setSmsLog(updated);
                                 saveSMSLog(updated);
@@ -1133,14 +1514,94 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                   })}
                 </tbody>
               </table>
-              {filteredPatients.length > 20 && (
-                <div className="px-3 py-2 text-[11px] text-slate-500 border-t border-slate-200">
-                  Showing 20 of {filteredPatients.length} patients. Use filters to narrow results.
-                </div>
+            </div>
+          </>
+        )}
+
+        {smsBulkPhase === 'confirm' && (
+          <AdminBulkConfirmModal
+            patients={smsSelectedPatients}
+            lang={smsLang}
+            smsConfig={smsConfig}
+            clinicSettings={clinicSettings}
+            smsReason={smsReason}
+            onConfirm={handleSmsBulkConfirm}
+            onCancel={() => setSmsBulkPhase('idle')}
+          />
+        )}
+
+        {smsBulkResult && smsBulkPhase === 'done' && (
+          <div className="mt-3 px-4 py-3 rounded-lg border border-emerald-200 bg-emerald-50 text-[12px] text-emerald-900 flex items-center justify-between gap-3">
+            <span>
+              Bulk send complete: <strong>{smsBulkResult.sent}</strong> sent
+              {smsBulkResult.failed > 0 ? `, ${smsBulkResult.failed} failed` : ''}
+              {smsBulkResult.skipped > 0 ? `, ${smsBulkResult.skipped} skipped` : ''}.
+            </span>
+            <button
+              type="button"
+              onClick={() => { setSmsBulkPhase('idle'); setSmsBulkResult(null); }}
+              className="text-emerald-700 font-bold"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {(smsSelected.size > 0 && smsBulkPhase === 'idle') || smsBulkPhase === 'sending' ? (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[500] w-[min(580px,95vw)] bg-slate-800 rounded-xl shadow-2xl overflow-hidden">
+            {smsBulkPhase === 'sending' && (
+              <div className="h-1 bg-white/10">
+                <div
+                  className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-300"
+                  style={{ width: `${smsBulkPct}%` }}
+                />
+              </div>
+            )}
+            <div className="px-4 py-3 flex items-center gap-3 flex-wrap">
+              <Smartphone size={18} className="text-emerald-400 shrink-0" />
+              {smsBulkPhase === 'idle' && (
+                <>
+                  <div className="flex-1 min-w-[180px]">
+                    <div className="font-bold text-white text-[13px]">
+                      {smsSelected.size} patient{smsSelected.size !== 1 ? 's' : ''} selected
+                    </div>
+                    <div className="text-[10px] text-white/45 mt-0.5">
+                      {smsLang === 'sw' ? 'Swahili' : 'English'} · Uses each patient&apos;s message type
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSmsBulkPhase('confirm')}
+                    className="px-4 py-2 rounded-lg bg-teal-600 text-white text-[11px] font-bold flex items-center gap-2"
+                  >
+                    <Send size={13} />
+                    Preview &amp; Send
+                  </button>
+                  <button type="button" onClick={clearSmsSelection} className="text-white/40 hover:text-white p-1">
+                    <X size={16} />
+                  </button>
+                </>
+              )}
+              {smsBulkPhase === 'sending' && (
+                <>
+                  <div className="flex-1">
+                    <div className="font-bold text-white text-[13px]">
+                      Sending… {smsBulkProgress.current} / {smsBulkProgress.total}
+                    </div>
+                    <div className="text-[10px] text-white/45">{smsBulkPct}% complete</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { smsBulkAbortRef.current = true; }}
+                    className="px-3 py-1.5 rounded border border-white/20 text-white/70 text-[11px] font-bold"
+                  >
+                    Stop
+                  </button>
+                </>
               )}
             </div>
-          );
-        })()}
+          </div>
+        ) : null}
       </div>
 
       {/* ── Backup & Restore ────────────────────────────── */}
