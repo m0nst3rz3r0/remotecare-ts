@@ -1,16 +1,36 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Printer, ChevronDown, FileDown, Share2 } from 'lucide-react';
 import type { GeneratedMealPlan } from '../../lib/clinical';
 import { printDietarySlip, saveDietarySlipPdf, shareDietarySlip } from './DietarySlip';
 
 const INK  = '#132b31';
 const TEAL = '#10b981';
+const SLATE = '#516169';
 
 interface MealPlanModalProps {
   plan: GeneratedMealPlan;
   patientName: string;
   onClose: () => void;
 }
+
+const actionBtn: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '8px',
+  flex: '1 1 120px',
+  minHeight: '44px',
+  border: 'none',
+  borderRadius: '8px',
+  padding: '10px 14px',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+  textTransform: 'uppercase',
+  letterSpacing: '0.4px',
+};
 
 export default function MealPlanModal({ plan, patientName, onClose }: MealPlanModalProps) {
   const [lang, setLang] = useState<'en' | 'sw'>(plan.language);
@@ -28,48 +48,39 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
   const dayTotal = plan.meals.reduce((sum, m) => sum + m.totalCalories, 0);
   const mealColors: Record<string, string> = { Breakfast: '#f59e0b', Lunch: '#10b981', Dinner: '#6366f1' };
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)' }} onClick={onClose} />
+  const content = (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.55)' }} onClick={onClose} />
 
       <div style={{
         position: 'relative', background: '#fff', borderRadius: '12px',
-        width: '100%', maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto',
-        boxShadow: '0 20px 60px rgba(0,0,0,.3)',
+        width: '100%', maxWidth: '640px', maxHeight: '92vh',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 20px 60px rgba(0,0,0,.35)',
       }}>
-        <div style={{ background: INK, padding: '16px 20px', borderRadius: '12px 12px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
+        {/* Header */}
+        <div style={{ background: INK, padding: '14px 16px', borderRadius: '12px 12px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexShrink: 0 }}>
+          <div style={{ minWidth: 0 }}>
             <div style={{ color: '#fff', fontSize: '16px', fontWeight: 800, fontFamily: "'Inter', system-ui" }}>
               {lang === 'sw' ? 'Mpango wa Chakula' : 'Meal Plan'} — {patientName}
             </div>
-            <div style={{ color: 'rgba(255,255,255,.6)', fontSize: '11px', fontFamily: "'Inter', system-ui" }}>
+            <div style={{ color: 'rgba(255,255,255,.65)', fontSize: '11px', fontFamily: "'Inter', system-ui", marginTop: '2px' }}>
               {plan.region} · {plan.diagnosis || '—'} · {dayTotal} kcal/day
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
             <button onClick={() => setLang(l => l === 'en' ? 'sw' : 'en')}
-              style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', borderRadius: '6px', padding: '5px 12px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
+              style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', borderRadius: '6px', padding: '6px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
               {lang === 'en' ? 'SW' : 'EN'}
             </button>
-            <button onClick={() => saveDietarySlipPdf(plan, patientName, lang)}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#0d7377', border: 'none', color: '#fff', borderRadius: '6px', padding: '5px 12px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
-              <FileDown size={12} /> {lang === 'sw' ? 'Hifadhi PDF' : 'Save PDF'}
-            </button>
-            <button onClick={() => { void shareDietarySlip(plan, patientName, lang); }}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', borderRadius: '6px', padding: '5px 12px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
-              <Share2 size={12} /> {lang === 'sw' ? 'Shiriki' : 'Share'}
-            </button>
-            <button onClick={() => printDietarySlip(plan, patientName, lang)}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: TEAL, border: 'none', color: '#fff', borderRadius: '6px', padding: '5px 12px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
-              <Printer size={12} /> {lang === 'sw' ? 'Chapisha' : 'Print'}
-            </button>
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,.1)', border: 'none', color: '#fff', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer' }}>
+            <button onClick={onClose} aria-label="Close" style={{ background: 'rgba(255,255,255,.1)', border: 'none', color: '#fff', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer' }}>
               <X size={16} />
             </button>
           </div>
         </div>
 
-        <div style={{ padding: '16px 20px' }}>
+        {/* Scrollable body */}
+        <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px', marginBottom: '16px' }}>
             {[
               { label: 'kcal', value: plan.targets.tdee },
@@ -184,7 +195,53 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
             </div>
           </div>
         </div>
+
+        {/* Sticky footer — always visible Print / Share / PDF */}
+        <div style={{
+          padding: '12px 16px',
+          borderTop: '1px solid #e2e8f0',
+          background: '#f8fafc',
+          borderRadius: '0 0 12px 12px',
+          flexShrink: 0,
+        }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: SLATE, letterSpacing: '0.5px', marginBottom: '8px', fontFamily: "'Inter', system-ui" }}>
+            {lang === 'sw' ? 'Chapisha au Shiriki na Mgonjwa' : 'Print or Share with Patient'}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => printDietarySlip(plan, patientName, lang)}
+              style={{ ...actionBtn, background: TEAL, color: '#fff' }}
+            >
+              <Printer size={16} />
+              {lang === 'sw' ? 'Chapisha' : 'Print'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { void shareDietarySlip(plan, patientName, lang); }}
+              style={{ ...actionBtn, background: '#0d7377', color: '#fff' }}
+            >
+              <Share2 size={16} />
+              {lang === 'sw' ? 'Shiriki' : 'Share'}
+            </button>
+            <button
+              type="button"
+              onClick={() => saveDietarySlipPdf(plan, patientName, lang)}
+              style={{ ...actionBtn, background: '#fff', color: INK, border: '1.5px solid rgba(191,200,205,.55)' }}
+            >
+              <FileDown size={16} />
+              {lang === 'sw' ? 'Hifadhi PDF' : 'Save PDF'}
+            </button>
+          </div>
+          <div style={{ fontSize: '10px', color: '#64748b', marginTop: '8px', fontFamily: "'Inter', system-ui" }}>
+            {lang === 'sw'
+              ? 'Hifadhi PDF: chagua "Save as PDF" kwenye kidirisha cha kuchapisha.'
+              : 'Save PDF: choose "Save as PDF" in the print dialog.'}
+          </div>
+        </div>
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 }

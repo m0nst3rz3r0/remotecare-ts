@@ -876,10 +876,12 @@ export default function VisitModal() {
                   currentMeds={currentMedNames}
                   visitDiagnoses={currentDiagnosisCodes}
                   language={visitLanguage}
+                  mealPlan={mealPlan}
                   onGenerateMealPlan={(plan) => {
                     setMealPlan(plan);
                     setShowMealPlan(true);
                   }}
+                  onOpenMealPlan={() => setShowMealPlan(true)}
                 />
                 <div style={{ marginTop: '10px', display: 'flex', gap: '6px' }}>
                   {(['en', 'sw'] as const).map(l => (

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { AlertTriangle, Info, Utensils } from 'lucide-react';
+import { AlertTriangle, Info, Utensils, Printer, Share2, FileDown, Eye } from 'lucide-react';
 import {
   computeNutritionTargets,
   toMedIds,
@@ -16,6 +16,7 @@ import { getClinicZone } from '../../lib/clinical/dataLoader';
 import { calculateBMI } from '../../lib/clinical/calculators';
 import type { GeneratedMealPlan, TZRegion } from '../../lib/clinical';
 import type { Patient } from '../../types';
+import { printDietarySlip, saveDietarySlipPdf, shareDietarySlip } from './DietarySlip';
 
 const INK   = '#132b31';
 const TEAL  = '#10b981';
@@ -41,12 +42,14 @@ interface NutritionPanelProps {
   currentMeds: string[];
   visitDiagnoses: string[];
   language: 'en' | 'sw';
+  mealPlan?: GeneratedMealPlan | null;
   onGenerateMealPlan: (plan: GeneratedMealPlan) => void;
+  onOpenMealPlan?: () => void;
 }
 
 export default function NutritionPanel({
   patient, weightKg, heightCm, currentMeds,
-  visitDiagnoses, language, onGenerateMealPlan,
+  visitDiagnoses, language, mealPlan, onGenerateMealPlan, onOpenMealPlan,
 }: NutritionPanelProps) {
   const [foodQuery, setFoodQuery] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -285,6 +288,34 @@ export default function NutritionPanel({
           {generating ? 'Generating…' : (language === 'sw' ? 'Tengeneza Mpango wa Chakula' : 'Generate Meal Plan')}
         </button>
       </div>
+
+      {mealPlan && (
+        <div style={{ marginTop: '14px', padding: '12px', background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '8px' }}>
+          <div style={{ ...labelStyle, color: '#166534', marginBottom: '8px' }}>
+            {language === 'sw' ? 'Mpango Umetengenezwa — Chapisha au Shiriki' : 'Plan Ready — Print or Share'}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {onOpenMealPlan && (
+              <button type="button" onClick={onOpenMealPlan}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#fff', color: INK, border: '1.5px solid rgba(191,200,205,.55)', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
+                <Eye size={14} /> {language === 'sw' ? 'Angalia' : 'View'}
+              </button>
+            )}
+            <button type="button" onClick={() => printDietarySlip(mealPlan, patient.code, language)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: TEAL, color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
+              <Printer size={14} /> {language === 'sw' ? 'Chapisha' : 'Print'}
+            </button>
+            <button type="button" onClick={() => { void shareDietarySlip(mealPlan, patient.code, language); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#0d7377', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
+              <Share2 size={14} /> {language === 'sw' ? 'Shiriki' : 'Share'}
+            </button>
+            <button type="button" onClick={() => saveDietarySlipPdf(mealPlan, patient.code, language)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#fff', color: INK, border: '1.5px solid rgba(191,200,205,.55)', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
+              <FileDown size={14} /> {language === 'sw' ? 'Hifadhi PDF' : 'Save PDF'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
