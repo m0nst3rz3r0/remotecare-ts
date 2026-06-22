@@ -67,5 +67,8 @@ describe('meal planner', () => {
     expect(allItems.some(i => i.foodId === 'food_118')).toBe(false);
     expect(allItems.some(i => i.foodId === 'food_015')).toBe(false);
     expect(plan.meals.every(m => m.items.length >= 2)).toBe(true);
+    const dayKcal = plan.meals.reduce((s, m) => s + m.totalCalories, 0);
+    expect(dayKcal).toBeGreaterThan(plan.targets.tdee * 0.5);
+    expect(allItems.some(i => i.foodId === 'food_264')).toBe(false);
   });
 });

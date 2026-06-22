@@ -111,6 +111,7 @@ function pickProtein(
     .filter(f => {
       const cats = Array.isArray(f.category) ? f.category : [f.category];
       if (!cats.includes('protein')) return false;
+      if (!isMealProtein(f)) return false;
       if (hasCKD && f.macros_per_100g.protein_g > 25) return false;
       const result = evalFoodForPatient(f.id, 'Boiled', conditions);
       return result.severity === 'Safe';
@@ -128,8 +129,7 @@ function pickVegetable(foods: FoodItem[], conditions: string[]): FoodItem[] {
 
   return foods
     .filter(f => {
-      const cats = Array.isArray(f.category) ? f.category : [f.category];
-      if (!cats.some(c => c === 'vitamin' || c === 'vegetable')) return false;
+      if (!isMealVegetable(f)) return false;
       const result = evalFoodForPatient(f.id, 'Boiled', conditions);
       if (result.severity === 'Danger') return false;
       if (hasCKD && result.severity === 'Warning') return false;
@@ -153,23 +153,55 @@ function pickFruit(foods: FoodItem[], conditions: string[]): FoodItem[] {
     .sort((a, b) => giRank(a.glycemic_index) - giRank(b.glycemic_index));
 }
 
+function isBeverage(f: FoodItem): boolean {
+  const name = foodLabel(f);
+  return /^(tea|chai)\b|coffee|kahawa|juice|juisi|soda|cola|\bwater\b|drink|vinywaji/i.test(name)
+    || /chai iliyopikwa|brewed tea/i.test(name);
+}
+
+function isMealProtein(f: FoodItem): boolean {
+  if (isBeverage(f)) return false;
+  const name = foodLabel(f);
+  if (/milk powder|chai|tea/i.test(name)) return false;
+  return (f.macros_per_100g.protein_g ?? 0) >= 2;
+}
+
+function isMealVegetable(f: FoodItem): boolean {
+  if (isBeverage(f)) return false;
+  const cats = Array.isArray(f.category) ? f.category : [f.category];
+  if (!cats.some(c => c === 'vitamin' || c === 'vegetable')) return false;
+  // Require meaningful veg — not drinks mis-tagged as vitamin
+  return (f.macros_per_100g.calories ?? 0) >= 15 || (f.macros_per_100g.fiber_g ?? 0) >= 1;
+}
+
+function servingGrams(food: FoodItem, portionMultiplier: number): number {
+  const gramsPerUnit = food.serving?.grams_per_unit ?? 100;
+  const defaultUnits = food.serving?.default_units ?? 1;
+  return gramsPerUnit * defaultUnits * portionMultiplier;
+}
+
+function caloriesPerDefaultServing(food: FoodItem): number {
+  return (food.macros_per_100g.calories * servingGrams(food, 1)) / 100;
+}
+
 function pickFromPool(pool: FoodItem[], usedFoodIds: Set<string>): FoodItem | undefined {
   return pool.find(f => !usedFoodIds.has(f.id)) ?? pool[0];
 }
 
 function getPortionText(food: FoodItem, portionMultiplier: number, lang: 'en' | 'sw'): string {
   if (food.serving) {
-    const units = Math.round(food.serving.default_units * portionMultiplier * 2) / 2;
+    const rawUnits = food.serving.default_units * portionMultiplier;
+    const units = Math.min(3, Math.round(rawUnits * 2) / 2);
     const unit = lang === 'sw' ? food.serving.unit_sw : food.serving.unit_en;
     return `${units} ${unit}`;
   }
-  const grams = Math.round(100 * portionMultiplier);
+  const grams = Math.round(Math.min(350, 100 * portionMultiplier));
   return `${grams}g`;
 }
 
 function computeFoodMacros(food: FoodItem, portionMultiplier: number) {
   const m = food.macros_per_100g;
-  const factor = portionMultiplier;
+  const factor = servingGrams(food, portionMultiplier) / 100;
   return {
     calories: Math.round(m.calories * factor),
     protein:  Math.round((m.protein_g ?? 0) * factor * 10) / 10,
@@ -227,11 +259,9 @@ function buildMeal(
     });
   };
 
-  const calPerUnit = starch
-    ? (starch.macros_per_100g.calories * (starch.serving?.grams_per_unit ?? 100)) / 100
-    : 200;
+  const calPerServing = starch ? caloriesPerDefaultServing(starch) : 200;
   const starchPortion = starch
-    ? Math.max(0.5, Math.min(2.5, (mealTargetCalories * 0.45) / Math.max(calPerUnit, 50)))
+    ? Math.max(0.5, Math.min(2, (mealTargetCalories * 0.45) / Math.max(calPerServing, 50)))
     : 1;
 
   add(starch, starchPortion, 'Boiled');
