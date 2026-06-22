@@ -1,0 +1,30 @@
+{
+  "Northern Highlands": {
+    "coreStaples": ["food_148", "food_161", "food_024", "food_009_uji", "food_006_uji", "food_030", "food_048", "food_049", "food_096"],
+    "excludeIds": ["food_055"]
+  },
+  "Lake Zone": {
+    "coreStaples": ["food_014", "food_024", "food_006_uji", "food_055", "food_030", "food_053", "food_096", "food_148"],
+    "excludeIds": []
+  },
+  "Coast": {
+    "coreStaples": ["food_014", "food_016", "food_161", "food_006_uji", "food_009_uji", "food_055", "food_053", "food_148"],
+    "excludeIds": []
+  },
+  "Zanzibar": {
+    "coreStaples": ["food_014", "food_016", "food_161", "food_006_uji", "food_055", "food_053", "food_148"],
+    "excludeIds": []
+  },
+  "Southern Highlands": {
+    "coreStaples": ["food_014", "food_024", "food_161", "food_030", "food_048", "food_096", "food_148"],
+    "excludeIds": []
+  },
+  "Central": {
+    "coreStaples": ["food_014", "food_024", "food_161", "food_030", "food_048", "food_096"],
+    "excludeIds": []
+  },
+  "Western": {
+    "coreStaples": ["food_014", "food_024", "food_030", "food_048", "food_053", "food_096"],
+    "excludeIds": []
+  }
+}

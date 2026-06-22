@@ -21,6 +21,9 @@ import { HTN_MEDS } from '../../services/clinical';
 import { ICD10_CODES } from '../../data/icd10';
 import { INVESTIGATION_TEMPLATES } from '../../data/investigations';
 import DrugInteractionAlert from './DrugInteractionAlert';
+import NutritionPanel from './NutritionPanel';
+import MealPlanModal from './MealPlanModal';
+import type { GeneratedMealPlan } from '../../lib/clinical';
 
 // ── Helpers ──────────────────────────────────────────────────
 function toISODate(d: Date) { return d.toISOString().split('T')[0]; }
@@ -329,6 +332,20 @@ export default function VisitModal() {
   // ── Final note ────────────────────────────────────────────
   const [finalNote, setFinalNote] = useState<string>('');
 
+  const [mealPlan, setMealPlan] = useState<GeneratedMealPlan | null>(null);
+  const [showMealPlan, setShowMealPlan] = useState(false);
+  const [visitLanguage, setVisitLanguage] = useState<'en' | 'sw'>('en');
+
+  const currentMedNames = useMemo(
+    () => meds.map(m => m.name).filter(Boolean),
+    [meds],
+  );
+
+  const currentDiagnosisCodes = useMemo(
+    () => comorbidities.map(d => d.code),
+    [comorbidities],
+  );
+
   // ── Reset on open ─────────────────────────────────────────
   useEffect(() => {
     if (!open || !patient) return;
@@ -347,6 +364,9 @@ export default function VisitModal() {
     setNextDate(toISODate(nextVisitDate(new Date(today()), 30, clinicDays)));
     setNextNote('');
     setFinalNote('');
+    setMealPlan(null);
+    setShowMealPlan(false);
+    setVisitLanguage('en');
   }, [open, patient, clinicDays]);
 
   useEffect(() => {
@@ -414,6 +434,7 @@ export default function VisitModal() {
       ...(isDM && attended && hba1cValue.trim() !== '' && hba1cQuarter
         ? { hba1cValue: Number(hba1cValue), hba1cQuarter, hba1cYear: new Date(visitDate).getFullYear() }
         : {}),
+      ...(attended && mealPlan ? { mealPlan } : {}),
     });
     close();
   };
@@ -846,6 +867,35 @@ export default function VisitModal() {
                   />
                 </div>
               </SectionCard>
+
+              <SectionCard title="9. Nutrition & Meal Plan" color="#0d7377" defaultOpen={false}>
+                <NutritionPanel
+                  patient={patient}
+                  weightKg={parseNumber(weightKg)}
+                  heightCm={parseNumber(heightCm)}
+                  currentMeds={currentMedNames}
+                  visitDiagnoses={currentDiagnosisCodes}
+                  language={visitLanguage}
+                  onGenerateMealPlan={(plan) => {
+                    setMealPlan(plan);
+                    setShowMealPlan(true);
+                  }}
+                />
+                <div style={{ marginTop: '10px', display: 'flex', gap: '6px' }}>
+                  {(['en', 'sw'] as const).map(l => (
+                    <button key={l} onClick={() => setVisitLanguage(l)} style={{
+                      padding: '3px 12px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700,
+                      border: `1.5px solid ${l === visitLanguage ? '#0d7377' : 'rgba(191,200,205,.5)'}`,
+                      background: l === visitLanguage ? '#0d7377' : '#fff',
+                      color: l === visitLanguage ? '#fff' : '#516169',
+                      cursor: 'pointer', fontFamily: "'Inter', system-ui",
+                      textTransform: 'uppercase',
+                    }}>
+                      {l === 'en' ? 'English' : 'Kiswahili'}
+                    </button>
+                  ))}
+                </div>
+              </SectionCard>
             </>
           ) : (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: '#516169', fontSize: '14px' }}>
@@ -860,6 +910,14 @@ export default function VisitModal() {
           <Button size="sm" variant="primary" label="Save Visit" onClick={onSave} />
         </div>
       </div>
+
+      {showMealPlan && mealPlan && (
+        <MealPlanModal
+          plan={mealPlan}
+          patientName={patient.code}
+          onClose={() => setShowMealPlan(false)}
+        />
+      )}
     </div>
   );
 }

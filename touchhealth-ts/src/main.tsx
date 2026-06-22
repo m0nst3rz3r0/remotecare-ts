@@ -5,6 +5,12 @@ import './index.css';
 import { migratePasswords } from './services/crypto';
 import { migratePhones } from './services/phoneEncryption';
 import { loadPatients, savePatients } from './services/storage';
+import { preloadClinicalData, loadZonePresets } from './lib/clinical/dataLoader';
+import zonePresets from './data/zoneAvailabilityPresets.json';
+import type { ZonePreset } from './lib/clinical/types';
+
+preloadClinicalData().catch(console.warn);
+loadZonePresets(zonePresets as Record<string, ZonePreset>);
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {

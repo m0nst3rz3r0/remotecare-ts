@@ -3,6 +3,8 @@
 // src/types/index.ts — All TypeScript type definitions
 // ════════════════════════════════════════════════════════════
 
+import type { GeneratedMealPlan } from '../lib/clinical/types';
+
 // ── ENUMS ────────────────────────────────────────────────────
 
 export type Sex = 'M' | 'F';
@@ -160,6 +162,7 @@ export interface Visit {
   diagnoses?: Diagnosis[];
   investigations?: InvestigationResult[];
   drugWarnings?: string[];
+  mealPlan?: GeneratedMealPlan;
 }
 
 // ── DIAGNOSIS ────────────────────────────────────────────────
@@ -223,6 +226,19 @@ export interface Patient {
   hba1c?: HbA1cEntry[];
   callLog?: CallLogEntry[];
   scheduledNext?: ScheduledAppointment;
+  nutritionProfile?: {
+    activityLevel?: 'Sedentary' | 'Light' | 'Moderate' | 'Active' | 'Very Active';
+    bodyGoal?: 'lose_weight' | 'maintain' | 'gain_muscle';
+    nutritionTargetKcal?: number;
+    nutritionProteinG?: number;
+    nutritionSodiumMg?: number;
+    nutritionRiskLevel?: 'Low' | 'Moderate' | 'High';
+    drugFoodAlertCount?: number;
+    lastMealPlanDate?: string;
+    zoneOverride?: string;
+    availableFoodIds?: string[];
+    afyaLisheReferralSent?: boolean;
+  };
 }
 
 // ── CLINICAL CLASSIFICATION ──────────────────────────────────

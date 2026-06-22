@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PageWrapper from '../components/layout/PageWrapper';
+import ZoneSettingsPanel from '../components/ZoneSettingsPanel';
 import type { Hospital, Patient, SMSReason, User, ClinicSettings } from '../types';
 import { usePatientStore } from '../store/usePatientStore';
 import { useAuthStore } from '../store/useAuthStore';
@@ -715,6 +716,8 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
 
   return (
     <div className="space-y-4">
+
+      <ZoneSettingsPanel />
 
       {/* ── Hospital Management ─────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-xl p-4">

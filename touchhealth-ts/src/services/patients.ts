@@ -25,6 +25,9 @@ import type {
   CodeComponents,
   ClinicSettings,
 } from '../types';
+import type { GeneratedMealPlan } from '../lib/clinical/types';
+import { calculateBMI } from '../lib/clinical/calculators';
+import { getNutritionRiskLevel } from '../lib/clinical/nutritionEngine';
 import { Diagnosis } from '../data/icd10';
 import { InvestigationResult } from '../data/investigations';
 import { today, getLastVisit, nextVisitDate } from './clinical';
@@ -360,6 +363,7 @@ export interface RecordVisitParams {
   hba1cValue?:   number;
   hba1cQuarter?: HbA1cQuarter;
   hba1cYear?:    number;
+  mealPlan?:     GeneratedMealPlan;
 }
 
 export function recordVisit(
@@ -376,6 +380,7 @@ export function recordVisit(
       hba1cValue, hba1cQuarter, hba1cYear,
       presentingComplaint, physicalExam,
       diagnoses, investigations, drugWarnings,
+      mealPlan,
     } = params;
 
     const visit: Visit = {
@@ -398,6 +403,7 @@ export function recordVisit(
       diagnoses:           att ? diagnoses            ?? undefined : undefined,
       investigations:      att ? investigations       ?? undefined : undefined,
       drugWarnings:        att ? drugWarnings         ?? undefined : undefined,
+      mealPlan:            att ? mealPlan             ?? undefined : undefined,
     };
 
     const visits = [
@@ -438,7 +444,26 @@ export function recordVisit(
     }
 
     const nextStatus: PatientStatus = att ? 'active' : p.status;
-    return { ...p, visits, medications, scheduledNext, hba1c, status: nextStatus };
+
+    let nutritionProfile = p.nutritionProfile;
+    if (att && mealPlan) {
+      const bmiVal = weight && height ? calculateBMI(weight, height) : 0;
+      nutritionProfile = {
+        ...p.nutritionProfile,
+        nutritionTargetKcal: mealPlan.targets.tdee,
+        nutritionProteinG: mealPlan.targets.proteinG,
+        nutritionSodiumMg: mealPlan.targets.sodiumMg,
+        nutritionRiskLevel: getNutritionRiskLevel(
+          mealPlan.diagnosis.split(',').map(s => s.trim()).filter(Boolean),
+          bmiVal,
+          mealPlan.targets.sodiumMg,
+        ),
+        drugFoodAlertCount: mealPlan.drugAlerts.length,
+        lastMealPlanDate: mealPlan.date,
+      };
+    }
+
+    return { ...p, visits, medications, scheduledNext, hba1c, status: nextStatus, nutritionProfile };
   });
 }
 
