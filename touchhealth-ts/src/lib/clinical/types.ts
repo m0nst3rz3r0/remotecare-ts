@@ -77,6 +77,9 @@ export interface MealItem {
   name_sw: string;
   portionText: string;
   preparation: string;
+  /** For re-localizing portions when language toggles */
+  portionMultiplier?: number;
+  prepMethod?: string;
   macros: { calories: number; protein: number; carbs: number; fat: number };
 }
 
@@ -87,6 +90,8 @@ export interface DailyMeal {
   items: MealItem[];
   totalCalories: number;
   culturalNote?: string;
+  culturalNote_en?: string;
+  culturalNote_sw?: string;
 }
 
 export interface DrugFoodInteraction {
@@ -103,6 +108,8 @@ export interface GeneratedMealPlan {
   patientCode: string;
   date: string;
   diagnosis: string;
+  /** Clinical condition codes used to build cautions and safety rules */
+  conditions?: string[];
   region: TZRegion;
   language: 'en' | 'sw';
   targets: NutritionTargets;

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, ChevronDown, FileDown, Share2 } from 'lucide-react';
 import type { GeneratedMealPlan } from '../../lib/clinical';
+import { buildCautions } from '../../lib/clinical/mealPlanner';
+import { formatMealItemDetail, mealFoodName } from '../../lib/clinical/mealLocalization';
 import { printDietarySlip, saveDietarySlipPdf, shareDietarySlip } from './DietarySlip';
 
 const INK  = '#132b31';
@@ -47,6 +49,7 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
 
   const dayTotal = plan.meals.reduce((sum, m) => sum + m.totalCalories, 0);
   const mealColors: Record<string, string> = { Breakfast: '#f59e0b', Lunch: '#10b981', Dinner: '#6366f1' };
+  const cautions = buildCautions(plan.conditions ?? [], lang);
 
   const content = (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
@@ -95,12 +98,12 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
             ))}
           </div>
 
-          {plan.cautions.length > 0 && (
+          {cautions.length > 0 && (
             <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '8px', padding: '12px', marginBottom: '14px' }}>
               <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#166534', letterSpacing: '0.5px', marginBottom: '6px', fontFamily: "'Inter', system-ui" }}>
                 {lang === 'sw' ? 'Tahadhari za Lishe' : 'Dietary Cautions'}
               </div>
-              {plan.cautions.map((c, i) => (
+              {cautions.map((c, i) => (
                 <div key={i} style={{ fontSize: '11px', color: '#166534', fontFamily: "'Inter', system-ui", marginBottom: '3px' }}>• {c}</div>
               ))}
             </div>
@@ -131,6 +134,11 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
 
               {openMeals.has(meal.mealType) && (
                 <div style={{ padding: '10px 14px' }}>
+                  {(lang === 'sw' ? meal.culturalNote_sw : meal.culturalNote_en) && (
+                    <div style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic', marginBottom: '8px', fontFamily: "'Inter', system-ui" }}>
+                      {lang === 'sw' ? meal.culturalNote_sw : meal.culturalNote_en}
+                    </div>
+                  )}
                   {meal.items.map((item, i) => (
                     <div key={i} style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -138,10 +146,10 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
                     }}>
                       <div>
                         <div style={{ fontSize: '13px', fontWeight: 600, color: INK, fontFamily: "'Inter', system-ui" }}>
-                          {lang === 'sw' ? item.name_sw : item.name_en}
+                          {mealFoodName(item, lang)}
                         </div>
                         <div style={{ fontSize: '11px', color: '#64748b', fontFamily: "'Inter', system-ui" }}>
-                          {item.portionText} · {item.preparation}
+                          {formatMealItemDetail(item, lang)}
                         </div>
                       </div>
                       <span style={{ fontSize: '11px', color: '#64748b', fontFamily: "'Inter', system-ui" }}>{item.macros.calories} kcal</span>

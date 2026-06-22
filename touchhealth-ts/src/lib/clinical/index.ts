@@ -10,3 +10,4 @@ export * from './drugMapper';
 export * from './drugInteractions';
 export * from './foodSafety';
 export * from './mealPlanner';
+export * from './mealLocalization';

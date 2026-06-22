@@ -1,4 +1,6 @@
 import type { GeneratedMealPlan } from '../../lib/clinical';
+import { buildCautions } from '../../lib/clinical/mealPlanner';
+import { formatMealItemDetail, mealFoodName } from '../../lib/clinical/mealLocalization';
 
 function L(lang: 'en' | 'sw', en: string, sw: string): string {
   return lang === 'en' ? en : sw;
@@ -9,13 +11,16 @@ export function buildDietarySlipHtml(
   patientName: string,
   lang: 'en' | 'sw',
 ): string {
+  const cautions = buildCautions(plan.conditions ?? [], lang);
+
   const mealHTML = plan.meals.map(meal => `
     <div class="meal-card">
       <div class="meal-title">${lang === 'sw' ? meal.name_sw : meal.name_en} — ${meal.totalCalories} kcal</div>
+      ${(lang === 'sw' ? meal.culturalNote_sw : meal.culturalNote_en) ? `<div class="meal-note">${lang === 'sw' ? meal.culturalNote_sw : meal.culturalNote_en}</div>` : ''}
       ${meal.items.map(item => `
         <div class="food-row">
-          <span class="food-name">${lang === 'sw' ? item.name_sw : item.name_en}</span>
-          <span class="food-detail">${item.portionText}, ${item.preparation}</span>
+          <span class="food-name">${mealFoodName(item, lang)}</span>
+          <span class="food-detail">${formatMealItemDetail(item, lang)}</span>
         </div>
       `).join('')}
     </div>
@@ -39,10 +44,10 @@ export function buildDietarySlipHtml(
     </div>
   ` : '';
 
-  const cautionHTML = plan.cautions.length > 0 ? `
+  const cautionHTML = cautions.length > 0 ? `
     <div class="section safe-section">
       <div class="section-title">${L(lang, 'Key Dietary Rules', 'Kanuni Muhimu za Lishe')}</div>
-      ${plan.cautions.map(c => `<div class="caution-row">• ${c}</div>`).join('')}
+      ${cautions.map(c => `<div class="caution-row">• ${c}</div>`).join('')}
     </div>
   ` : '';
 
@@ -65,6 +70,7 @@ export function buildDietarySlipHtml(
     .target-label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.3px; }
     .meal-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; page-break-inside: avoid; }
     .meal-title { font-size: 10px; font-weight: 700; color: #0d7377; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .meal-note { font-size: 8.5px; color: #475569; font-style: italic; margin-bottom: 4px; }
     .food-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #f1f5f9; font-size: 9px; }
     .food-name { font-weight: 600; color: #132b31; }
     .food-detail { color: #64748b; }
@@ -100,7 +106,7 @@ export function buildDietarySlipHtml(
   <div class="targets">
     <div class="target-pill">
       <div class="target-value">${plan.targets.tdee}</div>
-      <div class="target-label">kcal/day</div>
+      <div class="target-label">${L(lang, 'kcal/day', 'kcal/siku')}</div>
     </div>
     <div class="target-pill">
       <div class="target-value">${plan.targets.proteinG}g</div>
@@ -206,7 +212,9 @@ function buildPlainTextSummary(
     '',
     ...plan.meals.map(meal => {
       const title = lang === 'sw' ? meal.name_sw : meal.name_en;
-      const items = meal.items.map(i => `  - ${lang === 'sw' ? i.name_sw : i.name_en} (${i.portionText})`).join('\n');
+      const items = meal.items.map(i =>
+        `  - ${mealFoodName(i, lang)} (${formatMealItemDetail(i, lang)})`
+      ).join('\n');
       return `${title} (${meal.totalCalories} kcal)\n${items}`;
     }),
   ];

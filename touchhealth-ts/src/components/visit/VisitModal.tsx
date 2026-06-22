@@ -334,7 +334,7 @@ export default function VisitModal() {
 
   const [mealPlan, setMealPlan] = useState<GeneratedMealPlan | null>(null);
   const [showMealPlan, setShowMealPlan] = useState(false);
-  const [visitLanguage, setVisitLanguage] = useState<'en' | 'sw'>('en');
+  const [visitLanguage, setVisitLanguage] = useState<'en' | 'sw'>('sw');
 
   const currentMedNames = useMemo(
     () => meds.map(m => m.name).filter(Boolean),

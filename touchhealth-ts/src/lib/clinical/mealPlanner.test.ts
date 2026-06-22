@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadZonePresets, setClinicalDataForTests } from './dataLoader';
 import type { FoodItem, ClinicalRule } from './types';
-import { isMealStarch, generateMealPlan } from './mealPlanner';
+import { isMealStarch, generateMealPlan, buildCautions } from './mealPlanner';
+import { formatMealItemDetail } from './mealLocalization';
 import zonePresets from '../../data/zoneAvailabilityPresets.json';
 
 function loadJsonData() {
@@ -70,5 +71,46 @@ describe('meal planner', () => {
     const dayKcal = plan.meals.reduce((s, m) => s + m.totalCalories, 0);
     expect(dayKcal).toBeGreaterThan(plan.targets.tdee * 0.5);
     expect(allItems.some(i => i.foodId === 'food_264')).toBe(false);
+  });
+
+  it('Lake Zone HTN uses culturally appropriate meals in Kiswahili', () => {
+    const plan = generateMealPlan({
+      patientCode: 'KG-BK-ZMZ-F0014',
+      age: 55,
+      sex: 'female',
+      weightKg: 65,
+      heightCm: 162,
+      conditions: ['HTN', 'I10'],
+      zone: 'Lake Zone',
+      language: 'sw',
+      medicationIds: [],
+    });
+
+    const lunch = plan.meals.find(m => m.mealType === 'Lunch')!;
+    const dinner = plan.meals.find(m => m.mealType === 'Dinner')!;
+    const breakfast = plan.meals.find(m => m.mealType === 'Breakfast')!;
+
+    expect(breakfast.items.some(i => /uji/i.test(i.name_sw))).toBe(true);
+    expect(lunch.items.some(i => /ugali|wali/i.test(i.name_sw))).toBe(true);
+    expect(lunch.items.some(i => /samaki/i.test(i.name_sw))).toBe(true);
+
+    const dinnerIds = new Set(dinner.items.map(i => i.foodId));
+    expect(dinnerIds.has('food_051')).toBe(false);
+    expect(dinner.items.every(i => !/mapera|papaya|parachichi|tunda/i.test(i.name_sw))).toBe(true);
+
+    for (const meal of plan.meals) {
+      const ids = meal.items.map(i => i.foodId);
+      const hasEgg = ids.includes('food_051');
+      const hasPlantain = ids.includes('food_148');
+      expect(!(hasEgg && hasPlantain)).toBe(true);
+    }
+
+    const swCautions = buildCautions(plan.conditions ?? ['HTN'], 'sw');
+    expect(swCautions[0]).toMatch(/Presha|chumvi/i);
+    expect(swCautions[0]).not.toMatch(/Hypertension/i);
+
+    const detail = formatMealItemDetail(breakfast.items[0], 'sw');
+    expect(detail).toMatch(/Imechemshwa|Mbichi/);
+    expect(detail).not.toMatch(/Boiled|tea cup/i);
   });
 });
