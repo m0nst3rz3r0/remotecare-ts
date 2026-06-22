@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { X, Printer, ChevronDown } from 'lucide-react';
+import { X, Printer, ChevronDown, FileDown, Share2 } from 'lucide-react';
 import type { GeneratedMealPlan } from '../../lib/clinical';
-import { printDietarySlip } from './DietarySlip';
+import { printDietarySlip, saveDietarySlipPdf, shareDietarySlip } from './DietarySlip';
 
 const INK  = '#132b31';
 const TEAL = '#10b981';
@@ -50,6 +50,14 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
             <button onClick={() => setLang(l => l === 'en' ? 'sw' : 'en')}
               style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', borderRadius: '6px', padding: '5px 12px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
               {lang === 'en' ? 'SW' : 'EN'}
+            </button>
+            <button onClick={() => saveDietarySlipPdf(plan, patientName, lang)}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#0d7377', border: 'none', color: '#fff', borderRadius: '6px', padding: '5px 12px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
+              <FileDown size={12} /> {lang === 'sw' ? 'Hifadhi PDF' : 'Save PDF'}
+            </button>
+            <button onClick={() => { void shareDietarySlip(plan, patientName, lang); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', borderRadius: '6px', padding: '5px 12px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
+              <Share2 size={12} /> {lang === 'sw' ? 'Shiriki' : 'Share'}
             </button>
             <button onClick={() => printDietarySlip(plan, patientName, lang)}
               style={{ display: 'flex', alignItems: 'center', gap: '5px', background: TEAL, border: 'none', color: '#fff', borderRadius: '6px', padding: '5px 12px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>

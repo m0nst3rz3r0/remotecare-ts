@@ -1,6 +1,6 @@
 // RCRO NutritionTool — offline meal plan generator
 
-import { getFoodsForZone } from './dataLoader';
+import { getFoodsForZone, getZonePresets } from './dataLoader';
 import { normalizeConditionList } from './conditions';
 import { computeNutritionTargets } from './nutritionEngine';
 import { evalFoodForPatient } from './foodSafety';
@@ -8,38 +8,104 @@ import { getDrugFoodInteractions } from './drugInteractions';
 import { getAvoidFoods } from './foodSafety';
 import type { DailyMeal, MealItem, GeneratedMealPlan, TZRegion, NutritionTargets, FoodItem } from './types';
 
-function pickStarch(foods: FoodItem[], conditions: string[]): FoodItem[] {
+/** Not meal staples — condiments, sweeteners, etc. */
+const BLOCKED_MEAL_STARCH_IDS = new Set([
+  'food_118', // white sugar
+  'food_119', // iodized salt
+]);
+
+const BLOCKED_DM_STARCH_IDS = new Set(['food_130', 'food_132', 'food_001', 'food_002', 'food_021']);
+
+function foodLabel(f: FoodItem): string {
+  return `${f.name_en} ${f.name_sw}`.toLowerCase();
+}
+
+function giRank(gi: string): number {
+  return ({ Low: 0, Medium: 1, High: 2 } as Record<string, number>)[gi] ?? 1;
+}
+
+/** True staple starches suitable as a meal base (not sugar, salt, snacks). */
+export function isMealStarch(f: FoodItem): boolean {
+  if (BLOCKED_MEAL_STARCH_IDS.has(f.id)) return false;
+
+  const cats = Array.isArray(f.category) ? f.category : [f.category];
+  if (!cats.includes('carb')) return false;
+
+  const name = foodLabel(f);
+  if (/sugar|sukari|asali|honey|syrup|soda|cola|biscuit|biskuti|mandazi|vitumbua|mkate mweupe|white bread/i.test(name)) {
+    return false;
+  }
+  if (/\bsalt\b|chumvi/i.test(name) && !/fish|samaki/i.test(name)) return false;
+
+  // Teaspoon-sized servings with almost pure sugar/carbs are not meal bases
+  if (f.serving && f.serving.grams_per_unit < 25 && (f.macros_per_100g.carbs_g ?? 0) > 85) {
+    return false;
+  }
+
+  return true;
+}
+
+export function proteinGroup(f: FoodItem): string {
+  const name = foodLabel(f);
+  if (/fish|samaki|dagaa|tilapia|sardine|sato/i.test(name)) return 'fish';
+  if (/egg|yai/i.test(name)) return 'egg';
+  if (/chicken|kuku/i.test(name)) return 'poultry';
+  if (/bean|maharage|choroko|ndengu|mbaazi|pea|kunde|lentil/i.test(name)) return 'legume';
+  if (/beef|nyama|goat|mbuzi/i.test(name)) return 'meat';
+  return 'other';
+}
+
+function pickStarch(foods: FoodItem[], conditions: string[], zone: TZRegion): FoodItem[] {
+  const coreIds = new Set(getZonePresets()[zone]?.coreStaples ?? []);
   const dx = normalizeConditionList(conditions);
   const hasDM = dx.some(d => /dm|diabetes/i.test(d));
   const hasHTN = dx.some(d => /htn|hypertension/i.test(d));
 
-  const BLOCKED_DM = new Set(['food_130', 'food_132', 'food_001', 'food_002', 'food_021']);
-
   return foods
+    .filter(isMealStarch)
     .filter(f => {
-      const cats = Array.isArray(f.category) ? f.category : [f.category];
-      if (!cats.includes('carb')) return false;
-      if (hasDM && BLOCKED_DM.has(f.id)) return false;
+      if (hasDM && BLOCKED_DM_STARCH_IDS.has(f.id)) return false;
       const result = evalFoodForPatient(f.id, 'Boiled', conditions);
-      if (result.severity === 'Danger') return false;
-      return true;
+      return result.severity === 'Safe';
     })
     .sort((a, b) => {
-      if (hasDM) {
-        const gi: Record<string, number> = { Low: 0, Medium: 1, High: 2 };
-        return (gi[a.glycemic_index] ?? 1) - (gi[b.glycemic_index] ?? 1);
+      const aCore = coreIds.has(a.id) ? 0 : 1;
+      const bCore = coreIds.has(b.id) ? 0 : 1;
+      if (aCore !== bCore) return aCore - bCore;
+
+      if (hasDM || hasHTN) {
+        const giDiff = giRank(a.glycemic_index) - giRank(b.glycemic_index);
+        if (giDiff !== 0) return giDiff;
       }
       if (hasHTN) {
-        return (a.macros_per_100g.sodium_mg ?? 0) - (b.macros_per_100g.sodium_mg ?? 0);
+        const sodDiff = (a.macros_per_100g.sodium_mg ?? 0) - (b.macros_per_100g.sodium_mg ?? 0);
+        if (sodDiff !== 0) return sodDiff;
       }
-      return 0;
-    })
-    .slice(0, 6);
+      return (b.macros_per_100g.fiber_g ?? 0) - (a.macros_per_100g.fiber_g ?? 0);
+    });
 }
 
-function pickProtein(foods: FoodItem[], conditions: string[]): FoodItem[] {
+function pickProtein(
+  foods: FoodItem[],
+  conditions: string[],
+  usedGroups: Set<string>,
+): FoodItem[] {
   const dx = normalizeConditionList(conditions);
   const hasCKD = dx.some(d => /ckd|kidney/i.test(d));
+  const hasHTN = dx.some(d => /htn|hypertension/i.test(d));
+
+  const groupPriority = (g: string): number => {
+    if (usedGroups.has(g)) return 10;
+    if (hasHTN) {
+      if (g === 'fish') return 0;
+      if (g === 'egg') return 1;
+      if (g === 'poultry') return 2;
+      if (g === 'legume') return 4;
+      if (g === 'meat') return 5;
+    }
+    if (g === 'legume') return 3;
+    return 2;
+  };
 
   return foods
     .filter(f => {
@@ -47,10 +113,13 @@ function pickProtein(foods: FoodItem[], conditions: string[]): FoodItem[] {
       if (!cats.includes('protein')) return false;
       if (hasCKD && f.macros_per_100g.protein_g > 25) return false;
       const result = evalFoodForPatient(f.id, 'Boiled', conditions);
-      if (result.severity === 'Danger') return false;
-      return true;
+      return result.severity === 'Safe';
     })
-    .slice(0, 5);
+    .sort((a, b) => {
+      const gp = groupPriority(proteinGroup(a)) - groupPriority(proteinGroup(b));
+      if (gp !== 0) return gp;
+      return (a.macros_per_100g.sodium_mg ?? 0) - (b.macros_per_100g.sodium_mg ?? 0);
+    });
 }
 
 function pickVegetable(foods: FoodItem[], conditions: string[]): FoodItem[] {
@@ -66,7 +135,7 @@ function pickVegetable(foods: FoodItem[], conditions: string[]): FoodItem[] {
       if (hasCKD && result.severity === 'Warning') return false;
       return true;
     })
-    .slice(0, 5);
+    .sort((a, b) => (a.macros_per_100g.sodium_mg ?? 0) - (b.macros_per_100g.sodium_mg ?? 0));
 }
 
 function pickFruit(foods: FoodItem[], conditions: string[]): FoodItem[] {
@@ -79,10 +148,13 @@ function pickFruit(foods: FoodItem[], conditions: string[]): FoodItem[] {
       if (!cats.includes('fruit')) return false;
       if (hasDM && f.glycemic_index === 'High') return false;
       const result = evalFoodForPatient(f.id, 'Raw', conditions);
-      if (result.severity === 'Danger') return false;
-      return true;
+      return result.severity === 'Safe';
     })
-    .slice(0, 4);
+    .sort((a, b) => giRank(a.glycemic_index) - giRank(b.glycemic_index));
+}
+
+function pickFromPool(pool: FoodItem[], usedFoodIds: Set<string>): FoodItem | undefined {
+  return pool.find(f => !usedFoodIds.has(f.id)) ?? pool[0];
 }
 
 function getPortionText(food: FoodItem, portionMultiplier: number, lang: 'en' | 'sw'): string {
@@ -113,6 +185,7 @@ function buildMeal(
   targets: NutritionTargets,
   lang: 'en' | 'sw',
   usedFoodIds: Set<string>,
+  usedProteinGroups: Set<string>,
 ): DailyMeal {
   const foods = getFoodsForZone(zone);
   const mealTargetCalories = Math.round(
@@ -121,18 +194,21 @@ function buildMeal(
                                targets.tdee * 0.3
   );
 
-  const starches   = pickStarch(foods, conditions);
-  const proteins   = pickProtein(foods, conditions);
+  const starches   = pickStarch(foods, conditions, zone);
+  const proteins   = pickProtein(foods, conditions, usedProteinGroups);
   const vegetables = pickVegetable(foods, conditions);
   const fruits     = pickFruit(foods, conditions);
 
-  const starch = starches.find(f => !usedFoodIds.has(f.id)) ?? starches[0];
-  const protein = proteins.find(f => !usedFoodIds.has(f.id)) ?? proteins[0];
-  const veg = vegetables.find(f => !usedFoodIds.has(f.id)) ?? vegetables[0];
-  const fruit = (mealType !== 'Lunch') ? (fruits.find(f => !usedFoodIds.has(f.id)) ?? fruits[0]) : null;
+  const starch = pickFromPool(starches, usedFoodIds);
+  const protein = pickFromPool(proteins, usedFoodIds);
+  const veg = pickFromPool(vegetables, usedFoodIds);
+  const fruit = (mealType !== 'Lunch') ? pickFromPool(fruits, usedFoodIds) : null;
 
   if (starch)  usedFoodIds.add(starch.id);
-  if (protein) usedFoodIds.add(protein.id);
+  if (protein) {
+    usedFoodIds.add(protein.id);
+    usedProteinGroups.add(proteinGroup(protein));
+  }
   if (veg)     usedFoodIds.add(veg.id);
   if (fruit)   usedFoodIds.add(fruit.id);
 
@@ -151,8 +227,11 @@ function buildMeal(
     });
   };
 
+  const calPerUnit = starch
+    ? (starch.macros_per_100g.calories * (starch.serving?.grams_per_unit ?? 100)) / 100
+    : 200;
   const starchPortion = starch
-    ? Math.max(0.5, Math.min(3, (mealTargetCalories * 0.45) / (starch.macros_per_100g.calories * 1)))
+    ? Math.max(0.5, Math.min(2.5, (mealTargetCalories * 0.45) / Math.max(calPerUnit, 50)))
     : 1;
 
   add(starch, starchPortion, 'Boiled');
@@ -241,10 +320,11 @@ export function generateMealPlan(params: {
   });
 
   const usedFoodIds = new Set<string>();
+  const usedProteinGroups = new Set<string>();
   const meals: DailyMeal[] = [
-    buildMeal('Breakfast', conditions, zone, targets, language, usedFoodIds),
-    buildMeal('Lunch',     conditions, zone, targets, language, usedFoodIds),
-    buildMeal('Dinner',    conditions, zone, targets, language, usedFoodIds),
+    buildMeal('Breakfast', conditions, zone, targets, language, usedFoodIds, usedProteinGroups),
+    buildMeal('Lunch',     conditions, zone, targets, language, usedFoodIds, usedProteinGroups),
+    buildMeal('Dinner',    conditions, zone, targets, language, usedFoodIds, usedProteinGroups),
   ];
 
   const drugAlerts = getDrugFoodInteractions(medicationIds);

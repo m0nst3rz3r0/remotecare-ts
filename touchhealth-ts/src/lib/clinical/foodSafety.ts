@@ -4,6 +4,14 @@ import { getRulesSync, getFoodsForZone } from './dataLoader';
 import { conditionMatches } from './conditions';
 import type { EvaluationResult, TZRegion } from './types';
 
+const AVOID_LIST_LIMIT = 5;
+
+function shortenReason(message: string): string {
+  const main = message.split(/\s*TIP:/i)[0].trim();
+  if (main.length <= 100) return main;
+  return `${main.slice(0, 97)}…`;
+}
+
 export function evalFoodForPatient(
   foodId: string,
   prepMethod: string,
@@ -55,15 +63,15 @@ export function getAvoidFoods(conditions: string[], zone: TZRegion) {
 
   return foods
     .filter(f => avoidFoodIds.has(f.id))
-    .slice(0, 10)
+    .slice(0, AVOID_LIST_LIMIT)
     .map(f => {
       const rule = rules.find(r => r.target_food_id === f.id &&
         r.safety_level === 'Danger' && conditionMatches(r.condition, conditions));
       return {
         name_en: f.name_en,
         name_sw: f.name_sw,
-        reason_en: rule?.alert_message_en ?? 'Avoid for your condition.',
-        reason_sw: rule?.alert_message_sw ?? 'Epuka kwa hali yako.',
+        reason_en: shortenReason(rule?.alert_message_en ?? 'Avoid for your condition.'),
+        reason_sw: shortenReason(rule?.alert_message_sw ?? 'Epuka kwa hali yako.'),
       };
     });
 }

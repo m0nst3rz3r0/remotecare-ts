@@ -25,6 +25,12 @@ export function loadZonePresets(presets: Record<string, ZonePreset>): void {
   _zonePresets = presets;
 }
 
+/** Test-only helper to inject foods/rules without fetch. */
+export function setClinicalDataForTests(foods: FoodItem[], rules: ClinicalRule[]): void {
+  _foods = foods;
+  _rules = rules;
+}
+
 export function getClinicZone(): TZRegion | null {
   try {
     const stored = localStorage.getItem(CLINIC_ZONE_KEY);
