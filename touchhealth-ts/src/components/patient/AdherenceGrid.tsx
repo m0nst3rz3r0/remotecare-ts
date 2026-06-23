@@ -13,76 +13,72 @@ export default function AdherenceGrid({ patient }: { patient: Patient }) {
 
   return (
     <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px' }}>
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-xs uppercase font-bold tracking-wider text-slate-500">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748b', fontFamily: "'Inter', system-ui" }}>
           12-month adherence (Jan–Dec)
         </div>
-        <div className="font-mono text-sm font-semibold" style={{ color: '#10b981' }}>
+        <div style={{ fontFamily: "ui-monospace, 'Cascadia Code', monospace", fontSize: '13px', fontWeight: 700, color: '#10b981' }}>
           {adherenceScore}%
         </div>
       </div>
 
-      <div className="grid grid-cols-6 gap-2">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '6px' }}>
         {Array.from({ length: 12 }).map((_, i) => {
           const month = i + 1;
           const monthLabel = MONTHS_FULL[i].slice(0, 3);
           const state = states[i];
 
-          let bg: string;
-          let fg: string;
-          let icon = '';
+          type CellStyle = { bg: string; fg: string; border: string; icon?: string; dim?: boolean };
+          let cell: CellStyle;
 
           switch (state) {
             case 'attended':
-              bg = '#dcfce7';
-              fg = '#16a34a';
-              icon = 'check';
+              cell = { bg: '#dcfce7', fg: '#15803d', border: '#86efac', icon: 'check' };
               break;
             case 'missed':
-              bg = '#fee2e2';
-              fg = '#dc2626';
-              icon = 'close';
+              cell = { bg: '#fee2e2', fg: '#dc2626', border: '#fca5a5', icon: 'close' };
               break;
             case 'future':
-              bg = '#ffffff';
-              fg = '#bfc8cd';
+              cell = { bg: '#f8fafc', fg: '#94a3b8', border: '#e2e8f0', dim: true };
               break;
             case 'before_programme':
-              bg = '#f1f5f9';
-              fg = '#cbd5e1';
+              cell = { bg: '#f1f5f9', fg: '#94a3b8', border: '#e2e8f0', dim: true };
               break;
             default:
-              bg = '#e8e8e6';
-              fg = '#64748b';
-              icon = 'schedule';
+              cell = { bg: '#fef9c3', fg: '#854d0e', border: '#fde047', icon: 'schedule' };
           }
-
-          const opacity = state === 'future' || state === 'before_programme' ? 0.45 : 1;
 
           return (
             <div
               key={month}
-              className="rounded border flex flex-col items-center justify-center p-2"
               style={{
-                background: bg,
-                opacity,
-                height: '48px',
-                borderColor: '#e2e8f0',
+                background: cell.bg,
+                border: `1.5px solid ${cell.border}`,
+                borderRadius: '7px',
+                height: '58px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '3px',
+                opacity: cell.dim ? 0.5 : 1,
               }}
             >
-              {icon && (
+              {cell.icon && (
                 <span
                   className="material-symbols-outlined"
-                  style={{
-                    fontSize: 16,
-                    color: fg,
-                    marginBottom: '2px',
-                  }}
+                  style={{ fontSize: 17, color: cell.fg, lineHeight: 1 }}
                 >
-                  {icon}
+                  {cell.icon}
                 </span>
               )}
-              <div className="font-mono text-[9px] font-bold" style={{ color: fg, letterSpacing: '-0.3px' }}>
+              <div style={{
+                fontFamily: "ui-monospace, 'Cascadia Code', monospace",
+                fontSize: '10px',
+                fontWeight: 700,
+                color: cell.fg,
+                letterSpacing: '0.2px',
+              }}>
                 {monthLabel}
               </div>
             </div>
