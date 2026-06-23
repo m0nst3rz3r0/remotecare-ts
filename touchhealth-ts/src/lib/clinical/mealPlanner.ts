@@ -140,8 +140,20 @@ function buildMealFromBlueprint(
       (s, r) => s + computeFoodMacros(r.food, r.portion).calories, 0
     );
     const ratio = mealTargetCalories / Math.max(currentKcal, 80);
-    if (ratio >= 0.55 && ratio <= 2.5) {
-      resolved[starchIdx].portion = Math.max(0.5, Math.min(2.5, resolved[starchIdx].portion * ratio));
+    // Allow up to 4.5× to handle low-density starches like taro/yam
+    if (ratio >= 0.4 && ratio <= 4.5) {
+      resolved[starchIdx].portion = Math.max(0.5, Math.min(4.0, resolved[starchIdx].portion * ratio));
+    }
+    // If starch scaling alone still leaves us well under target, scale all items proportionally
+    const afterStarchKcal = resolved.reduce(
+      (s, r) => s + computeFoodMacros(r.food, r.portion).calories, 0
+    );
+    const remaining = mealTargetCalories / Math.max(afterStarchKcal, 80);
+    if (remaining > 1.25 && remaining <= 2.5) {
+      resolved = resolved.map((r, idx) => idx === starchIdx ? r : {
+        ...r,
+        portion: Math.max(0.5, Math.min(3.0, r.portion * Math.min(remaining, 1.8))),
+      });
     }
   }
 

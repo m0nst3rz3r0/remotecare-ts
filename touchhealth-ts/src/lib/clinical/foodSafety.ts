@@ -5,6 +5,7 @@ import { conditionMatches } from './conditions';
 import type { EvaluationResult, TZRegion } from './types';
 
 const AVOID_LIST_LIMIT = 5;
+const RECOMMEND_LIMIT = 9;
 
 function shortenReason(message: string): string {
   const main = message.split(/\s*TIP:/i)[0].trim();
@@ -47,6 +48,46 @@ export function searchFoods(query: string, zone: TZRegion, limit = 8) {
       (f.name_sw && f.name_sw.toLowerCase().includes(q))
     )
     .slice(0, limit);
+}
+
+/** Returns zone-appropriate foods rated Safe for this patient, grouped by category */
+export function getRecommendedFoods(conditions: string[], zone: TZRegion): {
+  starch: Array<{ id: string; name_en: string; name_sw: string }>;
+  protein: Array<{ id: string; name_en: string; name_sw: string }>;
+  vegetable: Array<{ id: string; name_en: string; name_sw: string }>;
+} {
+  const rules = getRulesSync();
+  const foods = getFoodsForZone(zone);
+
+  const dangerIds = new Set<string>();
+  for (const rule of rules) {
+    if (rule.safety_level === 'Danger' && rule.target_food_id &&
+        conditionMatches(rule.condition, conditions)) {
+      dangerIds.add(rule.target_food_id);
+    }
+  }
+
+  const pick = (catFilter: (cats: string[]) => boolean, nameFilter?: RegExp) => {
+    return foods
+      .filter(f => {
+        if (dangerIds.has(f.id)) return false;
+        const cats = Array.isArray(f.category) ? f.category : [f.category];
+        if (!catFilter(cats)) return false;
+        if (nameFilter && nameFilter.test(f.name_en)) return false;
+        return true;
+      })
+      .slice(0, RECOMMEND_LIMIT / 3 + 1)
+      .map(f => ({ id: f.id, name_en: f.name_en, name_sw: f.name_sw ?? f.name_en }));
+  };
+
+  return {
+    starch: pick(
+      cats => cats.includes('carb'),
+      /sugar|sukari|honey|asali|soda|biscuit|biskuti|mandazi|white bread|mkate mweupe/i,
+    ),
+    protein: pick(cats => cats.includes('protein')),
+    vegetable: pick(cats => cats.includes('vegetable') || cats.includes('veg')),
+  };
 }
 
 export function getAvoidFoods(conditions: string[], zone: TZRegion) {
