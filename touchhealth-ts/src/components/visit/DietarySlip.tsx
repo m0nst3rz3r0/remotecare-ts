@@ -78,21 +78,51 @@ export function buildDietarySlipHtml(
   /* ── PAGE 2 ─────────────────────────────────────────── */
 
   const rec = plan.recommendedFoods;
-  const recGroups = rec ? [
-    { title: L(lang, 'Starches (Energy)', 'Wanga (Nishati)'), items: rec.starch,    dot: '#d97706', bg: '#fffbeb' },
-    { title: L(lang, 'Proteins',          'Protini'),          items: rec.protein,   dot: '#6366f1', bg: '#f5f3ff' },
-    { title: L(lang, 'Vegetables',        'Mboga'),            items: rec.vegetable, dot: '#10b981', bg: '#f0fdf4' },
+  type RecGroup = {
+    title: string;
+    benefit: string;
+    items: { id: string; name_en: string; name_sw: string }[];
+    accent: string;
+    bg: string;
+    border: string;
+  };
+  const recGroups: RecGroup[] = rec ? [
+    {
+      title:   L(lang, 'Starches / Energy Foods', 'Wanga / Vyakula vya Nishati'),
+      benefit: L(lang, 'Good source of energy', 'Chanzo kizuri cha nishati'),
+      items:   rec.starch,   accent: '#92400e', bg: '#fffbeb', border: '#fcd34d',
+    },
+    {
+      title:   L(lang, 'Proteins / Body-building Foods', 'Protini / Vyakula vya Kujenga Mwili'),
+      benefit: L(lang, 'Builds and repairs tissue', 'Hujenga na kurekebisha tishu'),
+      items:   rec.protein,  accent: '#3730a3', bg: '#eef2ff', border: '#a5b4fc',
+    },
+    {
+      title:   L(lang, 'Vegetables', 'Mboga za Majani'),
+      benefit: L(lang, 'Rich in vitamins & fibre', 'Tajiri wa vitamini na nyuzi'),
+      items:   rec.vegetable, accent: '#166534', bg: '#f0fdf4', border: '#86efac',
+    },
+    {
+      title:   L(lang, 'Fruits', 'Matunda'),
+      benefit: L(lang, 'Rich in vitamins & antioxidants', 'Tajiri wa vitamini na antioxidants'),
+      items:   rec.fruit,    accent: '#9a3412', bg: '#fff7ed', border: '#fdba74',
+    },
   ].filter(g => g.items.length > 0) : [];
 
   const safeHTML = recGroups.length > 0 ? `
     <div class="section safe-section" style="margin-bottom:8px;">
-      <div class="section-title">${L(lang, '✓ SAFE Foods to EAT for This Patient', '✓ Vyakula SALAMA vya KULA kwa Mgonjwa Huyu')}</div>
+      <div class="section-title">${L(lang, '✓ Foods to EAT — Safe for This Patient', '✓ Vyakula vya KULA — Salama kwa Mgonjwa Huyu')}</div>
       ${recGroups.map(g => `
-        <div style="margin-bottom:6px;">
-          <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#374151;margin-bottom:3px;">${g.title}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:3px;">
+        <div style="margin-bottom:7px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+            <div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:0.3px;color:${g.accent};">${g.title}</div>
+            <div style="font-size:7.5px;color:#64748b;font-style:italic;">${g.benefit}</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;">
             ${g.items.map(f => `
-              <span style="font-size:8.5px;background:${g.bg};border:1px solid ${g.dot}30;border-radius:3px;padding:1px 6px;color:#132b31;">${lang === 'sw' ? f.name_sw : f.name_en}</span>
+              <div style="font-size:8.5px;color:${g.accent};padding:2px 0;border-bottom:1px solid ${g.border}40;">
+                ✓ <strong>${lang === 'sw' ? f.name_sw : f.name_en}</strong>
+              </div>
             `).join('')}
           </div>
         </div>

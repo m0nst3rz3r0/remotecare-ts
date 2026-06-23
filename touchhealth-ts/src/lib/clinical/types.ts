@@ -121,6 +121,7 @@ export interface GeneratedMealPlan {
     starch:    { id: string; name_en: string; name_sw: string }[];
     protein:   { id: string; name_en: string; name_sw: string }[];
     vegetable: { id: string; name_en: string; name_sw: string }[];
+    fruit:     { id: string; name_en: string; name_sw: string }[];
   };
   generatedAt: string;
 }
