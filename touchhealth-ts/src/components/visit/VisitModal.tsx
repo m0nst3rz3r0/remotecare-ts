@@ -507,11 +507,11 @@ export default function VisitModal() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                       <div>
                         <FieldLabel text="SBP (mmHg)" />
-                        <input type="number" value={sbp} onChange={(e) => setSbp(e.target.value)} style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }} placeholder="145" />
+                        <input type="number" value={sbp} onChange={(e) => { const v = e.target.value; setSbp(v === '' ? '' : String(Math.min(300, Math.max(0, Number(v))))); }} style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }} placeholder="145" min={0} max={300} />
                       </div>
                       <div>
                         <FieldLabel text="DBP (mmHg)" />
-                        <input type="number" value={dbp} onChange={(e) => setDbp(e.target.value)} style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }} placeholder="95" />
+                        <input type="number" value={dbp} onChange={(e) => { const v = e.target.value; setDbp(v === '' ? '' : String(Math.min(200, Math.max(0, Number(v))))); }} style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }} placeholder="95" min={0} max={200} />
                       </div>
                     </div>
                   </div>
@@ -524,7 +524,7 @@ export default function VisitModal() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                       <div>
                         <FieldLabel text="Value (mmol/L)" />
-                        <input type="number" step="0.1" value={sugar} onChange={(e) => setSugar(e.target.value)} style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }} placeholder="8.2" />
+                        <input type="number" step="0.1" value={sugar} onChange={(e) => { const v = e.target.value; setSugar(v === '' ? '' : String(Math.min(60, Math.max(0, Number(v))))); }} style={{ ...fieldStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }} placeholder="8.2" min={0} max={60} />
                       </div>
                       <div>
                         <FieldLabel text="Type" />

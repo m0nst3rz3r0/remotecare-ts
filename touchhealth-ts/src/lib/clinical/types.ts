@@ -117,6 +117,11 @@ export interface GeneratedMealPlan {
   drugAlerts: DrugFoodInteraction[];
   cautions: string[];
   avoidFoods: { name_en: string; name_sw: string; reason_en: string; reason_sw: string }[];
+  recommendedFoods?: {
+    starch:    { id: string; name_en: string; name_sw: string }[];
+    protein:   { id: string; name_en: string; name_sw: string }[];
+    vegetable: { id: string; name_en: string; name_sw: string }[];
+  };
   generatedAt: string;
 }
 

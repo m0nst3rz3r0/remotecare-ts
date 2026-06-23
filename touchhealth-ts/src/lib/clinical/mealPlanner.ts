@@ -5,7 +5,7 @@ import { normalizeConditionList } from './conditions';
 import { computeNutritionTargets } from './nutritionEngine';
 import { evalFoodForPatient } from './foodSafety';
 import { getDrugFoodInteractions } from './drugInteractions';
-import { getAvoidFoods } from './foodSafety';
+import { getAvoidFoods, getRecommendedFoods } from './foodSafety';
 import { getMealTemplates, STARCH_EGG_INCOMPATIBLE, type MealBlueprint } from './mealTemplates';
 import type { PrepMethod } from './mealLocalization';
 import type { DailyMeal, MealItem, GeneratedMealPlan, TZRegion, NutritionTargets, FoodItem } from './types';
@@ -250,6 +250,7 @@ export function generateMealPlan(params: {
 
   const drugAlerts = getDrugFoodInteractions(medicationIds);
   const avoidFoods = getAvoidFoods(conditions, zone);
+  const recommendedFoods = getRecommendedFoods(conditions, zone);
   const cautions = buildCautions(conditions, language);
 
   return {
@@ -264,6 +265,7 @@ export function generateMealPlan(params: {
     drugAlerts,
     cautions,
     avoidFoods,
+    recommendedFoods,
     generatedAt: new Date().toISOString(),
   };
 }

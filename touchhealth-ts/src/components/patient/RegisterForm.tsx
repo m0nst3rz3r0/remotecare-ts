@@ -229,8 +229,11 @@ export default function RegisterForm() {
             <FieldLabel text="Age (Years)" />
             <input
               type="number" value={age}
-              onChange={(e) => setAge(e.target.value === '' ? '' : Number(e.target.value))}
-              placeholder="45"
+              onChange={(e) => {
+                const v = e.target.value === '' ? '' : Math.min(120, Math.max(1, Number(e.target.value)));
+                setAge(v);
+              }}
+              placeholder="45" min={1} max={120}
               style={{ ...inputStyle, fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }}
             />
           </div>
@@ -301,8 +304,10 @@ export default function RegisterForm() {
               +255
             </span>
             <input
-              value={phone} onChange={(e) => setPhone(e.target.value)}
-              type="tel" placeholder="07xxxxxxx"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              type="tel" placeholder="07xxxxxxxx" maxLength={10}
+              inputMode="numeric"
               style={{ ...inputStyle, borderRadius: '0 2px 2px 0', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace" }}
             />
           </div>

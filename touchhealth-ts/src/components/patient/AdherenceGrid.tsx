@@ -82,7 +82,7 @@ export default function AdherenceGrid({ patient }: { patient: Patient }) {
                   {icon}
                 </span>
               )}
-              <div className="font-mono text-[8px] font-bold" style={{ color: fg }}>
+              <div className="font-mono text-[9px] font-bold" style={{ color: fg, letterSpacing: '-0.3px' }}>
                 {monthLabel}
               </div>
             </div>
