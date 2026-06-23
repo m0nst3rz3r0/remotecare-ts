@@ -72,16 +72,14 @@ import { BarChart3, AlertTriangle, CheckCircle2, Target, Smartphone, X, Send, Ch
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
-// ── Design tokens ────────────────────────────────────────────
-const INK   = '#1e293b';
-const TEAL  = '#1a56db';
+// ── Design tokens — aligned with the rest of the app ─────────
+const INK   = '#132b31';
+const TEAL  = '#10b981';
 const CARD_STYLE: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.72)',
-  backdropFilter: 'blur(14px)',
-  WebkitBackdropFilter: 'blur(14px)',
-  borderRadius: '12px',
-  border: '1px solid rgba(255,255,255,0.75)',
-  boxShadow: '0 2px 12px rgba(0,0,0,.07), inset 0 1px 0 rgba(255,255,255,0.9)',
+  background: '#fff',
+  borderRadius: '10px',
+  border: '1px solid rgba(226,232,240,0.9)',
+  boxShadow: '0 1px 6px rgba(15,31,38,.06)',
   marginBottom: '16px',
 };
 
@@ -106,8 +104,8 @@ function cssVar(name: string, fallback: string) {
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <div style={{ background: 'rgba(241,245,249,0.7)', height: '38px', padding: '0 16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid rgba(226,232,240,0.7)' }}>
-      <span style={{ color: '#475569', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+    <div style={{ background: INK, height: '36px', padding: '0 16px', display: 'flex', alignItems: 'center' }}>
+      <span style={{ color: '#fff', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
         {title}
       </span>
     </div>
@@ -133,14 +131,14 @@ function RiskBadge({ ctrlRate }: { ctrlRate: number | null }) {
 function StatCard({ title, value, sub, valueColor }: { title: string; value: number | string; sub?: string; valueColor: string }) {
   return (
     <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
-      <div style={{ background: '#f3f4f6', height: '38px', padding: '0 16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid #e5e7eb' }}>
-        <span style={{ color: '#374151', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</span>
+      <div style={{ background: INK, height: '36px', padding: '0 16px', display: 'flex', alignItems: 'center' }}>
+        <span style={{ color: '#fff', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</span>
       </div>
-      <div style={{ padding: '18px 20px' }}>
-        <div style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '32px', fontWeight: 700, color: valueColor, lineHeight: 1 }}>
+      <div style={{ padding: '16px 20px' }}>
+        <div style={{ fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '28px', fontWeight: 700, color: valueColor, lineHeight: 1 }}>
           {typeof value === 'number' ? value.toLocaleString() : value}
         </div>
-        {sub && <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>{sub}</div>}
+        {sub && <div style={{ marginTop: '5px', fontSize: '11px', color: '#64748b', fontWeight: 600, fontFamily: "'Inter', system-ui" }}>{sub}</div>}
       </div>
     </div>
   );
@@ -191,10 +189,10 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '26px', fontWeight: 800, color: INK, marginBottom: '4px' }}>Admin Overview</h2>
-          <p style={{ fontSize: '13px', color: '#6b7280' }}>Regional clinical performance · <strong>{scopeLabel}</strong></p>
+          <h2 style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '22px', fontWeight: 800, color: INK, marginBottom: '4px' }}>Admin Overview</h2>
+          <p style={{ fontSize: '13px', color: '#516169' }}>Regional clinical performance · <strong>{scopeLabel}</strong></p>
         </div>
-        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', color: '#1d4ed8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', color: '#065f46', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
           <BarChart3 size={16} /> {patients.length} patients in scope
         </div>
       </div>
@@ -234,9 +232,9 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
       <Card title="Glucose Control %"><GlucoseControlChart patients={patients} year={year} /></Card>
 
       <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
-        <div style={{ background: '#f3f4f6', height: '44px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb' }}>
-          <span style={{ color: '#374151', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Regional Facility Matrix</span>
-          <span style={{ color: '#1a56db', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{scopeLabel}</span>
+        <div style={{ background: INK, height: '36px', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ color: '#fff', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Regional Facility Matrix</span>
+          <span style={{ color: TEAL, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{scopeLabel}</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
