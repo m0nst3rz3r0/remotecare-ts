@@ -43,12 +43,12 @@ const LAKE_ZONE: MealBlueprint[] = [
   {
     mealType: 'Dinner',
     items: [
-      { foodIds: ['food_024', 'food_014'], portion: 0.75, prep: 'boiled' },
+      { foodIds: ['food_024', 'food_009', 'food_148', 'food_028c', 'food_161', 'food_014'], portion: 0.75, prep: 'boiled' },
       { foodIds: ['food_030', 'food_033'], portion: 1, prep: 'boiled' },
       { foodIds: ['food_097', 'food_096', 'food_107'], portion: 1, prep: 'boiled' },
     ],
-    note_sw: 'Chakula cha jioni: viazi vitamu au ugali kidogo na maharage na mboga.',
-    note_en: 'Dinner: sweet potato or small ugali with beans and greens.',
+    note_sw: 'Chakula cha jioni: viazi vitamu au ugali wa mtama na maharage na mboga.',
+    note_en: 'Dinner: sweet potato or sorghum ugali with beans and greens.',
   },
 ];
 
@@ -75,7 +75,7 @@ const COAST_ZONE: MealBlueprint[] = [
   {
     mealType: 'Dinner',
     items: [
-      { foodIds: ['food_014', 'food_016'], portion: 0.75, prep: 'boiled' },
+      { foodIds: ['food_016', 'food_148', 'food_028c', 'food_161', 'food_009', 'food_014'], portion: 0.75, prep: 'boiled' },
       { foodIds: ['food_030', 'food_033'], portion: 1, prep: 'boiled' },
       { foodIds: ['food_097', 'food_107'], portion: 1, prep: 'boiled' },
     ],
@@ -106,11 +106,11 @@ const HIGHLANDS_ZONE: MealBlueprint[] = [
   {
     mealType: 'Dinner',
     items: [
-      { foodIds: ['food_024', 'food_014'], portion: 1, prep: 'boiled' },
+      { foodIds: ['food_024', 'food_009', 'food_148', 'food_028c', 'food_161', 'food_014'], portion: 1, prep: 'boiled' },
       { foodIds: ['food_030', 'food_033'], portion: 1, prep: 'boiled' },
       { foodIds: ['food_097', 'food_107'], portion: 1, prep: 'boiled' },
     ],
-    note_sw: 'Chakula cha jioni: viazi vitamu na maharage na mboga.',
+    note_sw: 'Chakula cha jioni: viazi vitamu au ugali wa mtama na maharage na mboga.',
   },
 ];
 
@@ -136,7 +136,7 @@ const INLAND_ZONE: MealBlueprint[] = [
   {
     mealType: 'Dinner',
     items: [
-      { foodIds: ['food_024', 'food_014'], portion: 0.75, prep: 'boiled' },
+      { foodIds: ['food_024', 'food_009', 'food_148', 'food_028c', 'food_161', 'food_014'], portion: 0.75, prep: 'boiled' },
       { foodIds: ['food_030'], portion: 1, prep: 'boiled' },
       { foodIds: ['food_097'], portion: 1, prep: 'boiled' },
     ],

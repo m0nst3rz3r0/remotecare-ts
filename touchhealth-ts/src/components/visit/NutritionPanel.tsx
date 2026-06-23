@@ -11,6 +11,7 @@ import {
   isFoodsReady,
   getNutritionRiskLevel,
   generateMealPlan,
+  getRecommendedFoods,
 } from '../../lib/clinical';
 import { getClinicZone } from '../../lib/clinical/dataLoader';
 import { calculateBMI } from '../../lib/clinical/calculators';
@@ -45,6 +46,67 @@ interface NutritionPanelProps {
   mealPlan?: GeneratedMealPlan | null;
   onGenerateMealPlan: (plan: GeneratedMealPlan) => void;
   onOpenMealPlan?: () => void;
+}
+
+function RecommendedFoodsSection({
+  conditions, zone, language,
+}: { conditions: string[]; zone: TZRegion; language: 'en' | 'sw' }) {
+  const recs = useMemo(() => getRecommendedFoods(conditions, zone), [conditions, zone]);
+  const hasAny = recs.starch.length > 0 || recs.protein.length > 0 || recs.vegetable.length > 0;
+  if (!hasAny) return null;
+
+  const groups = [
+    {
+      label: language === 'sw' ? 'Wanga (Nishati)' : 'Starches (Energy)',
+      items: recs.starch,
+      color: '#d97706',
+      bg: '#fffbeb',
+    },
+    {
+      label: language === 'sw' ? 'Protini' : 'Proteins',
+      items: recs.protein,
+      color: '#6366f1',
+      bg: '#f5f3ff',
+    },
+    {
+      label: language === 'sw' ? 'Mboga' : 'Vegetables',
+      items: recs.vegetable,
+      color: '#10b981',
+      bg: '#f0fdf4',
+    },
+  ].filter(g => g.items.length > 0);
+
+  return (
+    <div style={{ marginBottom: '14px' }}>
+      <div style={labelStyle}>
+        {language === 'sw' ? 'Vyakula Salama kwa Mgonjwa Huyu' : 'Safe Foods for This Patient'}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {groups.map(g => (
+          <div key={g.label} style={{
+            background: g.bg, border: `1.5px solid ${g.color}30`,
+            borderRadius: '6px', padding: '8px 10px',
+          }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const,
+              letterSpacing: '0.4px', color: g.color, marginBottom: '5px',
+              fontFamily: "'Inter', system-ui",
+            }}>{g.label}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+              {g.items.map(f => (
+                <span key={f.id} style={{
+                  fontSize: '11px', color: INK, background: '#fff',
+                  border: `1px solid ${g.color}40`, borderRadius: '4px',
+                  padding: '2px 8px', fontFamily: "'Inter', system-ui",
+                }}>
+                  {language === 'sw' ? f.name_sw : f.name_en}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function NutritionPanel({
@@ -228,6 +290,10 @@ export default function NutritionPanel({
             </div>
           ))}
         </div>
+      )}
+
+      {dataReady && (
+        <RecommendedFoodsSection conditions={conditions} zone={zone} language={language} />
       )}
 
       <div style={{ marginBottom: '14px' }}>

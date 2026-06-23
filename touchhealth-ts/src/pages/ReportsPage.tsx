@@ -6,6 +6,7 @@ import { bpClass, sgClass } from '../services/clinical';
 import Chip from '../components/ui/Chip';
 import Button from '../components/ui/Button';
 import { MONTHS } from '../utils/geo';
+import NutritionStatsPanel from '../components/NutritionStatsPanel';
 
 function downloadText(filename: string, content: string, mime = 'text/csv') {
   const blob = new Blob([content], { type: mime });
@@ -241,6 +242,10 @@ export default function ReportsPage() {
           )}
         </div>
       </div>
+      <NutritionStatsPanel
+        patients={visiblePatients}
+        hospitalFilter={currentUser?.sessionHospital}
+      />
     </PageWrapper>
   );
 }
