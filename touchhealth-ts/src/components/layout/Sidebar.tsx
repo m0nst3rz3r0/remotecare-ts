@@ -1,7 +1,6 @@
 // ════════════════════════════════════════════════════════════
 // REMOTECARE · src/components/layout/Sidebar.tsx
-// Glassmorphism sidebar — Admin & SuperAdmin only
-// Tabs: Overview · Trends · Directory · User Management
+// Dark charcoal sidebar — Admin & SuperAdmin only
 // ════════════════════════════════════════════════════════════
 
 import { useMemo, useState } from 'react';
@@ -19,6 +18,14 @@ interface NavItem {
   section: string;
 }
 
+// ── Design tokens ─────────────────────────────────────────
+const BG        = '#132b31';           // charcoal
+const BG_HOVER  = 'rgba(255,255,255,0.07)';
+const BORDER    = 'rgba(255,255,255,0.09)';
+const TEXT_PRI  = '#fff';
+const TEXT_SEC  = 'rgba(255,255,255,0.55)';
+const TEXT_MUTE = 'rgba(255,255,255,0.35)';
+
 export default function Sidebar() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const signOut     = useAuthStore((s) => s.signOut);
@@ -33,7 +40,6 @@ export default function Sidebar() {
     if (main) main.style.marginLeft = next ? '64px' : '220px';
   };
 
-  // Badge: total registered users (doctors + admins) for directory
   const directoryCount = useMemo(
     () => loadUsers().filter((u) => !u.isSuperAdmin).length,
     [],
@@ -44,6 +50,14 @@ export default function Sidebar() {
   const isSuperAdmin = currentUser.isSuperAdmin === true;
   const initials     = getUserInitials(currentUser.displayName);
 
+  // Superadmin gets red accent; admin gets emerald
+  const accent       = isSuperAdmin ? '#ef4444' : '#10b981';
+  const accentBg     = isSuperAdmin ? 'rgba(239,68,68,0.15)'  : 'rgba(16,185,129,0.15)';
+  const accentBorder = isSuperAdmin ? 'rgba(239,68,68,0.30)'  : 'rgba(16,185,129,0.30)';
+
+  const sidebarW = collapsed ? '64px' : '220px';
+  const TEXT = { fontFamily: "'Inter', system-ui, -apple-system, sans-serif" } as const;
+
   const navItems: NavItem[] = [
     { id: 'overview',        label: 'Overview',        icon: 'dashboard',       section: 'MAIN' },
     { id: 'trends',          label: 'Trends',          icon: 'trending_up',     section: 'MAIN' },
@@ -51,49 +65,38 @@ export default function Sidebar() {
     { id: 'user-management', label: 'User Management', icon: 'manage_accounts', section: 'SYSTEM' },
   ];
 
-  const accent       = isSuperAdmin ? '#ef4444' : '#1a56db';
-  const accentLight  = isSuperAdmin ? 'rgba(239,68,68,0.12)'  : 'rgba(26,86,219,0.12)';
-  const accentBorder = isSuperAdmin ? 'rgba(239,68,68,0.28)'  : 'rgba(26,86,219,0.28)';
-  const sidebarW     = collapsed ? '64px' : '220px';
-
-  const TEXT = {
-    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-  } as const;
-
   return (
     <aside style={{
-      position:           'fixed',
+      position:      'fixed',
       top: 0, left: 0,
-      height:             '100vh',
-      width:              sidebarW,
-      zIndex:             300,
-      display:            'flex',
-      flexDirection:      'column',
-      background:         'rgba(240,242,248,0.85)',
-      backdropFilter:     'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
-      borderRight:        '1px solid rgba(255,255,255,0.62)',
-      boxShadow:          '4px 0 24px rgba(0,0,0,0.06), inset -1px 0 0 rgba(255,255,255,0.5)',
-      transition:         'width 0.22s cubic-bezier(0.4,0,0.2,1)',
-      overflow:           'hidden',
+      height:        '100vh',
+      width:         sidebarW,
+      zIndex:        300,
+      display:       'flex',
+      flexDirection: 'column',
+      background:    BG,
+      borderRight:   `1px solid ${BORDER}`,
+      boxShadow:     '4px 0 20px rgba(0,0,0,0.18)',
+      transition:    'width 0.22s cubic-bezier(0.4,0,0.2,1)',
+      overflow:      'hidden',
     }}>
 
-      {/* ── Logo bar ───────────────────────────────────── */}
+      {/* ── Logo bar ─────────────────────────────────────── */}
       <div style={{
         height: 64, flexShrink: 0,
         display: 'flex', alignItems: 'center',
-        padding: collapsed ? '0 16px' : '0 18px',
+        padding: collapsed ? '0 16px' : '0 16px',
         gap: 10,
-        borderBottom: '1px solid rgba(0,0,0,0.07)',
+        borderBottom: `1px solid ${BORDER}`,
       }}>
         <img
           src={LOGO}
           alt="RemoteCare"
-          style={{ width: 32, height: 32, objectFit: 'contain', flexShrink: 0 }}
+          style={{ width: 32, height: 32, objectFit: 'contain', flexShrink: 0, borderRadius: 6 }}
         />
 
         {!collapsed && (
-          <span style={{ ...TEXT, fontWeight: 700, fontSize: 15, color: '#132b31', letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>
+          <span style={{ ...TEXT, fontWeight: 800, fontSize: 14, color: TEXT_PRI, letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>
             RemoteCare
           </span>
         )}
@@ -105,28 +108,28 @@ export default function Sidebar() {
           title={collapsed ? 'Expand' : 'Collapse'}
           style={{
             width: 26, height: 26, flexShrink: 0,
-            borderRadius: 7, cursor: 'pointer',
-            background: 'rgba(0,0,0,0.05)',
-            border: '1px solid rgba(0,0,0,0.08)',
+            borderRadius: 6, cursor: 'pointer',
+            background: 'rgba(255,255,255,0.08)',
+            border: `1px solid ${BORDER}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'background 0.15s',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.1)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: 15, color: '#64748b' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 15, color: TEXT_SEC }}>
             {collapsed ? 'chevron_right' : 'chevron_left'}
           </span>
         </button>
       </div>
 
-      {/* ── User badge ─────────────────────────────────── */}
+      {/* ── User badge ───────────────────────────────────── */}
       {!collapsed && (
         <div style={{
           margin: '12px 10px 4px',
           padding: '10px 12px',
-          borderRadius: 10,
-          background: accentLight,
+          borderRadius: 8,
+          background: accentBg,
           border: `1px solid ${accentBorder}`,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -134,12 +137,12 @@ export default function Sidebar() {
               width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
               background: accent,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              ...TEXT, fontWeight: 700, fontSize: 11, color: '#fff',
+              ...TEXT, fontWeight: 800, fontSize: 11, color: '#fff',
             }}>
               {initials}
             </div>
             <div style={{ overflow: 'hidden' }}>
-              <div style={{ ...TEXT, fontWeight: 600, fontSize: 12, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ ...TEXT, fontWeight: 600, fontSize: 12, color: TEXT_PRI, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {currentUser.displayName}
               </div>
               <div style={{ ...TEXT, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: accent, marginTop: 1 }}>
@@ -156,14 +159,14 @@ export default function Sidebar() {
             width: 34, height: 34, borderRadius: '50%',
             background: accent,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            ...TEXT, fontWeight: 700, fontSize: 12, color: '#fff',
+            ...TEXT, fontWeight: 800, fontSize: 12, color: '#fff',
           }}>
             {initials}
           </div>
         </div>
       )}
 
-      {/* ── Nav ────────────────────────────────────────── */}
+      {/* ── Nav ──────────────────────────────────────────── */}
       <nav style={{ flex: 1, padding: '6px 8px', overflowY: 'auto', overflowX: 'hidden' }}>
         {(['MAIN', 'SYSTEM'] as const).map((section) => {
           const items = navItems.filter((n) => n.section === section);
@@ -171,7 +174,7 @@ export default function Sidebar() {
           return (
             <div key={section} style={{ marginBottom: 4 }}>
               {!collapsed && (
-                <div style={{ ...TEXT, fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94a3b8', padding: '8px 8px 4px' }}>
+                <div style={{ ...TEXT, fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: TEXT_MUTE, padding: '8px 8px 4px' }}>
                   {section}
                 </div>
               )}
@@ -188,15 +191,15 @@ export default function Sidebar() {
                       gap: 10,
                       padding: collapsed ? '9px 0' : '9px 10px',
                       justifyContent: collapsed ? 'center' : 'flex-start',
-                      borderRadius: 9,
-                      background: active ? accentLight : 'transparent',
+                      borderRadius: 8,
+                      background: active ? accentBg : 'transparent',
                       border: `1px solid ${active ? accentBorder : 'transparent'}`,
                       cursor: 'pointer',
                       transition: 'all 0.15s',
                       marginBottom: 2,
                       position: 'relative',
                     }}
-                    onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; }}
+                    onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = BG_HOVER; }}
                     onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
                   >
                     {active && (
@@ -206,11 +209,11 @@ export default function Sidebar() {
                         background: accent,
                       }} />
                     )}
-                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: active ? accent : '#64748b', flexShrink: 0 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: active ? accent : TEXT_SEC, flexShrink: 0 }}>
                       {item.icon}
                     </span>
                     {!collapsed && (
-                      <span style={{ ...TEXT, fontSize: 13, fontWeight: active ? 600 : 400, color: active ? '#1e293b' : '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                      <span style={{ ...TEXT, fontSize: 13, fontWeight: active ? 700 : 400, color: active ? TEXT_PRI : TEXT_SEC, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
                         {item.label}
                       </span>
                     )}
@@ -233,8 +236,8 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* ── Sign out ───────────────────────────────────── */}
-      <div style={{ borderTop: '1px solid rgba(0,0,0,0.07)', padding: '10px 8px', flexShrink: 0 }}>
+      {/* ── Sign out ─────────────────────────────────────── */}
+      <div style={{ borderTop: `1px solid ${BORDER}`, padding: '10px 8px', flexShrink: 0 }}>
         <button
           onClick={signOut}
           title={collapsed ? 'Sign out' : undefined}
@@ -243,17 +246,17 @@ export default function Sidebar() {
             display: 'flex', alignItems: 'center', gap: 10,
             padding: collapsed ? '9px 0' : '9px 10px',
             justifyContent: collapsed ? 'center' : 'flex-start',
-            borderRadius: 9,
+            borderRadius: 8,
             background: 'transparent',
             border: '1px solid transparent',
             cursor: 'pointer', transition: 'all 0.15s',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#94a3b8', flexShrink: 0 }}>logout</span>
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: TEXT_MUTE, flexShrink: 0 }}>logout</span>
           {!collapsed && (
-            <span style={{ ...TEXT, fontSize: 13, fontWeight: 400, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+            <span style={{ ...TEXT, fontSize: 13, fontWeight: 400, color: TEXT_MUTE, whiteSpace: 'nowrap' }}>
               Sign out
             </span>
           )}
