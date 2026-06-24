@@ -1,6 +1,7 @@
 import type { GeneratedMealPlan } from '../../lib/clinical';
 import { buildCautions } from '../../lib/clinical/mealPlanner';
 import { formatMealItemDetail, mealFoodName } from '../../lib/clinical/mealLocalization';
+import { escapeHtml } from '../../utils/html';
 
 function L(lang: 'en' | 'sw', en: string, sw: string): string {
   return lang === 'en' ? en : sw;
@@ -22,9 +23,9 @@ export function buildDietarySlipHtml(
           <div class="slip-title">${L(lang, 'Dietary Advice Slip', 'Karatasi ya Ushauri wa Lishe')}</div>
         </div>
         <div style="text-align:right;">
-          <div class="meta-bold">${patientName}</div>
-          <div class="meta">${plan.diagnosis || '—'} · ${plan.region}</div>
-          <div class="meta">${plan.date}</div>
+          <div class="meta-bold">${escapeHtml(patientName)}</div>
+          <div class="meta">${escapeHtml(plan.diagnosis || '—')} · ${escapeHtml(plan.region)}</div>
+          <div class="meta">${escapeHtml(plan.date)}</div>
         </div>
       </div>
     </div>`;
@@ -62,14 +63,14 @@ export function buildDietarySlipHtml(
     ${plan.meals.map(meal => `
       <div class="meal-card">
         <div class="meal-header">
-          <div class="meal-title">${lang === 'sw' ? meal.name_sw : meal.name_en}</div>
+          <div class="meal-title">${escapeHtml(lang === 'sw' ? meal.name_sw : meal.name_en)}</div>
           <div class="meal-kcal">${meal.totalCalories} kcal</div>
         </div>
-        ${(lang === 'sw' ? meal.culturalNote_sw : meal.culturalNote_en) ? `<div class="meal-note">${lang === 'sw' ? meal.culturalNote_sw : meal.culturalNote_en}</div>` : ''}
+        ${(lang === 'sw' ? meal.culturalNote_sw : meal.culturalNote_en) ? `<div class="meal-note">${escapeHtml(lang === 'sw' ? meal.culturalNote_sw : meal.culturalNote_en)}</div>` : ''}
         ${meal.items.map(item => `
           <div class="food-row">
-            <span class="food-name">${mealFoodName(item, lang)}</span>
-            <span class="food-detail">${formatMealItemDetail(item, lang)}</span>
+            <span class="food-name">${escapeHtml(mealFoodName(item, lang))}</span>
+            <span class="food-detail">${escapeHtml(formatMealItemDetail(item, lang))}</span>
           </div>
         `).join('')}
       </div>
@@ -121,7 +122,7 @@ export function buildDietarySlipHtml(
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;">
             ${g.items.map(f => `
               <div style="font-size:8.5px;color:${g.accent};padding:2px 0;border-bottom:1px solid ${g.border}40;">
-                ✓ <strong>${lang === 'sw' ? f.name_sw : f.name_en}</strong>
+                ✓ <strong>${escapeHtml(lang === 'sw' ? f.name_sw : f.name_en)}</strong>
               </div>
             `).join('')}
           </div>
@@ -135,7 +136,7 @@ export function buildDietarySlipHtml(
       <div class="section-title">${L(lang, '✗ Foods to AVOID', '✗ Vyakula vya KUEPUKA')}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;">
         ${plan.avoidFoods.map(f => `
-          <div class="avoid-row">• <strong>${lang === 'sw' ? f.name_sw : f.name_en}</strong> — ${lang === 'sw' ? f.reason_sw : f.reason_en}</div>
+          <div class="avoid-row">• <strong>${escapeHtml(lang === 'sw' ? f.name_sw : f.name_en)}</strong> — ${escapeHtml(lang === 'sw' ? f.reason_sw : f.reason_en)}</div>
         `).join('')}
       </div>
     </div>
@@ -145,7 +146,7 @@ export function buildDietarySlipHtml(
     <div class="section warn-section">
       <div class="section-title">${L(lang, '⚠ Drug-Food Warnings', '⚠ Tahadhari za Dawa na Chakula')}</div>
       ${plan.drugAlerts.map(a => `
-        <div class="drug-row"><strong>${lang === 'sw' ? a.title_sw : a.title_en}</strong> — ${lang === 'sw' ? a.body_sw : a.body_en}</div>
+        <div class="drug-row"><strong>${escapeHtml(lang === 'sw' ? a.title_sw : a.title_en)}</strong> — ${escapeHtml(lang === 'sw' ? a.body_sw : a.body_en)}</div>
       `).join('')}
     </div>
   ` : '';
@@ -153,7 +154,7 @@ export function buildDietarySlipHtml(
   const cautionHTML = cautions.length > 0 ? `
     <div class="section caution-section">
       <div class="section-title">${L(lang, 'Key Dietary Rules', 'Kanuni Muhimu za Lishe')}</div>
-      ${cautions.map(c => `<div class="caution-row">• ${c}</div>`).join('')}
+      ${cautions.map(c => `<div class="caution-row">• ${escapeHtml(c)}</div>`).join('')}
     </div>
   ` : '';
 
@@ -166,7 +167,7 @@ export function buildDietarySlipHtml(
 <html lang="${lang}">
 <head>
   <meta charset="UTF-8">
-  <title>${L(lang, 'Dietary Advice', 'Ushauri wa Lishe')} — ${patientName}</title>
+  <title>${L(lang, 'Dietary Advice', 'Ushauri wa Lishe')} — ${escapeHtml(patientName)}</title>
   <style>
     @page { size: A4 portrait; margin: 12mm 14mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -227,7 +228,7 @@ export function buildDietarySlipHtml(
     <div class="page2-header">
       <div>
         <div class="page2-title">${L(lang, 'Food Guide', 'Mwongozo wa Chakula')}</div>
-        <div class="meta">${patientName} · ${plan.diagnosis || '—'} · ${plan.date}</div>
+        <div class="meta">${escapeHtml(patientName)} · ${escapeHtml(plan.diagnosis || '—')} · ${escapeHtml(plan.date)}</div>
       </div>
       <div class="meta">${L(lang, 'Page 2 of 2', 'Ukurasa 2 kati ya 2')}</div>
     </div>

@@ -24,6 +24,7 @@
 // ════════════════════════════════════════════════════════════
 
 import type { User, SessionUser, UserRole, Hospital } from '../types';
+import { randomUUID } from '../utils/id';
 import { hashPassword, verifyPassword } from './crypto';
 import { supabase } from './supabase';
 import { registerDevice } from './deviceManager';
@@ -358,7 +359,7 @@ export async function addUser(params: {
   }
 
   const hashed = await hashPassword(password);
-  const userId = crypto.randomUUID();
+  const userId = randomUUID();
 
   const supabasePayload = {
     id:             userId,
@@ -477,7 +478,7 @@ export function addHospital(params: {
     return { success: false, error: 'A hospital with this name already exists.' };
   }
 
-  const id = crypto.randomUUID();
+  const id = randomUUID();
   saveHospitals([...hospitals, { id, name, region, district }]);
 
   const payload = { id, name, region, district };

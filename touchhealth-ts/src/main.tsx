@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
-import { migratePasswords } from './services/crypto';
 import { migratePhones } from './services/phoneEncryption';
 import { loadPatients, savePatients } from './services/storage';
 import { preloadClinicalData, loadZonePresets } from './lib/clinical/dataLoader';
@@ -18,8 +17,10 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Silently migrate any plain-text passwords to PBKDF2 hashes
-migratePasswords();
+// NOTE: password migration is handled in App.tsx (awaited before
+// init/session restore) so it runs exactly once, sequenced. Do not
+// also call it here — a second unsequenced call races the same
+// localStorage key.
 
 // Silently encrypt any plain-text phone numbers in localStorage.
 // This runs once on first app load after the update; subsequent runs
