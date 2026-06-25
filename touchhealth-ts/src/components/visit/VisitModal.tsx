@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Star, X, Stethoscope } from 'lucide-react';
 import type { HbA1cQuarter, Medication, Patient, SugarTestType } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -119,6 +119,7 @@ function DiagnosisSearch({
                   onClick={() => onTogglePrimary(d.code)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: d.isPrimary ? TEAL : '#516169', fontWeight: 700, padding: '0 2px' }}
                   title={d.isPrimary ? 'Primary diagnosis' : 'Set as primary'}
+                  aria-label={d.isPrimary ? 'Primary diagnosis' : 'Set as primary diagnosis'}
                 >
                   {d.isPrimary ? <Star size={10} fill={TEAL} /> : <Star size={10} />}
                 </button>
@@ -126,6 +127,7 @@ function DiagnosisSearch({
               <button
                 onClick={() => onRemove(d.code)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '14px', lineHeight: 1, padding: '0 2px' }}
+                aria-label={`Remove diagnosis ${d.code}`}
               ><X size={14} /></button>
             </div>
           ))}
@@ -216,7 +218,7 @@ function InvestigationRow({ inv, onChange, onRemove }: { inv: InvResult; onChang
           {interp.label}
         </span>
       ) : <span />)}
-      <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '18px', padding: '0 4px', lineHeight: 1 }}>×</button>
+      <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '18px', padding: '0 4px', lineHeight: 1 }} aria-label={`Remove ${inv.name}`}>×</button>
     </div>
   );
 }
@@ -374,6 +376,19 @@ export default function VisitModal() {
     setNextDate(toISODate(computedNextDate));
   }, [computedNextDate, open]);
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = dialogRef.current;
+    if (!el) return;
+    const first = el.querySelector<HTMLElement>('button, input, select, textarea, [tabindex]');
+    first?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, close]);
+
   if (!open || !patient || patientId === null || !currentUser) return null;
 
   const month  = new Date(visitDate).getMonth() + 1;
@@ -455,7 +470,7 @@ export default function VisitModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Record Visit" ref={dialogRef}>
       <div className="absolute inset-0" onClick={close} style={{ background: 'rgba(0,0,0,.45)' }} />
 
       <div className="absolute inset-y-0 right-0 w-full max-w-[760px] bg-white border-l border-slate-200 flex flex-col" style={{ boxShadow: '-8px 0 48px rgba(15,31,38,.2)' }}>

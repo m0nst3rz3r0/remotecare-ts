@@ -20,8 +20,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl     = (import.meta as any).env.VITE_SUPABASE_URL     as string | undefined;
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// import.meta.env is typed by vite/client — add the reference if missing
+const env = (import.meta as unknown as { env: Record<string, string | undefined> }).env;
+const supabaseUrl     = env.VITE_SUPABASE_URL;
+const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error(

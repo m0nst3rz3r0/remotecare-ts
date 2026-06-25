@@ -32,6 +32,7 @@ import {
   loadUsers,    saveUsers,
   loadHospitals, saveHospitals,
   loadCachedUsers, saveCachedUsers,
+  initStorageScope,
 } from './storage';
 
 // ── STORAGE KEYS ─────────────────────────────────────────────
@@ -194,6 +195,9 @@ export function validateSession(): SessionUser | null {
   const session = getSession();
   if (!session) return null;
 
+  // Re-apply facility scoping for this session on every page load
+  initStorageScope(session.sessionHospital || session.id);
+
   // Primary check — local user list (populated after sync)
   const localUsers = loadUsers();
   if (localUsers.length > 0) {
@@ -319,6 +323,7 @@ async function loginLegacy(params: {
   };
 
   saveSession(sessionUser);
+  initStorageScope(sessionUser.sessionHospital || sessionUser.id);
 
   registerDevice(
     sessionUser.sessionRegion,

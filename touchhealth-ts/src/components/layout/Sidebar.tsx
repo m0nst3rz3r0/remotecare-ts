@@ -106,6 +106,7 @@ export default function Sidebar() {
         <button
           onClick={handleToggle}
           title={collapsed ? 'Expand' : 'Collapse'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           style={{
             width: 26, height: 26, flexShrink: 0,
             borderRadius: 6, cursor: 'pointer',

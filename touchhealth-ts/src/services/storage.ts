@@ -30,20 +30,67 @@ import type {
 type SupabaseRow = Record<string, unknown>;
 
 // ── STORAGE KEYS ─────────────────────────────────────────────
+// Keys that are facility-specific are suffixed with an 8-char
+// facility ID slice so two facilities sharing a device never
+// bleed data into each other's records.
 
-const KEYS = {
-  PATIENTS:     'zmz2_pts',
-  USERS:        'th_users',
-  HOSPITALS:    'th_hospitals',
+// Non-scoped keys (shared across facilities / pre-login)
+const GLOBAL_KEYS = {
   SESSION:      'th_session',
   CACHED_USERS: 'th_cached_users',
-  CLINIC:       'th_clinic',
-  SMS_LOG:      'th_sms_log',
-  SMS_CONFIG:   'th_sms_cfg',
-  STOCKOUTS:    'th_stockouts',
-  LAST_SYNC:    'th_last_sync',
-  SYNC_COUNT:   'th_sync_count',
+  USERS:        'th_users',
+  HOSPITALS:    'th_hospitals',
+  SCHEMA_V:     'th_schema_v',
 } as const;
+
+// Facility-scoped keys — resolved lazily via KEYS getter below
+let _scope = '';
+
+/** Call once after login to namespace all facility data. */
+export function initStorageScope(facilityId: string): void {
+  const suffix = facilityId.slice(0, 8);
+  if (_scope === suffix) return;
+
+  // One-time migration: copy any existing unscoped data to the new key
+  const unscoped = [
+    { from: 'zmz2_pts',     to: `zmz2_pts_${suffix}` },
+    { from: 'th_clinic',    to: `th_clinic_${suffix}` },
+    { from: 'th_sms_log',   to: `th_sms_log_${suffix}` },
+    { from: 'th_sms_cfg',   to: `th_sms_cfg_${suffix}` },
+    { from: 'th_stockouts', to: `th_stockouts_${suffix}` },
+    { from: 'th_last_sync', to: `th_last_sync_${suffix}` },
+    { from: 'th_sync_count',to: `th_sync_count_${suffix}` },
+  ];
+  for (const { from, to } of unscoped) {
+    const existing = localStorage.getItem(from);
+    if (existing && !localStorage.getItem(to)) {
+      localStorage.setItem(to, existing);
+      localStorage.removeItem(from);
+    }
+  }
+
+  _scope = suffix;
+}
+
+function scopedKey(base: string): string {
+  return _scope ? `${base}_${_scope}` : base;
+}
+
+const KEYS = {
+  // global — not facility-scoped
+  SESSION:      GLOBAL_KEYS.SESSION,
+  CACHED_USERS: GLOBAL_KEYS.CACHED_USERS,
+  USERS:        GLOBAL_KEYS.USERS,
+  HOSPITALS:    GLOBAL_KEYS.HOSPITALS,
+  // facility-scoped — accessed as getters so they resolve lazily
+  get PATIENTS()    { return scopedKey('zmz2_pts'); },
+  get CLINIC()      { return scopedKey('th_clinic'); },
+  get SMS_LOG()     { return scopedKey('th_sms_log'); },
+  get SMS_CONFIG()  { return scopedKey('th_sms_cfg'); },
+  get STOCKOUTS()   { return scopedKey('th_stockouts'); },
+  get LAST_SYNC()   { return scopedKey('th_last_sync'); },
+  get SYNC_COUNT()  { return scopedKey('th_sync_count'); },
+};
 
 // ── GENERIC HELPERS ───────────────────────────────────────────
 
@@ -58,6 +105,41 @@ function load<T>(key: string, fallback: T): T {
 
 function persist<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value));
+}
+
+// ── SCHEMA VERSIONING ─────────────────────────────────────────
+// Bump SCHEMA_VERSION whenever a stored object shape changes in a
+// way that would break reads of old data (added required fields, etc).
+
+const SCHEMA_VERSION = 3;
+
+export function runSchemaMigrations(): void {
+  const stored = parseInt(localStorage.getItem(GLOBAL_KEYS.SCHEMA_V) ?? '0', 10);
+  if (stored >= SCHEMA_VERSION) return;
+
+  if (stored < 1) {
+    // v1: patients gained `cond` field — back-fill with 'HTN'
+    const raw = localStorage.getItem('zmz2_pts');
+    if (raw) {
+      try {
+        const pts = JSON.parse(raw) as Patient[];
+        const patched = pts.map((p) => p.cond ? p : { ...p, cond: 'HTN' as Patient['cond'] });
+        localStorage.setItem('zmz2_pts', JSON.stringify(patched));
+      } catch { /* corrupt — leave as-is */ }
+    }
+  }
+
+  if (stored < 2) {
+    // v2: visits gained `investigations` array — nothing to back-fill,
+    // empty array is the default already set by loadPatients callers.
+  }
+
+  if (stored < 3) {
+    // v3: patient.status 'completed' → 'active' (handled in normalizeLegacyPatientStatuses,
+    // but stamping the version prevents re-running on every boot).
+  }
+
+  localStorage.setItem(GLOBAL_KEYS.SCHEMA_V, String(SCHEMA_VERSION));
 }
 
 // ── PATIENTS ─────────────────────────────────────────────────

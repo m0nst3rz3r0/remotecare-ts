@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePatientStore } from '../../store/usePatientStore';
 import { useUIStore } from '../../store/useUIStore';
 import type { Medication, Patient } from '../../types';
@@ -31,6 +31,19 @@ export default function MedModal() {
     setMeds(current.length ? current : [defaultMedication()]);
   }, [open, patient]);
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = dialogRef.current;
+    if (!el) return;
+    const first = el.querySelector<HTMLElement>('button, input, select, textarea, [tabindex]');
+    first?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, close]);
+
   if (!open || !patient || patientId === null) return null;
 
   const onSave = () => {
@@ -39,7 +52,7 @@ export default function MedModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Edit Medications" ref={dialogRef}>
       <div
         className="absolute inset-0"
         onClick={close}
