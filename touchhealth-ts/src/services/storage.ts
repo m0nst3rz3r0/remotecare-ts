@@ -17,6 +17,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { supabase } from './supabase';
+import { logger } from '../utils/logger';
 import type {
   Patient, User, Hospital, ClinicSettings,
   StockoutReport, SMSConfig, SMSLogEntry,
@@ -213,7 +214,7 @@ export async function checkSupabaseConnection(): Promise<boolean> {
 
 export async function syncPatientsWithCloud() {
   try {
-    console.log('[SYNC] Full System Sync initiated...');
+    logger.info('[SYNC] Full System Sync initiated...');
 
     // ── Deduplicate local patients by code before pushing ──
     const rawLocal = loadPatients();
@@ -277,7 +278,7 @@ export async function syncPatientsWithCloud() {
               investigations:       visit.investigations ?? null,
               drug_warnings:        visit.drugWarnings ?? null,
             }, { onConflict: 'id' });
-          if (visitError) console.error('Visit push error:', visitError.message);
+          if (visitError) logger.warn('Visit push error', visitError.message);
 
           for (const med of visit.meds ?? []) {
             const { error: medError } = await supabase
@@ -289,7 +290,7 @@ export async function syncPatientsWithCloud() {
                 freq:         med.freq ?? null,
                 instructions: med.instructions ?? null,
               }, { onConflict: 'visit_id,name' });
-            if (medError) console.error('Med push error:', medError.message);
+            if (medError) logger.warn('Med push error', medError.message);
           }
         }
       }
@@ -316,12 +317,15 @@ export async function syncPatientsWithCloud() {
       }
       const canonicalCloud = Array.from(cloudByCode.values()) as Array<Record<string, unknown>>;
 
-      // Delete ghost patients from Supabase
+      // Delete ghost patients from Supabase.
+      // SAFETY GUARD: never run destructive cloud deletes from a device
+      // that has no local data yet (cold start). Without this, an
+      // un-synced tablet could wipe rows another device just created.
       const keepIds = new Set(canonicalCloud.map((p: SupabaseRow) => normalize(p.id)));
       const ghostIds = cloudPatients
         .map((p: SupabaseRow) => normalize(p.id))
         .filter((id: number) => !keepIds.has(id));
-      if (ghostIds.length > 0) {
+      if (localPatients.length > 0 && ghostIds.length > 0) {
         const { data: gv } = await supabase
           .from('visits').select('id').in('patient_id', ghostIds);
         const gvIds = (gv ?? []).map((v: SupabaseRow) => v.id);
@@ -394,20 +398,20 @@ export async function syncPatientsWithCloud() {
     // ── 3. PULL users ───────────────────────────────────────
     const { data: cloudUsers, error: uError } = await supabase
       .from('users').select('*');
-    if (uError) console.warn('User sync failed:', uError.message);
+    if (uError) logger.warn('User sync failed', uError.message);
     if (cloudUsers) saveUsers(cloudUsers as User[]);
 
     // ── 4. PULL hospitals ───────────────────────────────────
     const { data: cloudHospitals, error: hError } = await supabase
       .from('hospitals').select('*');
-    if (hError) console.warn('Hospital sync failed:', hError.message);
+    if (hError) logger.warn('Hospital sync failed', hError.message);
     if (cloudHospitals) saveHospitals(cloudHospitals as Hospital[]);
 
     setLastSync();
     return { success: true };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Network or internal error';
-    console.error('[SYNC] Sync System Error:', msg);
+    logger.error('[SYNC] Sync System Error', msg);
     return { success: false, error: msg };
   }
 }
@@ -497,7 +501,7 @@ export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: s
     return { fixed: totalRemoved };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Repair failed';
-    console.error('Repair error:', msg);
+    logger.error('Repair error', msg);
     return { fixed: 0, error: msg };
   }
 }
@@ -525,6 +529,6 @@ export async function diagnoseSyncIssue(): Promise<string> {
   else lines.push(`\nOK Medications in Supabase: ${meds?.length ?? 0}`);
 
   const report = lines.join('\n');
-  console.log('=== SYNC DIAGNOSTIC ===\n' + report);
+  logger.info('=== SYNC DIAGNOSTIC ===\n' + report);
   return report;
 }

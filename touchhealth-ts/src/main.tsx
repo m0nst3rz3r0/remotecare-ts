@@ -1,14 +1,16 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 import { migratePhones } from './services/phoneEncryption';
 import { loadPatients, savePatients } from './services/storage';
 import { preloadClinicalData, loadZonePresets } from './lib/clinical/dataLoader';
 import zonePresets from './data/zoneAvailabilityPresets.json';
 import type { ZonePreset } from './lib/clinical/types';
+import { logger } from './utils/logger';
 
-preloadClinicalData().catch(console.warn);
+preloadClinicalData().catch((e) => logger.warn('Clinical preload failed', e));
 loadZonePresets(zonePresets as Record<string, ZonePreset>);
 
 if ('serviceWorker' in navigator) {
@@ -31,15 +33,17 @@ if ('serviceWorker' in navigator) {
     const count = await migratePhones(patients);
     if (count > 0) {
       savePatients(patients);
-      console.info(`[RemoteCare] Encrypted ${count} phone number(s) at rest.`);
+      logger.info(`Encrypted ${count} phone number(s) at rest.`);
     }
   } catch (e) {
-    console.error('[RemoteCare] Phone migration failed:', e);
+    logger.error('Phone migration failed', e);
   }
 })();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );
