@@ -52,7 +52,7 @@ function RecommendedFoodsSection({
   conditions, zone, language,
 }: { conditions: string[]; zone: TZRegion; language: 'en' | 'sw' }) {
   const recs = useMemo(() => getRecommendedFoods(conditions, zone), [conditions, zone]);
-  const hasAny = recs.starch.length > 0 || recs.protein.length > 0 || recs.vegetable.length > 0;
+  const hasAny = recs.starch.length > 0 || recs.protein.length > 0 || recs.vegetable.length > 0 || recs.fruit.length > 0;
   if (!hasAny) return null;
 
   const groups = [
@@ -73,6 +73,12 @@ function RecommendedFoodsSection({
       items: recs.vegetable,
       color: '#10b981',
       bg: '#f0fdf4',
+    },
+    {
+      label: language === 'sw' ? 'Matunda' : 'Fruits',
+      items: recs.fruit,
+      color: '#ea580c',
+      bg: '#fff7ed',
     },
   ].filter(g => g.items.length > 0);
 

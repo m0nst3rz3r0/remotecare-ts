@@ -5,7 +5,7 @@ import { conditionMatches } from './conditions';
 import type { EvaluationResult, TZRegion } from './types';
 
 const AVOID_LIST_LIMIT = 5;
-const RECOMMEND_LIMIT = 9;
+const RECOMMEND_LIMIT = 20;
 
 function shortenReason(message: string): string {
   const main = message.split(/\s*TIP:/i)[0].trim();
@@ -55,6 +55,7 @@ export function getRecommendedFoods(conditions: string[], zone: TZRegion): {
   starch: Array<{ id: string; name_en: string; name_sw: string }>;
   protein: Array<{ id: string; name_en: string; name_sw: string }>;
   vegetable: Array<{ id: string; name_en: string; name_sw: string }>;
+  fruit: Array<{ id: string; name_en: string; name_sw: string }>;
 } {
   const rules = getRulesSync();
   const foods = getFoodsForZone(zone);
@@ -67,6 +68,8 @@ export function getRecommendedFoods(conditions: string[], zone: TZRegion): {
     }
   }
 
+  const perGroup = Math.floor(RECOMMEND_LIMIT / 4) + 1;
+
   const pick = (catFilter: (cats: string[]) => boolean, nameFilter?: RegExp) => {
     return foods
       .filter(f => {
@@ -76,7 +79,7 @@ export function getRecommendedFoods(conditions: string[], zone: TZRegion): {
         if (nameFilter && nameFilter.test(f.name_en)) return false;
         return true;
       })
-      .slice(0, RECOMMEND_LIMIT / 3 + 1)
+      .slice(0, perGroup)
       .map(f => ({ id: f.id, name_en: f.name_en, name_sw: f.name_sw ?? f.name_en }));
   };
 
@@ -87,6 +90,7 @@ export function getRecommendedFoods(conditions: string[], zone: TZRegion): {
     ),
     protein: pick(cats => cats.includes('protein')),
     vegetable: pick(cats => cats.includes('vegetable') || cats.includes('veg')),
+    fruit: pick(cats => cats.includes('fruit')),
   };
 }
 

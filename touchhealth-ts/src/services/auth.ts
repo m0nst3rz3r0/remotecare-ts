@@ -24,6 +24,7 @@
 // ════════════════════════════════════════════════════════════
 
 import type { User, SessionUser, UserRole, Hospital } from '../types';
+import { randomUUID } from '../utils/id';
 import { hashPassword, verifyPassword } from './crypto';
 import { supabase } from './supabase';
 import { registerDevice } from './deviceManager';
@@ -224,7 +225,30 @@ export type LoginResult =
   | { success: true;  user: SessionUser; offline?: boolean }
   | { success: false; error: string };
 
-export async function login(params: {
+export interface LoginParams {
+  username: string;
+  password: string;
+  role: UserRole;
+  hospital?: string;
+}
+
+// ── Server-auth feature flag ─────────────────────────────────
+// When VITE_USE_SERVER_AUTH=true AND the login Edge Function +
+// RLS migrations are deployed, login() routes to the server-side
+// flow (authV2). Until then it uses the legacy client-side flow.
+// Dynamic import avoids a circular dependency with authV2.
+const USE_SERVER_AUTH =
+  (import.meta as { env?: { VITE_USE_SERVER_AUTH?: string } }).env?.VITE_USE_SERVER_AUTH === 'true';
+
+export async function login(params: LoginParams): Promise<LoginResult> {
+  if (USE_SERVER_AUTH) {
+    const { loginV2 } = await import('./authV2');
+    return loginV2(params);
+  }
+  return loginLegacy(params);
+}
+
+async function loginLegacy(params: {
   username: string;
   password: string;
   role: UserRole;
@@ -358,7 +382,7 @@ export async function addUser(params: {
   }
 
   const hashed = await hashPassword(password);
-  const userId = crypto.randomUUID();
+  const userId = randomUUID();
 
   const supabasePayload = {
     id:             userId,
@@ -477,7 +501,7 @@ export function addHospital(params: {
     return { success: false, error: 'A hospital with this name already exists.' };
   }
 
-  const id = crypto.randomUUID();
+  const id = randomUUID();
   saveHospitals([...hospitals, { id, name, region, district }]);
 
   const payload = { id, name, region, district };

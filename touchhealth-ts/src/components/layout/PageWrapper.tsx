@@ -23,17 +23,15 @@ export default function PageWrapper({
             height: 60,
             display: 'flex',
             alignItems: 'center',
-            background: 'rgba(240, 242, 248, 0.85)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            borderBottom: '1px solid rgba(255,255,255,0.6)',
-            boxShadow: '0 1px 0 rgba(0,0,0,0.06)',
+            background: '#132b31',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
           }}>
             <h1 style={{
               fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
               fontSize: 18,
               fontWeight: 700,
-              color: '#1e293b',
+              color: '#fff',
               margin: 0,
             }}>
               {title}

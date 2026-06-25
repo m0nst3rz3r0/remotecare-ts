@@ -3,7 +3,7 @@
 // Root component — auth gate, page routing, store init
 // ════════════════════════════════════════════════════════════
 
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { useAuthStore } from './store/useAuthStore';
 import { usePatientStore } from './store/usePatientStore';
 import { useUIStore } from './store/useUIStore';
@@ -12,17 +12,23 @@ import NavTabs from './components/layout/NavTabs';
 import Sidebar from './components/layout/Sidebar';
 import SyncBar from './components/ui/SyncBar';
 import AuthPage from './pages/AuthPage';
-import PatientsPage from './pages/PatientsPage';
-import LTFUPage from './pages/LTFUPage';
-import ClinicPage from './pages/ClinicPage';
-import ReportsPage from './pages/ReportsPage';
-import AdminPage from './pages/AdminPage';
 import VisitModal from './components/visit/VisitModal';
 import MedModal from './components/visit/MedModal';
 import type { PageId } from './types';
 import { checkAutoBackup, startAutoBackupScheduler } from './services/backup';
 import { migratePasswords } from './services/crypto';
 import { autoAssignPrefix } from './services/deviceManager';
+import { logger } from './utils/logger';
+
+// ── Code-split the heavy pages ───────────────────────────────
+// These are large (AdminPage ~1.7k LOC, ClinicPage/LTFUPage ~1.1k each)
+// and not all needed at once. Lazy-loading them cuts the initial
+// bundle substantially — important on low-end clinic tablets.
+const PatientsPage = lazy(() => import('./pages/PatientsPage'));
+const LTFUPage     = lazy(() => import('./pages/LTFUPage'));
+const ClinicPage   = lazy(() => import('./pages/ClinicPage'));
+const ReportsPage  = lazy(() => import('./pages/ReportsPage'));
+const AdminPage    = lazy(() => import('./pages/AdminPage'));
 
 const IS_SHARED_DEVICE = (import.meta as any).env.VITE_SHARED_DEVICE === 'true';
 
@@ -32,6 +38,19 @@ function isDoctorPage(p: PageId) {
 
 function isAdminPage(p: PageId) {
   return p === 'overview' || p === 'trends' || p === 'doctors' || p === 'settings' || p === 'user-management' || p === 'directory';
+}
+
+/** Lightweight fallback shown while a lazy-loaded page chunk downloads. */
+function PageFallback() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      minHeight: '60vh', color: '#94a3b8',
+      fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 13,
+    }}>
+      Loading…
+    </div>
+  );
 }
 
 export default function App() {
@@ -69,9 +88,9 @@ export default function App() {
     if (!sessionRegion || !sessionHospital) return;
     autoAssignPrefix(sessionRegion, sessionDistrict, sessionHospital)
       .then((letter) => {
-        if (letter) console.info(`[RemoteCare] Device prefix: ${letter}`);
+        if (letter) logger.info(`Device prefix: ${letter}`);
       })
-      .catch((err) => console.warn('[RemoteCare] Device prefix assignment failed (offline?):', err));
+      .catch((err) => logger.warn('Device prefix assignment failed (offline?)', err));
   }, [currentUser?.id]);
 
   // ── Auto-LTFU engine — runs on load + every 60s ──────────────
@@ -125,7 +144,9 @@ export default function App() {
         }}>
         <Sidebar />
         <div id="admin-main" style={{ flex: 1, minWidth: 0, marginLeft: '220px', transition: 'margin-left 0.22s cubic-bezier(0.4,0,0.2,1)' }}>
-          <AdminPage />
+          <Suspense fallback={<PageFallback />}>
+            <AdminPage />
+          </Suspense>
         </div>
         <VisitModal />
         <MedModal />
@@ -140,16 +161,18 @@ export default function App() {
       <NavTabs />
 
       <main className="min-h-[calc(100vh-94px)]">
-        {role === 'doctor' ? (
-          <>
-            {activePage === 'patients' ? <PatientsPage /> : null}
-            {activePage === 'ltfu'     ? <LTFUPage />     : null}
-            {activePage === 'clinic'   ? <ClinicPage />   : null}
-            {activePage === 'reports'  ? <ReportsPage />  : null}
-          </>
-        ) : (
-          <AdminPage />
-        )}
+        <Suspense fallback={<PageFallback />}>
+          {role === 'doctor' ? (
+            <>
+              {activePage === 'patients' ? <PatientsPage /> : null}
+              {activePage === 'ltfu'     ? <LTFUPage />     : null}
+              {activePage === 'clinic'   ? <ClinicPage />   : null}
+              {activePage === 'reports'  ? <ReportsPage />  : null}
+            </>
+          ) : (
+            <AdminPage />
+          )}
+        </Suspense>
       </main>
 
       <VisitModal />

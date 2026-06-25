@@ -6,6 +6,7 @@ import { bpClass, sgClass } from '../services/clinical';
 import Chip from '../components/ui/Chip';
 import Button from '../components/ui/Button';
 import { MONTHS } from '../utils/geo';
+import { escapeHtml } from '../utils/html';
 import NutritionStatsPanel from '../components/NutritionStatsPanel';
 
 function downloadText(filename: string, content: string, mime = 'text/csv') {
@@ -121,11 +122,11 @@ export default function ReportsPage() {
                 const meds = (r.visit.meds ?? []).length ? r.visit.meds.map((m) => m.name).join(', ') : '—';
                 return `
                   <tr>
-                    <td style="border-bottom:1px solid #f1f5f9;padding:6px 8px;font-weight:700;">${r.patient.code}</td>
-                    <td style="border-bottom:1px solid #f1f5f9;padding:6px 8px;">${attend}</td>
-                    <td style="border-bottom:1px solid #f1f5f9;padding:6px 8px;">${bpText}</td>
-                    <td style="border-bottom:1px solid #f1f5f9;padding:6px 8px;">${sgText}</td>
-                    <td style="border-bottom:1px solid #f1f5f9;padding:6px 8px;">${meds}</td>
+                    <td style="border-bottom:1px solid #f1f5f9;padding:6px 8px;font-weight:700;">${escapeHtml(r.patient.code)}</td>
+                    <td style="border-bottom:1px solid #f1f5f9;padding:6px 8px;">${escapeHtml(attend)}</td>
+                    <td style="border-bottom:1px solid #f1f5f9;padding:6px 8px;">${escapeHtml(bpText)}</td>
+                    <td style="border-bottom:1px solid #f1f5f9;padding:6px 8px;">${escapeHtml(sgText)}</td>
+                    <td style="border-bottom:1px solid #f1f5f9;padding:6px 8px;">${escapeHtml(meds)}</td>
                   </tr>
                 `;
               })
