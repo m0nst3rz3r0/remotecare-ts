@@ -29,11 +29,11 @@ import {
   clearScheduledAppointment,
   confirmAllPredicted,
   filterPatients,
-  isActivePatientStatus,
   type RegisterPatientParams,
   type RecordVisitParams,
 } from '../services/patients';
 import { isDue, getPatientNextVisitDate } from '../services/clinical';
+import { getProgrammeOverview } from '../services/analytics';
 import type { ClinicSettings } from '../types';
 
 // ── STATE SHAPE ───────────────────────────────────────────────
@@ -228,18 +228,13 @@ export const selectSelectedPatient = (
     : null;
 
 /** Summary counts for topbar */
-export const selectTopbarCounts = (patients: Patient[]) => ({
-  total:      patients.length,
-  active:     patients.filter((p) => isActivePatientStatus(p.status)).length,
-  due:        patients.filter((p) => isDue(p)).length,
-  ltfu:       patients.filter((p) => p.status === 'ltfu').length,
-  controlled: patients.filter((p) => {
-    const lv = p.visits?.filter((v) => v.att).sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    )[0];
-    if (!lv) return false;
-    const bpOk = !lv.sbp || (lv.sbp < 140 && (lv.dbp ?? 0) < 90);
-    const sgOk = !lv.sugar || lv.sugar < 10;
-    return bpOk && sgOk;
-  }).length,
-});
+export const selectTopbarCounts = (patients: Patient[]) => {
+  const overview = getProgrammeOverview(patients);
+  return {
+    total: overview.total,
+    active: overview.active,
+    due: overview.due,
+    ltfu: overview.ltfu,
+    controlled: overview.controlled,
+  };
+};

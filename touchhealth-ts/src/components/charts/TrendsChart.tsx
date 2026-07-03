@@ -10,7 +10,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { getMonthlyAttendanceRate } from '../../services/clinical';
+import { getAttendanceSeries, getDrugUsageSeries } from '../../services/analytics';
 import type { Patient } from '../../types';
 import EnrolmentChart from './EnrolmentChart';
 import BPControlChart from './BPControlChart';
@@ -32,11 +32,7 @@ export default function TrendsChart({ patients, year }: { patients: Patient[]; y
   const attendanceSeries = useMemo(() => {
     const emerald = cssVar('--emerald', '#10b981');
     const emeraldPale = cssVar('--emerald-pale', '#d1fae5');
-
-    const series = labels.map((_, idx) => {
-      const m = idx + 1;
-      return getMonthlyAttendanceRate(patients, m, year);
-    });
+    const series = getAttendanceSeries(patients, year);
 
     return { series, emerald, emeraldPale };
   }, [labels, patients, year]);
@@ -44,16 +40,7 @@ export default function TrendsChart({ patients, year }: { patients: Patient[]; y
   const drugUsageSeries = useMemo(() => {
     const amber = cssVar('--amber', '#d97706');
     const amberPale = cssVar('--amber-pale', '#fef3c7');
-
-    const series = labels.map((_, idx) => {
-      const m = idx + 1;
-      const visits = patients.flatMap((p) => p.visits ?? []).filter(
-        (v) => +v.month === m && (v.year ?? new Date().getFullYear()) === year,
-      );
-      const attended = visits.filter((v) => v.att);
-      const used = attended.filter((v) => (v.meds ?? []).length > 0).length;
-      return attended.length ? Math.round((used / attended.length) * 100) : null;
-    });
+    const series = getDrugUsageSeries(patients, year);
 
     return { series, amber, amberPale };
   }, [labels, patients, year]);

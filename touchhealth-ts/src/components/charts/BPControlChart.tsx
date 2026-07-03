@@ -11,7 +11,7 @@ import {
 import { useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
 import type { Patient } from '../../types';
-import { getMonthlyStats } from '../../services/clinical';
+import { getBpControlSeries } from '../../services/analytics';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -36,17 +36,7 @@ export default function BPControlChart({
   const data = useMemo(() => {
     const emerald = cssVar('--emerald', '#10b981');
     const emeraldPale = cssVar('--emerald-pale', '#d1fae5');
-
-    // Use all patients, but compute monthly stats based on visit.month only.
-    const monthly = labels.map((_, idx) => {
-      const m = idx + 1;
-      const stats = getMonthlyStats(
-        patients.filter((p) => p.visits?.some((v) => +v.month === m && +(v.year ?? new Date().getFullYear()) === year)) ||
-          patients,
-        m,
-      );
-      return stats.bpControlRate;
-    });
+    const monthly = getBpControlSeries(patients, year);
 
     return {
       labels,

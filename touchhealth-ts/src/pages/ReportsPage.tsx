@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import PageWrapper from '../components/layout/PageWrapper';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePatientStore, selectVisiblePatients } from '../store/usePatientStore';
-import { bpClass, sgClass } from '../services/clinical';
+import { getMonthlyVisitRows } from '../services/analytics';
 import Chip from '../components/ui/Chip';
 import Button from '../components/ui/Button';
 import { MONTHS } from '../utils/geo';
@@ -33,29 +33,8 @@ export default function ReportsPage() {
   const monthName = MONTHS[month - 1] ?? '';
 
   const visitRows = useMemo(() => {
-    const rows: Array<{
-      patient: (typeof visiblePatients)[number];
-      visit: (typeof visiblePatients)[number]['visits'][number];
-      bp?: ReturnType<typeof bpClass> | null;
-      sg?: ReturnType<typeof sgClass> | null;
-    }> = [];
-
-    for (const p of visiblePatients) {
-      for (const v of p.visits ?? []) {
-        if (+v.month !== month) continue;
-        const bp = v.att && v.sbp && v.dbp ? bpClass(v.sbp, v.dbp) : null;
-        const sg =
-          v.att && v.sugar && v.sugarType
-            ? sgClass(v.sugar, (v.sugarType as any) ?? 'FBS')
-            : null;
-        rows.push({ patient: p, visit: v, bp, sg });
-      }
-    }
-
-    // Stable order: newest first
-    rows.sort((a, b) => new Date(b.visit.date).getTime() - new Date(a.visit.date).getTime());
-    return rows;
-  }, [visiblePatients, month]);
+    return getMonthlyVisitRows(visiblePatients, month, year);
+  }, [visiblePatients, month, year]);
 
   const onExportCSV = () => {
     const header = ['Card No', 'Condition', 'Attendance', 'BP', 'Glucose', 'Medications'];

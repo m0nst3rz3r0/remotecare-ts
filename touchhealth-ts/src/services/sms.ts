@@ -33,10 +33,10 @@
 // ════════════════════════════════════════════════════════════
 
 import type { ClinicSettings, Patient, SMSConfig, SMSLogEntry, SMSReason } from '@/types';
-import { isDue } from './clinical';
+import { getPatientNextVisitDate, isDueWithSettings } from './clinical';
 import { isActivePatientStatus } from './patients';
 import { loadSMSConfig, loadSMSLog, saveSMSLog } from './storage';
-import { getLastVisit, nextVisitDate, today } from './clinical';
+import { today } from './clinical';
 import { decryptPhone } from './phoneEncryption';
 import { supabase } from './supabase';
 
@@ -67,7 +67,7 @@ export function buildSMSMessage(
       cfg.template;
   }
 
-  const dateStr = nextDate.toLocaleDateString('en-GB', {
+  const dateStr = nextDate.toLocaleDateString(lang === 'sw' ? 'sw-TZ' : 'en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
   });
 
@@ -78,10 +78,8 @@ export function buildSMSMessage(
 }
 
 export function getPatientNextDate(patient: Patient, cfg: ClinicSettings): Date {
-  if (patient.scheduledNext?.date) return new Date(patient.scheduledNext.date);
-  const lv   = getLastVisit(patient);
-  const from = lv?.date ? new Date(lv.date) : new Date(patient.enrol ?? today());
-  return nextVisitDate(from, 30, cfg.days);
+  if (!cfg) return new Date(patient.scheduledNext?.date ?? patient.enrol ?? today());
+  return getPatientNextVisitDate(patient, cfg);
 }
 
 export function daysUntilAppointment(patient: Patient, cfg: ClinicSettings): number {
@@ -104,7 +102,7 @@ export function filterPatientsForSmsTab(
       case 'ltfu':
         return p.status === 'ltfu';
       case 'overdue':
-        return p.status === 'active' && isDue(p);
+        return p.status === 'active' && isDueWithSettings(p, cfg);
       case 'reminder':
         if (p.status !== 'active') return false;
         return daysUntilAppointment(p, cfg) >= 0 && daysUntilAppointment(p, cfg) <= 7;
@@ -131,9 +129,9 @@ export function getPatientSMSReason(
   if (patient.status !== 'active') return null;
 
   const days = daysUntilAppointment(patient, cfg);
+  if (!(patient.visits ?? []).length && days >= 0 && days <= withinDays) return 'welcome';
   if (days < 0) return 'missed_appointment';
   if (days <= withinDays) return 'reminder';
-  if (!(patient.visits ?? []).length) return 'welcome';
   return null;
 }
 

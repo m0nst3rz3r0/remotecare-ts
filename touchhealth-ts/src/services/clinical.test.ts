@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getAdherenceMonthState,
   getMonthlyAttendanceRate,
+  getMonthlyStats,
 } from './clinical';
 import type { Patient, Visit } from '../types';
 
@@ -57,5 +58,22 @@ describe('programme attendance metrics', () => {
     const now = new Date(2026, 5, 19);
     expect(getMonthlyAttendanceRate(patients, 5, 2026, now)).toBe(0);
     expect(getMonthlyAttendanceRate(patients, 7, 2026, now)).toBeNull();
+  });
+
+  it('keeps monthly stats scoped to the selected year', () => {
+    const patients = [
+      mkPatient({
+        visits: [
+          mkVisit({ id: 'v-2025', date: '2025-04-12', month: 4, year: 2025, sbp: 150, dbp: 95 }),
+          mkVisit({ id: 'v-2026', date: '2026-04-12', month: 4, year: 2026, sbp: 130, dbp: 80 }),
+        ],
+      }),
+    ];
+
+    const stats2025 = getMonthlyStats(patients, 4, 2025, new Date(2026, 5, 19));
+    const stats2026 = getMonthlyStats(patients, 4, 2026, new Date(2026, 5, 19));
+
+    expect(stats2025.bpControlRate).toBe(0);
+    expect(stats2026.bpControlRate).toBe(100);
   });
 });

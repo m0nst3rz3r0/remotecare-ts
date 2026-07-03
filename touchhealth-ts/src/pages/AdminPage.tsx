@@ -17,8 +17,7 @@ import {
   saveUsers,
   updateUserPassword,
 } from '../services/auth';
-import { isControlled, isDue } from '../services/clinical';
-import { isActivePatientStatus } from '../services/patients';
+import { getFacilityOverviewRows, getGlucoseControlSeries, getProgrammeOverview } from '../services/analytics';
 import { getDevicePrefix, setDevicePrefix } from '../services/devicePrefix';
 import {
   getFacilityDevicesWithDoctors,
@@ -51,7 +50,7 @@ import {
   formatSmsSentLabel,
   smsAlreadySentRecently,
 } from '../services/sms';
-import { loadSMSConfig, saveSMSConfig, loadSMSLog, saveSMSLog } from '../services/storage';
+import { loadSMSConfig, saveSMSConfig, loadSMSLog } from '../services/storage';
 import type { SMSConfig } from '../types';
 import { maskPhone } from '../utils/phone';
 import DirectoryPage from './DirectoryPage';
@@ -149,14 +148,7 @@ function GlucoseControlChart({ patients, year }: { patients: Patient[]; year: nu
   const labels = useMemo(() => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], []);
   const data = useMemo(() => {
     const amber = cssVar('--amber', '#f59e0b');
-    const rates = labels.map((_, idx) => {
-      const m = idx + 1;
-      const visits = patients.flatMap((p) => p.visits ?? []).filter((v) => +v.month === m && (v.year ?? new Date().getFullYear()) === year);
-      const attended = visits.filter((v) => v.att);
-      const measured = attended.filter((v) => typeof v.sugar === 'number');
-      const controlled = measured.filter((v) => (v.sugar ?? 0) < 10);
-      return measured.length ? Math.round((controlled.length / measured.length) * 100) : null;
-    });
+    const rates = getGlucoseControlSeries(patients, year);
     return { labels, datasets: [{ label: 'Glucose Control %', data: rates, borderColor: amber, fill: false, tension: 0.25, spanGaps: true, pointRadius: 3 }] };
   }, [labels, patients, year]);
   const options = useMemo(() => ({ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { callback: (v: any) => `${v}%` } } } }), []);
@@ -166,24 +158,10 @@ function GlucoseControlChart({ patients, year }: { patients: Patient[]; year: nu
 // ── Overview view ────────────────────────────────────────────
 function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Patient[]; hospitals: Hospital[]; year: number; scopeLabel: string }) {
   const stats = useMemo(() => {
-    const total      = patients.length;
-    const active     = patients.filter((p) => isActivePatientStatus(p.status)).length;
-    const ltfu       = patients.filter((p) => p.status === 'ltfu').length;
-    const due        = patients.filter((p) => isDue(p)).length;
-    const controlled = patients.filter((p) => isControlled(p)).length;
-    const ctrlRate   = active ? Math.round((controlled / active) * 100) : 0;
-    return { total, active, ltfu, due, controlled, ctrlRate };
+    return getProgrammeOverview(patients);
   }, [patients]);
 
-  const facilityRows = useMemo(() => hospitals.map((h) => {
-    const pts      = patients.filter((p) => p.hospital === h.name);
-    const active   = pts.filter((p) => isActivePatientStatus(p.status));
-    const ctrlCount = active.filter((p) => isControlled(p)).length;
-    const ctrlRate = active.length ? Math.round((ctrlCount / active.length) * 100) : null;
-    const ltfu     = pts.filter((p) => p.status === 'ltfu').length;
-    const activeP  = pts.length ? Math.round((active.length / pts.length) * 100) : 0;
-    return { h, total: pts.length, activeP, ctrlRate, ltfu };
-  }), [patients, hospitals]);
+  const facilityRows = useMemo(() => getFacilityOverviewRows(hospitals, patients), [patients, hospitals]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -247,10 +225,10 @@ function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Pat
             </thead>
             <tbody>
               {facilityRows.map((r, idx) => (
-                <tr key={r.h.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                  <td style={{ padding: '16px 24px', fontWeight: 700, fontSize: '14px', color: '#132b31' }}>{r.h.name}</td>
+                <tr key={r.hospital.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                  <td style={{ padding: '16px 24px', fontWeight: 700, fontSize: '14px', color: '#132b31' }}>{r.hospital.name}</td>
                   <td style={{ padding: '16px 24px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '14px', color: '#64748b' }}>{r.total.toLocaleString()}</td>
-                  <td style={{ padding: '16px 24px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '14px', fontWeight: 700, color: '#10b981' }}>{r.total ? `${r.activeP}%` : '—'}</td>
+                  <td style={{ padding: '16px 24px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '14px', fontWeight: 700, color: '#10b981' }}>{r.total ? `${r.activePct}%` : '—'}</td>
                   <td style={{ padding: '16px 24px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '14px', fontWeight: 700, color: r.ctrlRate !== null && r.ctrlRate >= 65 ? '#059669' : r.ctrlRate !== null && r.ctrlRate >= 45 ? '#d97706' : '#dc2626' }}>{r.ctrlRate !== null ? `${r.ctrlRate}%` : '—'}</td>
                   <td style={{ padding: '16px 24px' }}><RiskBadge ctrlRate={r.ctrlRate} /></td>
                   <td style={{ padding: '16px 24px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '14px', fontWeight: 700, color: r.ltfu > 0 ? '#dc2626' : '#64748b' }}>{r.ltfu}</td>
@@ -533,9 +511,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
     }
 
     if (entries.length) {
-      const updated = [...entries, ...smsLog];
-      setSmsLog(updated);
-      saveSMSLog(updated);
+      setSmsLog(loadSMSLog());
     }
 
     setSmsBulkResult({ sent, failed, skipped: skippedRecent + skippedNoPhone });
@@ -1483,9 +1459,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                                   resolvedReason,
                                   smsSenderName,
                                 );
-                                const updated = [entry, ...smsLog];
-                                setSmsLog(updated);
-                                saveSMSLog(updated);
+                                setSmsLog(loadSMSLog());
                                 setSmsFeedback((prev) => ({
                                   ...prev,
                                   [patient.id]:

@@ -455,12 +455,8 @@ export default function LTFUPage() {
   }, [visiblePatients, filterTab, searchQuery, ltfuPatients, overduePatients, reminderPatients]);
 
   // ── Log helpers ───────────────────────────────────────────
-  const appendToLog = useCallback((entries: SMSLogEntry[]) => {
-    setSmsLog((prev) => {
-      const updated = [...entries, ...prev].slice(0, 500);
-      saveSMSLog(updated);
-      return updated;
-    });
+  const appendToLog = useCallback((_entries: SMSLogEntry[]) => {
+    setSmsLog(loadSMSLog());
   }, []);
 
   // ── Bulk selection ────────────────────────────────────────

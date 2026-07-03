@@ -651,12 +651,43 @@ export function getLastVisit(patient: Patient): Visit | null {
 }
 
 export function isDue(patient: Patient): boolean {
-  if (patient.status !== 'active') return false;
+  return isDueWithSettings(patient);
+}
+
+export function getPatientDueDate(
+  patient: Patient,
+  settings?: ClinicSettings,
+): Date {
+  if (settings) return getPatientNextVisitDate(patient, settings);
+  if (patient.scheduledNext?.date) return new Date(patient.scheduledNext.date);
   const lv = getLastVisit(patient);
   const ref = lv
     ? new Date(lv.date)
     : new Date(patient.enrol ?? new Date().toISOString());
-  return (Date.now() - ref.getTime()) / 86_400_000 >= OVERDUE_THRESHOLD_DAYS;
+  const due = new Date(ref);
+  due.setDate(due.getDate() + OVERDUE_THRESHOLD_DAYS);
+  return due;
+}
+
+export function getDaysUntilDue(
+  patient: Patient,
+  settings?: ClinicSettings,
+  now: Date = new Date(),
+): number {
+  const due = getPatientDueDate(patient, settings);
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  return Math.round((due.getTime() - today.getTime()) / 86_400_000);
+}
+
+export function isDueWithSettings(
+  patient: Patient,
+  settings?: ClinicSettings,
+  now: Date = new Date(),
+): boolean {
+  if (patient.status !== 'active') return false;
+  return getDaysUntilDue(patient, settings, now) < 0;
 }
 
 export function isControlled(patient: Patient): boolean {
@@ -728,7 +759,7 @@ export function getPatientNextVisitDate(patient: Patient, settings: ClinicSettin
   const from = lv?.date
     ? new Date(lv.date)
     : new Date(patient.enrol ?? new Date().toISOString());
-  return nextVisitDate(from, VISIT_INTERVAL_DAYS, settings.days);
+  return nextVisitDate(from, settings.interval ?? VISIT_INTERVAL_DAYS, settings.days);
 }
 
 export function getDaysUntilVisit(patient: Patient, settings: ClinicSettings): number {
@@ -806,8 +837,15 @@ export function getProgrammeSummary(patients: Patient[]) {
   };
 }
 
-export function getMonthlyStats(patients: Patient[], month: number) {
-  const visits = patients.flatMap((p) => p.visits ?? []).filter((v) => +v.month === month);
+export function getMonthlyStats(
+  patients: Patient[],
+  month: number,
+  year: number = new Date().getFullYear(),
+  now: Date = new Date(),
+) {
+  const visits = patients
+    .flatMap((p) => p.visits ?? [])
+    .filter((v) => +v.month === month && +(v.year ?? year) === year);
   const attended = visits.filter((v) => v.att);
   const withBP   = attended.filter((v) => v.sbp && v.dbp);
   const bpCtrl   = withBP.filter((v) => isBPControlled(v.sbp, v.dbp));
@@ -816,7 +854,7 @@ export function getMonthlyStats(patients: Patient[], month: number) {
   return {
     total: visits.length, attended: attended.length,
     missed: visits.length - attended.length,
-    attendanceRate: getMonthlyAttendanceRate(patients, month, new Date().getFullYear()),
+    attendanceRate: getMonthlyAttendanceRate(patients, month, year, now),
     bpMeasured: withBP.length, bpControlled: bpCtrl.length,
     bpControlRate: withBP.length ? Math.round((bpCtrl.length / withBP.length) * 100) : null,
     glucoseMeasured: withSG.length, glucoseControlled: sgCtrl.length,

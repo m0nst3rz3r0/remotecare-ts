@@ -29,6 +29,7 @@ import { usePatientStore } from '../store/usePatientStore';
 import { TZ_GEO }         from '../utils/geo';
 import { getMonthlyAttendanceRate, getMonthlyStats } from '../services/clinical';
 import { isActivePatientStatus } from '../services/patients';
+import { ANALYTICS_METRICS, ANALYTICS_MONTHS, getMetricBarData, getMetricSeries } from '../services/analytics';
 import type { Patient, Visit } from '../types';
 
 ChartJS.register(
@@ -68,25 +69,7 @@ interface MetricDef {
 
 // ── Metric catalogue ─────────────────────────────────────────
 
-const METRICS: MetricDef[] = [
-  // Core
-  { id: 'enrolment',         label: 'Enrolment Velocity',       color: '#10b981', fill: 'rgba(16,185,129,0.12)',  unit: 'count', type: 'bar',  group: 'core'     },
-  { id: 'bp_control',        label: 'BP Control Rate',           color: '#1a56db', fill: 'rgba(26,86,219,0.12)',   unit: '%',     type: 'line', group: 'core'     },
-  { id: 'attendance',        label: 'Attendance Rate',            color: '#8b5cf6', fill: 'rgba(139,92,246,0.12)', unit: '%',     type: 'line', group: 'core'     },
-  { id: 'ltfu_rate',         label: 'LTFU Rate',                 color: '#ef4444', fill: 'rgba(239,68,68,0.12)',  unit: '%',     type: 'line', group: 'core'     },
-  { id: 'dm_patients',       label: 'Active DM Patients',        color: '#06b6d4', fill: 'rgba(6,182,212,0.12)',  unit: 'count', type: 'bar',  group: 'core'     },
-  { id: 'htn_patients',      label: 'Active HTN Patients',       color: '#ec4899', fill: 'rgba(236,72,153,0.12)', unit: 'count', type: 'bar',  group: 'core'     },
-  // Drug analytics
-  { id: 'treatment_rate',    label: 'Treatment Rate',            color: '#f59e0b', fill: 'rgba(245,158,11,0.12)', unit: '%',     type: 'line', group: 'drugs'    },
-  { id: 'polypharmacy',      label: 'Polypharmacy Rate (≥2)',    color: '#f97316', fill: 'rgba(249,115,22,0.12)', unit: '%',     type: 'line', group: 'drugs'    },
-  { id: 'combo_therapy_rate',label: 'Combination Therapy Rate',  color: '#a78bfa', fill: 'rgba(167,139,250,0.12)',unit: '%',     type: 'line', group: 'drugs'    },
-  { id: 'drug_class_coverage',label:'Drug Class Coverage',       color: '#34d399', fill: 'rgba(52,211,153,0.12)', unit: '%',     type: 'bar',  group: 'drugs'    },
-  // Clinical outcomes by drug
-  { id: 'bp_by_drug',        label: 'BP Control by Drug',        color: '#0ea5e9', fill: 'rgba(14,165,233,0.12)', unit: '%',     type: 'bar',  group: 'clinical' },
-  { id: 'sugar_by_drug',     label: 'Sugar Control by Drug',     color: '#d946ef', fill: 'rgba(217,70,239,0.12)', unit: '%',     type: 'bar',  group: 'clinical' },
-  { id: 'htn_drug_combo',    label: 'HTN Drug Combinations',     color: '#64748b', fill: 'rgba(100,116,139,0.12)',unit: 'count', type: 'bar',  group: 'clinical' },
-  { id: 'dm_drug_combo',     label: 'DM Drug Combinations',      color: '#78716c', fill: 'rgba(120,113,108,0.12)',unit: 'count', type: 'bar',  group: 'clinical' },
-];
+const METRICS: MetricDef[] = ANALYTICS_METRICS as MetricDef[];
 
 // ── Drug class detection helpers ─────────────────────────────
 
@@ -133,6 +116,7 @@ function getVisitMeds(visit: Visit): string[] {
 interface BarData { label: string; value: number; controlRate?: number; color: string; }
 
 function computeBarData(metricId: MetricId, patients: Patient[]): BarData[] | null {
+  return getMetricBarData(metricId as any, patients) as BarData[] | null;
   const COLORS = ['#1a56db','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#a78bfa','#34d399'];
 
   if (metricId === 'drug_class_coverage') {
@@ -243,7 +227,7 @@ function computeBarData(metricId: MetricId, patients: Patient[]): BarData[] | nu
   return null;
 }
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS = ANALYTICS_MONTHS;
 const FONT   = "'Inter', system-ui, -apple-system, sans-serif";
 
 // ── Series computation ───────────────────────────────────────
@@ -253,6 +237,7 @@ function computeSeries(
   patients: Patient[],
   year: number,
 ): (number | null)[] {
+  return getMetricSeries(metricId as any, patients, year);
   return MONTHS.map((_, i) => {
     const m = i + 1;
 
@@ -270,6 +255,7 @@ function computeSeries(
             p.visits?.some((v: Visit) => +v.month === m && +(v.year ?? year) === year),
           ),
           m,
+          year,
         );
         return stats.bpControlRate;
       }
