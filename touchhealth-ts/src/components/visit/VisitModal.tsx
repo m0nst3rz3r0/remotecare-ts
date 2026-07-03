@@ -367,7 +367,7 @@ export default function VisitModal() {
     setMealPlan(null);
     setShowMealPlan(false);
     setVisitLanguage('en');
-  }, [open, patient, clinicDays]);
+  }, [open, patient, clinicDays, seedComorbidities]);
 
   useEffect(() => {
     if (!open) return;

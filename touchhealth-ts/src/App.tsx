@@ -91,7 +91,7 @@ export default function App() {
         if (letter) logger.info(`Device prefix: ${letter}`);
       })
       .catch((err) => logger.warn('Device prefix assignment failed (offline?)', err));
-  }, [currentUser?.id]);
+  }, [currentUser]);
 
   // ── Auto-LTFU engine — runs on load + every 60s ──────────────
   useEffect(() => {

@@ -1,6 +1,7 @@
 {
   "name": "touchhealth-ncd",
   "version": "2.0.0",
+  "type": "module",
   "description": "Touch Health DM/HTN NCD Management System — Tanzania",
   "scripts": {
     "dev": "vite",

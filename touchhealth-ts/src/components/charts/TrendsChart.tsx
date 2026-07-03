@@ -35,7 +35,7 @@ export default function TrendsChart({ patients, year }: { patients: Patient[]; y
     const series = getAttendanceSeries(patients, year);
 
     return { series, emerald, emeraldPale };
-  }, [labels, patients, year]);
+  }, [patients, year]);
 
   const drugUsageSeries = useMemo(() => {
     const amber = cssVar('--amber', '#d97706');
@@ -43,7 +43,7 @@ export default function TrendsChart({ patients, year }: { patients: Patient[]; y
     const series = getDrugUsageSeries(patients, year);
 
     return { series, amber, amberPale };
-  }, [labels, patients, year]);
+  }, [patients, year]);
 
   const lineOptions = useMemo(
     () => ({

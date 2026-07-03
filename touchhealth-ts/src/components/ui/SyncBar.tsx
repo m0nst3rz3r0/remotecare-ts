@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getLastSync, syncPatientsWithCloud } from '../../services/storage';
 import { useAuthStore } from '../../store/useAuthStore';
 import Button from './Button';
@@ -22,9 +22,8 @@ export default function SyncBar() {
   const [conn, setConn] = useState<ConnState>(() =>
     typeof navigator !== 'undefined' && navigator.onLine ? 'online' : 'offline',
   );
-  const [syncNonce, setSyncNonce] = useState(0);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const lastSyncAt = useMemo(() => getLastSync(), [syncNonce]);
+  const lastSyncAt = getLastSync();
 
   const handleSync = async () => {
     if (conn === 'offline') return;
@@ -41,7 +40,6 @@ export default function SyncBar() {
       setSyncError(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setConn('online');
-      setSyncNonce((n) => n + 1);
     }
   };
 

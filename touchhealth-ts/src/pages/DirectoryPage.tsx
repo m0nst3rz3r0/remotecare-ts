@@ -344,7 +344,7 @@ export default function DirectoryPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const patients = usePatientStore((s) => s.patients);
   const clinicSettings = useMemo(() => loadClinicSettings(), []);
-  const now = new Date();
+  const now = useMemo(() => new Date(), []);
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
 

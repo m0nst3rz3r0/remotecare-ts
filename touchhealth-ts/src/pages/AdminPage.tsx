@@ -524,7 +524,6 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
     smsLang,
     smsConfig,
     smsSenderName,
-    smsLog,
   ]);
 
   const smsBulkPct = smsBulkProgress.total
