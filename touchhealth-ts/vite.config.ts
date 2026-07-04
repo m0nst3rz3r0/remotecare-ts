@@ -16,6 +16,17 @@ export default defineConfig({
     sourcemap: false,
     // Ensures assets are placed in assets/ folder and referenced correctly
     assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('react-chartjs-2') || id.includes('chart.js')) return 'charts';
+          if (id.includes('@supabase')) return 'supabase';
+          if (id.includes('lucide-react')) return 'icons';
+          return 'vendor';
+        },
+      },
+    },
   },
   server: {
     port: 3000,
