@@ -166,12 +166,54 @@ function DrugComboBars({
   );
 }
 
+function DrugOutcomeBars({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: ReturnType<typeof getMetricBarData>;
+}) {
+  if (!rows || !rows.length) {
+    return (
+      <Card title={title}>
+        <div style={{ color: '#64748b', fontSize: '12px', fontWeight: 600 }}>
+          No drug outcome data available in the current scope.
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card title={title}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {rows.map((row) => (
+          <div key={row.label}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, gap: 12 }}>
+              <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                {row.label}
+              </span>
+              <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 13, fontWeight: 700, color: row.color, whiteSpace: 'nowrap' }}>
+                {row.value}%
+              </span>
+            </div>
+            <div style={{ height: 8, background: '#f1f5f9', borderRadius: 9999, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${row.value}%`, background: row.color, borderRadius: 9999 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Patient[]; hospitals: Hospital[]; year: number; scopeLabel: string }) {
   const stats = useMemo(() => getProgrammeOverview(patients), [patients]);
   const facilityRows = useMemo(() => getFacilityOverviewRows(hospitals, patients), [hospitals, patients]);
   const monthlyRows = useMemo(() => getMonthlyOverviewRows(patients, year), [patients, year]);
   const htnDrugCombos = useMemo(() => getMetricBarData('htn_drug_combo', patients), [patients]);
   const dmDrugCombos = useMemo(() => getMetricBarData('dm_drug_combo', patients), [patients]);
+  const bpByDrug = useMemo(() => getMetricBarData('bp_by_drug', patients), [patients]);
+  const sugarByDrug = useMemo(() => getMetricBarData('sugar_by_drug', patients), [patients]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -254,6 +296,11 @@ export function OverviewView({ patients, hospitals, year, scopeLabel }: { patien
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <DrugComboBars title="HTN Drug Combinations" rows={htnDrugCombos} />
         <DrugComboBars title="DM Drug Combinations" rows={dmDrugCombos} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <DrugOutcomeBars title="BP by Drug" rows={bpByDrug} />
+        <DrugOutcomeBars title="Sugar by Drug" rows={sugarByDrug} />
       </div>
 
       <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
