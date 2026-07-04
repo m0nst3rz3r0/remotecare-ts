@@ -15,6 +15,7 @@ import { backupStatus } from '../../services/backup';
 import {
   getFacilityOverviewRows,
   getGlucoseControlSeries,
+  getMonthlyOverviewRows,
   getProgrammeOverview,
 } from '../../services/analytics';
 import {
@@ -117,6 +118,7 @@ function GlucoseControlChart({ patients, year }: { patients: Patient[]; year: nu
 export function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Patient[]; hospitals: Hospital[]; year: number; scopeLabel: string }) {
   const stats = useMemo(() => getProgrammeOverview(patients), [patients]);
   const facilityRows = useMemo(() => getFacilityOverviewRows(hospitals, patients), [hospitals, patients]);
+  const monthlyRows = useMemo(() => getMonthlyOverviewRows(patients, year), [patients, year]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -162,6 +164,36 @@ export function OverviewView({ patients, hospitals, year, scopeLabel }: { patien
       </div>
 
       <Card title="Glucose Control %"><GlucoseControlChart patients={patients} year={year} /></Card>
+
+      <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
+        <div style={{ background: INK, height: '36px', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ color: '#fff', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Monthly Analytics</span>
+          <span style={{ color: TEAL, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{year}</span>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                {['Month', 'New Enrolled', 'Active Seen', 'Attendance', 'BP Control', 'LTFU Rate'].map((heading) => (
+                  <th key={heading} style={{ padding: '12px 20px', textAlign: 'left', fontSize: '10px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', whiteSpace: 'nowrap' }}>{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {monthlyRows.map((row, index) => (
+                <tr key={row.month} style={{ borderBottom: '1px solid #f1f5f9', background: index % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                  <td style={{ padding: '14px 20px', fontWeight: 700, fontSize: '13px', color: INK }}>{row.label}</td>
+                  <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: TEAL }}>{row.enrolment}</td>
+                  <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: '#334155' }}>{row.activePatients}</td>
+                  <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: '#7c3aed' }}>{row.attendanceRate !== null ? `${row.attendanceRate}%` : '-'}</td>
+                  <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: row.bpControlRate !== null && row.bpControlRate >= 65 ? '#059669' : row.bpControlRate !== null && row.bpControlRate >= 45 ? '#d97706' : '#dc2626' }}>{row.bpControlRate !== null ? `${row.bpControlRate}%` : '-'}</td>
+                  <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: row.ltfuRate !== null && row.ltfuRate > 0 ? '#dc2626' : '#64748b' }}>{row.ltfuRate !== null ? `${row.ltfuRate}%` : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
         <div style={{ background: INK, height: '36px', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

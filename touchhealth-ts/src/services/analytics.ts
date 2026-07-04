@@ -86,6 +86,16 @@ export interface MonthlyVisitRow {
   sg: ReturnType<typeof sgClass> | null;
 }
 
+export interface MonthlyOverviewRow {
+  month: number;
+  label: string;
+  enrolment: number;
+  activePatients: number;
+  attendanceRate: number | null;
+  bpControlRate: number | null;
+  ltfuRate: number | null;
+}
+
 export const ANALYTICS_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export const ANALYTICS_METRICS: MetricDef[] = [
@@ -458,6 +468,33 @@ export function getMetricBarData(metricId: MetricId, patients: Patient[]): BarDa
   }
 
   return null;
+}
+
+export function getMonthlyOverviewRows(
+  patients: Patient[],
+  year: number,
+): MonthlyOverviewRow[] {
+  return ANALYTICS_MONTHS.map((label, index) => {
+    const month = index + 1;
+    const enrolment = getMetricSeries('enrolment', patients, year)[index] ?? 0;
+    const attendanceRate = getMetricSeries('attendance', patients, year)[index];
+    const bpControlRate = getMetricSeries('bp_control', patients, year)[index];
+    const ltfuRate = getMetricSeries('ltfu_rate', patients, year)[index];
+    const activePatients = patients.filter((patient) => {
+      if (!isActivePatientStatus(patient.status)) return false;
+      return patient.visits?.some((visit) => +visit.month === month && +(visit.year ?? year) === year);
+    }).length;
+
+    return {
+      month,
+      label,
+      enrolment,
+      activePatients,
+      attendanceRate,
+      bpControlRate,
+      ltfuRate,
+    };
+  });
 }
 
 export function getAttendanceSeries(patients: Patient[], year: number) {
