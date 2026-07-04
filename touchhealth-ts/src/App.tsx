@@ -1,54 +1,42 @@
-// ════════════════════════════════════════════════════════════
-// RemoteCare · src/App.tsx
-// Root component — auth gate, page routing, store init
-// ════════════════════════════════════════════════════════════
-
-import { useEffect, lazy, Suspense } from 'react';
-import { useAuthStore } from './store/useAuthStore';
-import { usePatientStore } from './store/usePatientStore';
-import { useUIStore } from './store/useUIStore';
+import { lazy, Suspense } from 'react';
 import Topbar from './components/layout/Topbar';
 import NavTabs from './components/layout/NavTabs';
 import Sidebar from './components/layout/Sidebar';
 import SyncBar from './components/ui/SyncBar';
-import AuthPage from './pages/AuthPage';
-import VisitModal from './components/visit/VisitModal';
 import MedModal from './components/visit/MedModal';
-import type { PageId } from './types';
-import { checkAutoBackup, startAutoBackupScheduler } from './services/backup';
-import { migratePasswords } from './services/crypto';
-import { autoAssignPrefix } from './services/deviceManager';
-import { logger } from './utils/logger';
+import VisitModal from './components/visit/VisitModal';
+import {
+  useAppBootstrap,
+  useAutoBackup,
+  useAutoLtfuScheduler,
+  useDevicePrefixAssignment,
+  usePageAccessGuard,
+} from './hooks/useAppLifecycle';
+import AuthPage from './pages/AuthPage';
+import { useAuthStore } from './store/useAuthStore';
+import { usePatientStore } from './store/usePatientStore';
+import { useUIStore } from './store/useUIStore';
 
-// ── Code-split the heavy pages ───────────────────────────────
-// These are large (AdminPage ~1.7k LOC, ClinicPage/LTFUPage ~1.1k each)
-// and not all needed at once. Lazy-loading them cuts the initial
-// bundle substantially — important on low-end clinic tablets.
 const PatientsPage = lazy(() => import('./pages/PatientsPage'));
-const LTFUPage     = lazy(() => import('./pages/LTFUPage'));
-const ClinicPage   = lazy(() => import('./pages/ClinicPage'));
-const ReportsPage  = lazy(() => import('./pages/ReportsPage'));
-const AdminPage    = lazy(() => import('./pages/AdminPage'));
+const LTFUPage = lazy(() => import('./pages/LTFUPage'));
+const ClinicPage = lazy(() => import('./pages/ClinicPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
 
-const IS_SHARED_DEVICE = (import.meta as any).env.VITE_SHARED_DEVICE === 'true';
-
-function isDoctorPage(p: PageId) {
-  return p === 'patients' || p === 'ltfu' || p === 'clinic' || p === 'reports';
-}
-
-function isAdminPage(p: PageId) {
-  return p === 'overview' || p === 'trends' || p === 'doctors' || p === 'settings' || p === 'user-management' || p === 'directory';
-}
-
-/** Lightweight fallback shown while a lazy-loaded page chunk downloads. */
 function PageFallback() {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '60vh', color: '#94a3b8',
-      fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 13,
-    }}>
-      Loading…
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '60vh',
+        color: '#94a3b8',
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        fontSize: 13,
+      }}
+    >
+      Loading...
     </div>
   );
 }
@@ -56,73 +44,41 @@ function PageFallback() {
 export default function App() {
   const { init, currentUser, isLoading } = useAuthStore();
   const loadFromStorage = usePatientStore((s) => s.loadFromStorage);
-  const runAutoLtfu    = usePatientStore((s) => s.runAutoLtfu);
-  const activePage     = useUIStore((s) => s.activePage);
-  const navigateTo     = useUIStore((s) => s.navigateTo);
+  const runAutoLtfu = usePatientStore((s) => s.runAutoLtfu);
+  const activePage = useUIStore((s) => s.activePage);
+  const navigateTo = useUIStore((s) => s.navigateTo);
   const clinicSettings = useUIStore((s) => s.clinicSettings);
 
-  // ── MUST-HAVE: migrate plain-text passwords before restoring session ──
-  // Runs on every mount — idempotent. Any user whose password was stored
-  // before PBKDF2 hashing is upgraded silently on first boot after deploy.
-  useEffect(() => {
-    migratePasswords().then(() => {
-      init();
-      loadFromStorage();
-    });
-  }, [init, loadFromStorage]);
-
-  // ── Auto-backup (skip on shared/clinic tablets) ──────────────
-  useEffect(() => {
-    if (!currentUser || IS_SHARED_DEVICE) return;
-    checkAutoBackup(currentUser.displayName);
-    const cleanup = startAutoBackupScheduler(currentUser.displayName);
-    return cleanup;
-  }, [currentUser]);
-
-  // ── Device prefix auto-assignment ───────────────────────────
-  // Fires once after login. Claims next available letter (A, B, C…)
-  // at this facility so patient codes never collide across tablets.
-  useEffect(() => {
-    if (!currentUser) return;
-    const { sessionRegion, sessionDistrict, sessionHospital } = currentUser;
-    if (!sessionRegion || !sessionHospital) return;
-    autoAssignPrefix(sessionRegion, sessionDistrict, sessionHospital)
-      .then((letter) => {
-        if (letter) logger.info(`Device prefix: ${letter}`);
-      })
-      .catch((err) => logger.warn('Device prefix assignment failed (offline?)', err));
-  }, [currentUser]);
-
-  // ── Auto-LTFU engine — runs on load + every 60s ──────────────
-  useEffect(() => {
-    if (!currentUser) return;
-    runAutoLtfu(clinicSettings);
-    const timer = setInterval(() => runAutoLtfu(clinicSettings), 60_000);
-    return () => clearInterval(timer);
-  }, [currentUser, clinicSettings, runAutoLtfu]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    if (currentUser.role === 'doctor' && !isDoctorPage(activePage)) {
-      navigateTo('patients');
-    }
-    if (currentUser.role === 'admin' && !isAdminPage(activePage)) {
-      navigateTo('overview');
-    }
-  }, [currentUser, activePage, navigateTo]);
+  useAppBootstrap(init, loadFromStorage);
+  useAutoBackup(currentUser);
+  useDevicePrefixAssignment(currentUser);
+  useAutoLtfuScheduler(currentUser, clinicSettings, runAutoLtfu);
+  usePageAccessGuard(currentUser, activePage, navigateTo);
 
   if (isLoading) {
     return (
-      <div style={{
-        position: 'fixed', inset: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: '#132b31',
-      }}>
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#132b31',
+        }}
+      >
         <div style={{ textAlign: 'center', color: '#fff' }}>
-          <div style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
+          <div
+            style={{
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+              fontSize: 24,
+              fontWeight: 800,
+              marginBottom: 8,
+            }}
+          >
             RemoteCare
           </div>
-          <div style={{ fontSize: 12, opacity: 0.5 }}>Loading…</div>
+          <div style={{ fontSize: 12, opacity: 0.5 }}>Loading...</div>
         </div>
       </div>
     );
@@ -136,14 +92,25 @@ export default function App() {
 
   if (isAdmin) {
     return (
-      <div style={{
+      <div
+        style={{
           display: 'flex',
           minHeight: '100vh',
           background: 'linear-gradient(135deg, #e8ecf3 0%, #eef0f5 40%, #e4e9f2 100%)',
-          backgroundImage: `linear-gradient(135deg, #e8ecf3 0%, #eef0f5 40%, #e4e9f2 100%), url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23b8c4d4' fill-opacity='0.08'%3E%3Ccircle cx='30' cy='30' r='1.5'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }}>
+          backgroundImage:
+            'linear-gradient(135deg, #e8ecf3 0%, #eef0f5 40%, #e4e9f2 100%), url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23b8c4d4\' fill-opacity=\'0.08\'%3E%3Ccircle cx=\'30\' cy=\'30\' r=\'1.5\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+        }}
+      >
         <Sidebar />
-        <div id="admin-main" style={{ flex: 1, minWidth: 0, marginLeft: '220px', transition: 'margin-left 0.22s cubic-bezier(0.4,0,0.2,1)' }}>
+        <div
+          id="admin-main"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            marginLeft: '220px',
+            transition: 'margin-left 0.22s cubic-bezier(0.4,0,0.2,1)',
+          }}
+        >
           <Suspense fallback={<PageFallback />}>
             <AdminPage />
           </Suspense>
@@ -165,9 +132,9 @@ export default function App() {
           {role === 'doctor' ? (
             <>
               {activePage === 'patients' ? <PatientsPage /> : null}
-              {activePage === 'ltfu'     ? <LTFUPage />     : null}
-              {activePage === 'clinic'   ? <ClinicPage />   : null}
-              {activePage === 'reports'  ? <ReportsPage />  : null}
+              {activePage === 'ltfu' ? <LTFUPage /> : null}
+              {activePage === 'clinic' ? <ClinicPage /> : null}
+              {activePage === 'reports' ? <ReportsPage /> : null}
             </>
           ) : (
             <AdminPage />

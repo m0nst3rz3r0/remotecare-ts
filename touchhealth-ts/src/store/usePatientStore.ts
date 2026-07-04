@@ -1,56 +1,41 @@
-// ════════════════════════════════════════════════════════════
-// TOUCH HEALTH · src/store/usePatientStore.ts
-// Zustand store — patient state, visit recording, HbA1c
-// ════════════════════════════════════════════════════════════
-
 import { create } from 'zustand';
-import type {
-  Patient,
-  PatientStatus,
-  Medication,
-  HbA1cQuarter,
-  SessionUser,
-  PatientFilter,
-} from '../types';
+import { getProgrammeOverview } from '../services/analytics';
+import { getPatientNextVisitDate, isDue } from '../services/clinical';
 import {
-  loadPatients,
-  savePatients,
-  getVisiblePatients,
-  registerPatient,
-  recordVisit,
-  deleteVisit,
-  deletePatient,
-  setPatientStatus,
-  recallFromLtfu,
-  updateMedications,
   addHbA1cEntry,
-  deleteHbA1cEntry,
-  scheduleAppointment,
   clearScheduledAppointment,
   confirmAllPredicted,
+  deleteHbA1cEntry,
+  deletePatient,
+  deleteVisit,
   filterPatients,
-  type RegisterPatientParams,
+  getVisiblePatients,
+  loadPatients,
+  recallFromLtfu,
+  recordVisit,
+  registerPatient,
+  savePatients,
+  scheduleAppointment,
+  setPatientStatus,
+  updateMedications,
   type RecordVisitParams,
+  type RegisterPatientParams,
 } from '../services/patients';
-import { isDue, getPatientNextVisitDate } from '../services/clinical';
-import { getProgrammeOverview } from '../services/analytics';
-import type { ClinicSettings } from '../types';
-
-// ── STATE SHAPE ───────────────────────────────────────────────
+import type {
+  ClinicSettings,
+  HbA1cQuarter,
+  Medication,
+  Patient,
+  PatientFilter,
+  PatientStatus,
+  SessionUser,
+} from '../types';
 
 interface PatientState {
-  // Raw data
   patients: Patient[];
-
-  // UI state
   selectedId: number | null;
   filter: PatientFilter;
   searchQuery: string;
-
-  // Computed / derived (call selectors below)
-  // (not stored — computed on demand)
-
-  // Actions — data
   loadFromStorage: () => void;
   registerPatient: (params: RegisterPatientParams) => { success: boolean; error?: string; patient?: Patient };
   recordVisit: (params: RecordVisitParams) => void;
@@ -59,31 +44,21 @@ interface PatientState {
   setStatus: (patientId: number, status: PatientStatus) => void;
   recallPatient: (patientId: number, settings: ClinicSettings, by?: string) => void;
   updateMedications: (patientId: number, meds: Medication[]) => void;
-
-  // HbA1c
   addHbA1c: (patientId: number, value: number, quarter: HbA1cQuarter, year: number, recordedBy: string) => void;
   removeHbA1c: (patientId: number, year: number, quarter: HbA1cQuarter) => void;
-
-  // Appointments
   scheduleNext: (patientId: number, date: string, note: string, by: string) => void;
   clearSchedule: (patientId: number) => void;
   confirmAllPredicted: (settings: ClinicSettings, by: string) => void;
-
-  // Auto-LTFU engine
-  runAutoLtfu: (settings: ClinicSettings) => string[]; // returns codes marked LTFU
-
-  // UI actions
+  runAutoLtfu: (settings: ClinicSettings) => string[];
   selectPatient: (id: number | null) => void;
   setFilter: (filter: PatientFilter) => void;
   setSearch: (query: string) => void;
 }
 
-// ── STORE ─────────────────────────────────────────────────────
-
 export const usePatientStore = create<PatientState>((set, get) => ({
-  patients:    [],
-  selectedId:  null,
-  filter:      'all',
+  patients: [],
+  selectedId: null,
+  filter: 'all',
   searchQuery: '',
 
   loadFromStorage: () => {
@@ -94,140 +69,118 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     const { patients } = get();
     const result = registerPatient(patients, params);
     if (!result.success) return { success: false, error: result.error };
-    const updated = [...patients, result.patient];
-    savePatients(updated);
-    set({ patients: updated, selectedId: result.patient.id });
+
+    persistPatientsState(set, [...patients, result.patient], { selectedId: result.patient.id });
     return { success: true, patient: result.patient };
   },
 
   recordVisit: (params) => {
-    const updated = recordVisit(get().patients, params);
-    savePatients(updated);
-    set({ patients: updated });
+    persistPatientsState(set, recordVisit(get().patients, params));
   },
 
   deleteVisit: (patientId, visitId) => {
-    const updated = deleteVisit(get().patients, patientId, visitId);
-    savePatients(updated);
-    set({ patients: updated });
+    persistPatientsState(set, deleteVisit(get().patients, patientId, visitId));
   },
 
   deletePatient: (patientId) => {
-    const updated = deletePatient(get().patients, patientId);
-    savePatients(updated);
-    set({ patients: updated, selectedId: null });
+    persistPatientsState(set, deletePatient(get().patients, patientId), { selectedId: null });
   },
 
   setStatus: (patientId, status) => {
-    const updated = setPatientStatus(get().patients, patientId, status);
-    savePatients(updated);
-    set({ patients: updated });
+    persistPatientsState(set, setPatientStatus(get().patients, patientId, status));
   },
 
   recallPatient: (patientId, settings, by = '') => {
-    const updated = recallFromLtfu(get().patients, patientId, settings, by);
-    savePatients(updated);
-    set({ patients: updated });
+    persistPatientsState(set, recallFromLtfu(get().patients, patientId, settings, by));
   },
 
   updateMedications: (patientId, meds) => {
-    const updated = updateMedications(get().patients, patientId, meds);
-    savePatients(updated);
-    set({ patients: updated });
+    persistPatientsState(set, updateMedications(get().patients, patientId, meds));
   },
 
   addHbA1c: (patientId, value, quarter, year, recordedBy) => {
-    const updated = addHbA1cEntry(get().patients, patientId, {
-      year, quarter, value, recordedBy,
-    });
-    savePatients(updated);
-    set({ patients: updated });
+    persistPatientsState(
+      set,
+      addHbA1cEntry(get().patients, patientId, {
+        year,
+        quarter,
+        value,
+        recordedBy,
+      }),
+    );
   },
 
   removeHbA1c: (patientId, year, quarter) => {
-    const updated = deleteHbA1cEntry(get().patients, patientId, year, quarter);
-    savePatients(updated);
-    set({ patients: updated });
+    persistPatientsState(set, deleteHbA1cEntry(get().patients, patientId, year, quarter));
   },
 
   scheduleNext: (patientId, date, note, by) => {
-    const updated = scheduleAppointment(get().patients, patientId, date, note, by);
-    savePatients(updated);
-    set({ patients: updated });
+    persistPatientsState(set, scheduleAppointment(get().patients, patientId, date, note, by));
   },
 
   clearSchedule: (patientId) => {
-    const updated = clearScheduledAppointment(get().patients, patientId);
-    savePatients(updated);
-    set({ patients: updated });
+    persistPatientsState(set, clearScheduledAppointment(get().patients, patientId));
   },
 
   confirmAllPredicted: (settings, by) => {
-    const updated = confirmAllPredicted(
-      get().patients,
-      (p) => getPatientNextVisitDate(p, settings),
-      by
+    persistPatientsState(
+      set,
+      confirmAllPredicted(get().patients, (patient) => getPatientNextVisitDate(patient, settings), by),
     );
-    savePatients(updated);
-    set({ patients: updated });
   },
 
   runAutoLtfu: (settings) => {
     const { patients } = get();
     const now = new Date();
-    const todayMidnight = new Date(now); todayMidnight.setHours(0,0,0,0);
+    const todayMidnight = new Date(now);
+    todayMidnight.setHours(0, 0, 0, 0);
     const autoLtfuDays = settings.autoLtfuDays ?? 21;
     const marked: string[] = [];
 
-    const updated = patients.map((p) => {
-      if (p.status !== 'active') return p;
-      const nextD = getPatientNextVisitDate(p, settings);
-      nextD.setHours(0,0,0,0);
-      const daysOverdue = Math.round((todayMidnight.getTime() - nextD.getTime()) / 86400000);
-      if (daysOverdue >= autoLtfuDays) {
-        marked.push(p.code);
-        return { ...p, status: 'ltfu' as PatientStatus };
-      }
-      return p;
+    const updated = patients.map((patient) => {
+      if (patient.status !== 'active') return patient;
+      const nextVisit = getPatientNextVisitDate(patient, settings);
+      nextVisit.setHours(0, 0, 0, 0);
+
+      const daysOverdue = Math.round((todayMidnight.getTime() - nextVisit.getTime()) / 86400000);
+      if (daysOverdue < autoLtfuDays) return patient;
+
+      marked.push(patient.code);
+      return { ...patient, status: 'ltfu' as PatientStatus };
     });
 
-    if (marked.length > 0) {
-      savePatients(updated);
-      set({ patients: updated });
-    }
+    if (marked.length > 0) persistPatientsState(set, updated);
     return marked;
   },
 
   selectPatient: (id) => set({ selectedId: id }),
-  setFilter:     (filter) => set({ filter }),
-  setSearch:     (query) => set({ searchQuery: query }),
+  setFilter: (filter) => set({ filter }),
+  setSearch: (query) => set({ searchQuery: query }),
 }));
 
-// ── SELECTORS ─────────────────────────────────────────────────
-
-/** Patients visible to the current user (admin sees all, doctor sees hospital) */
-export const selectVisiblePatients = (
+function persistPatientsState(
+  set: (partial: Partial<PatientState>) => void,
   patients: Patient[],
-  user: SessionUser | null
-) => getVisiblePatients(patients, user);
+  extra: Partial<PatientState> = {},
+) {
+  savePatients(patients);
+  set({ patients, ...extra });
+}
 
-/** Filtered + searched patient list for the sidebar */
+export const selectVisiblePatients = (patients: Patient[], user: SessionUser | null) =>
+  getVisiblePatients(patients, user);
+
 export const selectFilteredPatients = (
   patients: Patient[],
   filter: PatientFilter,
-  query: string
+  query: string,
 ) => filterPatients(patients, filter, query, isDue);
 
-/** Currently selected patient object */
 export const selectSelectedPatient = (
   patients: Patient[],
-  selectedId: number | null
-): Patient | null =>
-  selectedId !== null
-    ? (patients.find((p) => p.id === selectedId) ?? null)
-    : null;
+  selectedId: number | null,
+): Patient | null => (selectedId !== null ? patients.find((patient) => patient.id === selectedId) ?? null : null);
 
-/** Summary counts for topbar */
 export const selectTopbarCounts = (patients: Patient[]) => {
   const overview = getProgrammeOverview(patients);
   return {
