@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Search } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePatientStore } from '../store/usePatientStore';
 import {
@@ -308,7 +309,7 @@ function StatStrip({ stats }: { stats: { label: string; value: number | string; 
 function SearchBar({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-      <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#94a3b8' }}>search</span>
+      <Search size={18} color="#94a3b8" />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}

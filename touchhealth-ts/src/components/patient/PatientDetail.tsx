@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, AlertOctagon, Calendar, FlaskConical, Star, ChevronDown } from 'lucide-react';
+import { AlertTriangle, AlertOctagon, Calendar, FlaskConical, Star, ChevronDown, EllipsisVertical, LogOut, Pill, PlusCircle, Trash2, UserCheck, UserX } from 'lucide-react';
 import type { HbA1cQuarter, Patient } from '../../types';
 import { maskPhone } from '../../utils/phone';
 import {
@@ -246,12 +246,7 @@ function PatientActionBar({
           >
             {/* Icon + title */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: '24px', color: '#dc2626' }}
-              >
-                delete_forever
-              </span>
+              <Trash2 size={24} color="#dc2626" />
               <div>
                 <div style={{
                   fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 800,
@@ -379,9 +374,7 @@ function PatientActionBar({
             (e.currentTarget as HTMLButtonElement).style.transform = '';
           }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>
-            add_circle
-          </span>
+          <PlusCircle size={14} />
           Visit
         </button>
 
@@ -404,9 +397,7 @@ function PatientActionBar({
             (e.currentTarget as HTMLButtonElement).style.transform = '';
           }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '13px', fontVariationSettings: "'FILL' 1" }}>
-            medication
-          </span>
+          <Pill size={13} />
           Meds
         </button>
 
@@ -435,9 +426,7 @@ function PatientActionBar({
             (e.currentTarget as HTMLButtonElement).style.transform = '';
           }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '13px', fontVariationSettings: "'FILL' 1" }}>
-            {isLTFU ? 'person_check' : 'person_off'}
-          </span>
+          {isLTFU ? <UserCheck size={13} /> : <UserX size={13} />}
           {isLTFU ? 'Recall' : 'LTFU'}
         </button>
 
@@ -466,9 +455,7 @@ function PatientActionBar({
             }}
             aria-label="More options"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
-              more_vert
-            </span>
+            <EllipsisVertical size={16} />
           </button>
 
           {/* Dropdown */}
@@ -531,9 +518,7 @@ function PatientActionBar({
                     (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
                   }}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '15px', fontVariationSettings: "'FILL' 1" }}>
-                    output
-                  </span>
+                  <LogOut size={15} />
                   Discharge from Programme
                 </button>
                 <button
@@ -562,9 +547,7 @@ function PatientActionBar({
                     (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
                   }}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '15px', fontVariationSettings: "'FILL' 1" }}>
-                    delete_forever
-                  </span>
+                  <Trash2 size={15} />
                   Delete Patient
                 </button>
               </div>

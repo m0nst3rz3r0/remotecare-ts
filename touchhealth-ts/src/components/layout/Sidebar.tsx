@@ -4,6 +4,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, LayoutDashboard, LogOut, TrendingUp, UserCog, Users } from 'lucide-react';
 import { useAuthStore }    from '../../store/useAuthStore';
 import { useUIStore }      from '../../store/useUIStore';
 import { loadUsers }       from '../../services/auth';
@@ -13,7 +14,7 @@ import { getUserInitials } from '../../services/auth';
 interface NavItem {
   id: string;
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number; style?: React.CSSProperties }>;
   badge?: number;
   section: string;
 }
@@ -59,10 +60,10 @@ export default function Sidebar() {
   const TEXT = { fontFamily: "'Inter', system-ui, -apple-system, sans-serif" } as const;
 
   const navItems: NavItem[] = [
-    { id: 'overview',        label: 'Overview',        icon: 'dashboard',       section: 'MAIN' },
-    { id: 'trends',          label: 'Trends',          icon: 'trending_up',     section: 'MAIN' },
-    { id: 'directory',       label: 'Directory',       icon: 'people',          badge: directoryCount, section: 'MAIN' },
-    { id: 'user-management', label: 'User Management', icon: 'manage_accounts', section: 'SYSTEM' },
+    { id: 'overview',        label: 'Overview',        icon: LayoutDashboard, section: 'MAIN' },
+    { id: 'trends',          label: 'Trends',          icon: TrendingUp,      section: 'MAIN' },
+    { id: 'directory',       label: 'Directory',       icon: Users,           badge: directoryCount, section: 'MAIN' },
+    { id: 'user-management', label: 'User Management', icon: UserCog,         section: 'SYSTEM' },
   ];
 
   return (
@@ -117,9 +118,7 @@ export default function Sidebar() {
           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: 15, color: TEXT_SEC }}>
-            {collapsed ? 'chevron_right' : 'chevron_left'}
-          </span>
+          {collapsed ? <ChevronRight size={15} color={TEXT_SEC} /> : <ChevronLeft size={15} color={TEXT_SEC} />}
         </button>
       </div>
 
@@ -180,6 +179,7 @@ export default function Sidebar() {
               )}
               {items.map((item) => {
                 const active = activePage === item.id;
+                const Icon = item.icon;
                 return (
                   <button
                     key={item.id}
@@ -209,9 +209,7 @@ export default function Sidebar() {
                         background: accent,
                       }} />
                     )}
-                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: active ? accent : TEXT_SEC, flexShrink: 0 }}>
-                      {item.icon}
-                    </span>
+                    <Icon size={18} color={active ? accent : TEXT_SEC} style={{ flexShrink: 0 }} />
                     {!collapsed && (
                       <span style={{ ...TEXT, fontSize: 13, fontWeight: active ? 700 : 400, color: active ? TEXT_PRI : TEXT_SEC, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
                         {item.label}
@@ -254,7 +252,7 @@ export default function Sidebar() {
           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: 18, color: TEXT_MUTE, flexShrink: 0 }}>logout</span>
+          <LogOut size={18} color={TEXT_MUTE} style={{ flexShrink: 0 }} />
           {!collapsed && (
             <span style={{ ...TEXT, fontSize: 13, fontWeight: 400, color: TEXT_MUTE, whiteSpace: 'nowrap' }}>
               Sign out

@@ -3,18 +3,15 @@
 // - Cache First for app shell assets
 // - Network First for API requests
 // - Cache name: 'touchhealth-v1'
-// - Pre-cache: index.html, main JS bundle, Google Fonts
+// - Pre-cache: index.html and core local assets
 //
 // Note: this project doesn't yet use a SW build plugin that compiles `src/sw.ts`
 // into `/sw.js`, so we also include a hand-written `/public/sw.js`.
 
-const CACHE_NAME = 'touchhealth-v1';
-
-const FONT_URL =
-  'https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Karla:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap';
+const CACHE_NAME = 'touchhealth-v3';
 
 // Best-effort precache list (works in dev; production precaching is handled by a proper SW build plugin later).
-const PRECACHE_URLS = ['/', '/index.html', FONT_URL];
+const PRECACHE_URLS = ['/', '/index.html', '/foods.json', '/rules.json'];
 
 // Cast the global `self` to a ServiceWorker-like object for TS.
 const sw = self as any;
@@ -30,6 +27,7 @@ function isApiRequest(request: Request) {
 }
 
 function isAppShellRequest(request: Request) {
+  if (new URL(request.url).origin !== self.location.origin) return false;
   const dest = (request as any).destination as string | undefined;
   return (
     request.mode === 'navigate' ||
@@ -113,7 +111,7 @@ sw.addEventListener('fetch', (event: any) => {
       } catch {
         // Offline: fall back to whatever is cached.
         if (cached) return cached;
-        throw new Error('Offline and not cached');
+        return Response.error();
       }
     })(),
   );

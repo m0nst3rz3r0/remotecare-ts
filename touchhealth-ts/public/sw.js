@@ -1,12 +1,9 @@
 // Hand-written service worker to satisfy `/sw.js` registration now.
 // Once SW build tooling is added, `src/sw.ts` should be the source of truth.
 
-const CACHE_NAME = 'touchhealth-v2';
+const CACHE_NAME = 'touchhealth-v3';
 
-const FONT_URL =
-  'https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Karla:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap';
-
-const PRECACHE_URLS = ['/', '/index.html', '/foods.json', '/rules.json', FONT_URL];
+const PRECACHE_URLS = ['/', '/index.html', '/foods.json', '/rules.json'];
 
 function isApiRequest(request) {
   const url = new URL(request.url);
@@ -14,6 +11,7 @@ function isApiRequest(request) {
 }
 
 function isAppShellRequest(request) {
+  if (new URL(request.url).origin !== self.location.origin) return false;
   const dest = request.destination;
   return (
     request.mode === 'navigate' ||
@@ -88,7 +86,7 @@ self.addEventListener('fetch', (event) => {
         return fresh;
       } catch {
         if (cached) return cached;
-        throw new Error('Offline and not cached');
+        return Response.error();
       }
     })(),
   );

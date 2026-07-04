@@ -1,3 +1,4 @@
+import { Check, Clock3, X } from 'lucide-react';
 import type { Patient } from '../../types';
 import { getAdherenceMonthState } from '../../services/clinical';
 import { MONTHS_FULL } from '../../utils/geo';
@@ -28,15 +29,15 @@ export default function AdherenceGrid({ patient }: { patient: Patient }) {
           const monthLabel = MONTHS_FULL[i].slice(0, 3);
           const state = states[i];
 
-          type CellStyle = { bg: string; fg: string; border: string; icon?: string; dim?: boolean };
+          type CellStyle = { bg: string; fg: string; border: string; icon?: JSX.Element; dim?: boolean };
           let cell: CellStyle;
 
           switch (state) {
             case 'attended':
-              cell = { bg: '#dcfce7', fg: '#15803d', border: '#86efac', icon: 'check' };
+              cell = { bg: '#dcfce7', fg: '#15803d', border: '#86efac', icon: <Check size={17} color="#15803d" strokeWidth={2.5} /> };
               break;
             case 'missed':
-              cell = { bg: '#fee2e2', fg: '#dc2626', border: '#fca5a5', icon: 'close' };
+              cell = { bg: '#fee2e2', fg: '#dc2626', border: '#fca5a5', icon: <X size={17} color="#dc2626" strokeWidth={2.5} /> };
               break;
             case 'future':
               cell = { bg: '#f8fafc', fg: '#94a3b8', border: '#e2e8f0', dim: true };
@@ -45,7 +46,7 @@ export default function AdherenceGrid({ patient }: { patient: Patient }) {
               cell = { bg: '#f1f5f9', fg: '#94a3b8', border: '#e2e8f0', dim: true };
               break;
             default:
-              cell = { bg: '#fef9c3', fg: '#854d0e', border: '#fde047', icon: 'schedule' };
+              cell = { bg: '#fef9c3', fg: '#854d0e', border: '#fde047', icon: <Clock3 size={17} color="#854d0e" strokeWidth={2.2} /> };
           }
 
           return (
@@ -64,14 +65,7 @@ export default function AdherenceGrid({ patient }: { patient: Patient }) {
                 opacity: cell.dim ? 0.5 : 1,
               }}
             >
-              {cell.icon && (
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: 17, color: cell.fg, lineHeight: 1 }}
-                >
-                  {cell.icon}
-                </span>
-              )}
+              {cell.icon}
               <div style={{
                 fontFamily: "ui-monospace, 'Cascadia Code', monospace",
                 fontSize: '10px',
