@@ -12,7 +12,7 @@ const clinicCfg: ClinicSettings = {
 
 const smsCfg: SMSConfig = {
   provider: 'at',
-  senderId: 'TouchHealth',
+  senderId: 'RemoteCare',
   template: 'Dear {name}, your appointment at {hospital} is on {date}.',
   templateSw: 'Habari {name}, miadi yako {hospital} ni tarehe {date}.',
   templateMissed: 'Dear {name}, you missed clinic at {hospital}. Please come back.',

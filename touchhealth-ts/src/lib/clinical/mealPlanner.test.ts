@@ -209,13 +209,30 @@ describe('meal planner', () => {
 
     expect(breakfastPorridge).toBeTruthy();
     expect(lunchStarch).toBeTruthy();
-    expect(unitsFromPortionText(breakfastPorridge!.portionText)).toBeLessThanOrEqual(3);
-    expect(unitsFromPortionText(lunchStarch!.portionText)).toBeLessThanOrEqual(2.5);
+    expect(unitsFromPortionText(breakfastPorridge!.portionText)).toBeLessThanOrEqual(2);
+    expect(unitsFromPortionText(lunchStarch!.portionText)).toBeLessThanOrEqual(2);
   });
 
   it('aligns hypertension caution text with the sodium target', () => {
     const cautions = buildCautions(['HTN'], 'en', { sodiumMg: 1500 });
     expect(cautions.some(text => text.includes('1500mg/day'))).toBe(true);
     expect(cautions.some(text => text.includes('5g/day'))).toBe(false);
+  });
+
+  it('stores bmi and nutrition risk on the generated meal plan', () => {
+    const plan = generateMealPlan({
+      patientCode: 'RC-RISK',
+      age: 45,
+      sex: 'female',
+      weightKg: 60,
+      heightCm: 167,
+      conditions: ['HTN'],
+      zone: 'Lake Zone',
+      language: 'en',
+      medicationIds: [],
+    });
+
+    expect(plan.bmi).toBeTruthy();
+    expect(plan.nutritionRisk).toBeTruthy();
   });
 });

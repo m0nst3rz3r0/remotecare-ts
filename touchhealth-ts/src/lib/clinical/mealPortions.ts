@@ -21,27 +21,27 @@ export function getPracticalPortionLimit(food: FoodItem, mealType: MealType): nu
   const toMultiplier = (maxUnits: number) => Math.max(0.5, maxUnits / Math.max(defaultUnits, 0.5));
 
   if (/porridge|uji/.test(name) || /tea cup|kikombe cha chai/.test(unit)) {
-    return toMultiplier(mealType === 'Breakfast' ? 3 : 2.5);
+    return toMultiplier(mealType === 'Breakfast' ? 2 : 1.5);
   }
   if (/ugali|stiff porridge|fist/.test(name) || /fist|ngumi/.test(unit)) {
-    return toMultiplier(mealType === 'Lunch' ? 2.5 : 2);
+    return toMultiplier(mealType === 'Lunch' ? 2 : 1.5);
   }
   if (/piece/.test(unit) && categories.includes('carb')) {
-    return toMultiplier(mealType === 'Lunch' ? 3 : 2.5);
+    return toMultiplier(mealType === 'Lunch' ? 2 : 1.5);
   }
   if (categories.includes('protein')) {
-    if (/palm/.test(unit)) return toMultiplier(mealType === 'Lunch' ? 1.5 : 1.25);
+    if (/palm/.test(unit)) return toMultiplier(1);
     if (/egg|yai/.test(name)) return toMultiplier(1);
-    return toMultiplier(1.5);
+    return toMultiplier(1);
   }
   if (categories.includes('vegetable') || categories.includes('veg') || categories.includes('vitamin')) {
-    return toMultiplier(1.5);
+    return toMultiplier(1);
   }
   if (categories.includes('fruit')) {
-    return toMultiplier(1.5);
+    return toMultiplier(1);
   }
 
-  return Math.max(1.5, toMultiplier(2));
+  return Math.max(1, toMultiplier(1.5));
 }
 
 export function formatMealPortion(

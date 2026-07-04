@@ -61,7 +61,7 @@ export default function ReportsPage() {
     }
 
     downloadText(
-      `TouchHealth_MonthlyReport_${monthName}_${year}.csv`,
+      `RemoteCare_MonthlyReport_${monthName}_${year}.csv`,
       lines.join('\n'),
       'text/csv',
     );
@@ -120,7 +120,7 @@ export default function ReportsPage() {
 
     const win = window.open('', '_blank');
     if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>TouchHealth Monthly Report</title></head><body>${printHtml}</body></html>`);
+    win.document.write(`<!DOCTYPE html><html><head><title>RemoteCare Monthly Report</title></head><body>${printHtml}</body></html>`);
     win.document.close();
   };
 

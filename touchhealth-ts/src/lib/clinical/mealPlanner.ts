@@ -1,12 +1,13 @@
 // RCRO NutritionTool - offline meal plan generator
 
 import { getFoodsForZone, getZonePresets } from './dataLoader';
+import { calculateBMI } from './calculators';
 import { normalizeConditionList } from './conditions';
 import { getDrugFoodInteractions } from './drugInteractions';
 import { evalFoodForPatient, getAvoidFoods, getRecommendedFoods } from './foodSafety';
 import { getMealTemplates, STARCH_EGG_INCOMPATIBLE, type MealBlueprint } from './mealTemplates';
 import { computeFoodMacros, formatMealPortion, getPracticalPortionLimit } from './mealPortions';
-import { computeNutritionTargets } from './nutritionEngine';
+import { computeNutritionTargets, getNutritionRiskLevel } from './nutritionEngine';
 import type { PrepMethod } from './mealLocalization';
 import type { DailyMeal, FoodItem, GeneratedMealPlan, MealItem, NutritionTargets, TZRegion } from './types';
 
@@ -333,6 +334,8 @@ export function generateMealPlan(params: {
   );
 
   const normalizedConditions = normalizeConditionList(conditions);
+  const bmi = calculateBMI(weightKg, heightCm);
+  const nutritionRisk = getNutritionRiskLevel(normalizedConditions, bmi, targets.sodiumMg);
   const drugAlerts = getDrugFoodInteractions(medicationIds);
   const avoidFoods = getAvoidFoods(conditions, zone);
   const recommendedFoods = getRecommendedFoods(conditions, zone);
@@ -346,6 +349,8 @@ export function generateMealPlan(params: {
     region: zone,
     language,
     targets,
+    bmi,
+    nutritionRisk,
     meals,
     drugAlerts,
     cautions,

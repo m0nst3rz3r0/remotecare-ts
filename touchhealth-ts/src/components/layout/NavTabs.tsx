@@ -1,6 +1,7 @@
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUIStore }   from '../../store/useUIStore';
 import { usePatientStore, selectTopbarCounts } from '../../store/usePatientStore';
+import { Activity, ClipboardList, Hospital, Users } from 'lucide-react';
 
 export default function NavTabs() {
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -13,10 +14,10 @@ export default function NavTabs() {
   if (!currentUser || currentUser.role !== 'doctor') return null;
 
   const tabs = [
-    { id: 'patients', label: 'Patients', icon: 'group' },
-    { id: 'ltfu',     label: 'LTFU',     icon: 'history_toggle_off', badge: counts.ltfu + counts.due },
-    { id: 'clinic',   label: 'Clinic',   icon: 'local_hospital' },
-    { id: 'reports',  label: 'Reports',  icon: 'analytics' },
+    { id: 'patients', label: 'Patients', Icon: Users },
+    { id: 'ltfu',     label: 'LTFU',     Icon: ClipboardList, badge: counts.ltfu + counts.due },
+    { id: 'clinic',   label: 'Clinic',   Icon: Hospital },
+    { id: 'reports',  label: 'Reports',  Icon: Activity },
   ];
 
   return (
@@ -29,6 +30,7 @@ export default function NavTabs() {
     }}>
       {tabs.map((t) => {
         const active = activePage === t.id;
+        const Icon = t.Icon;
         return (
           <button
             key={t.id}
@@ -46,9 +48,7 @@ export default function NavTabs() {
               cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap',
             }}
           >
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-              {t.icon}
-            </span>
+            <Icon size={16} />
             {t.label}
             {'badge' in t && (t as any).badge > 0 && (
               <span style={{

@@ -1112,7 +1112,7 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
               className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px]"
               value={smsConfig.senderId}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSmsConfig((prev: SMSConfig) => ({ ...prev, senderId: e.target.value }))}
-              placeholder="e.g. TouchHealth"
+              placeholder="e.g. RemoteCare"
             />
           </div>
           <div className="flex items-end">

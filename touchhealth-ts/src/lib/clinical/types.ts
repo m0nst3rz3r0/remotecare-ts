@@ -113,6 +113,8 @@ export interface GeneratedMealPlan {
   region: TZRegion;
   language: 'en' | 'sw';
   targets: NutritionTargets;
+  bmi?: number;
+  nutritionRisk?: 'Low' | 'Moderate' | 'High';
   meals: DailyMeal[];
   drugAlerts: DrugFoodInteraction[];
   cautions: string[];

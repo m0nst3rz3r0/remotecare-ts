@@ -49,7 +49,13 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
 
   const dayTotal = plan.meals.reduce((sum, m) => sum + m.totalCalories, 0);
   const mealColors: Record<string, string> = { Breakfast: '#f59e0b', Lunch: '#10b981', Dinner: '#6366f1' };
-  const cautions = buildCautions(plan.conditions ?? [], lang);
+  const cautions = buildCautions(plan.conditions ?? [], lang, plan.targets);
+  const recGroups = plan.recommendedFoods ? [
+    { key: 'starch', label: lang === 'sw' ? 'Wanga (Nishati)' : 'Starches (Energy)', items: plan.recommendedFoods.starch, color: '#d97706', bg: '#fffbeb' },
+    { key: 'protein', label: lang === 'sw' ? 'Protini' : 'Proteins', items: plan.recommendedFoods.protein, color: '#6366f1', bg: '#f5f3ff' },
+    { key: 'vegetable', label: lang === 'sw' ? 'Mboga' : 'Vegetables', items: plan.recommendedFoods.vegetable, color: '#10b981', bg: '#f0fdf4' },
+    { key: 'fruit', label: lang === 'sw' ? 'Matunda' : 'Fruits', items: plan.recommendedFoods.fruit, color: '#ea580c', bg: '#fff7ed' },
+  ].filter(group => group.items.length > 0) : [];
 
   const content = (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
@@ -84,9 +90,9 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
 
         {/* Scrollable body */}
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px', marginBottom: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px', marginBottom: '12px' }}>
             {[
-              { label: 'kcal', value: plan.targets.tdee },
+              { label: lang === 'sw' ? 'Kalori' : 'Calories', value: `${plan.targets.tdee} kcal` },
               { label: lang === 'sw' ? 'Protini' : 'Protein', value: `${plan.targets.proteinG}g` },
               { label: lang === 'sw' ? 'Wanga' : 'Carbs', value: `${plan.targets.carbsG}g` },
               { label: lang === 'sw' ? 'Chumvi' : 'Sodium', value: `${plan.targets.sodiumMg}mg` },
@@ -97,6 +103,71 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
               </div>
             ))}
           </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
+            {plan.nutritionRisk && (
+              <span style={{
+                fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
+                padding: '2px 10px', borderRadius: '9999px',
+                background: (plan.nutritionRisk === 'High' ? '#dc262620' : plan.nutritionRisk === 'Moderate' ? '#d9770620' : '#10b98120'),
+                color: plan.nutritionRisk === 'High' ? '#dc2626' : plan.nutritionRisk === 'Moderate' ? '#d97706' : '#10b981',
+                border: `1.5px solid ${plan.nutritionRisk === 'High' ? '#dc262640' : plan.nutritionRisk === 'Moderate' ? '#d9770640' : '#10b98140'}`,
+                fontFamily: "'Inter', system-ui",
+              }}>
+                {plan.nutritionRisk} {lang === 'sw' ? 'Hatari ya Lishe' : 'Nutrition Risk'}
+              </span>
+            )}
+            {plan.bmi != null && (
+              <span style={{ fontSize: '11px', color: '#64748b', fontFamily: "'Inter', system-ui" }}>
+                BMI: <strong>{plan.bmi.toFixed(1)}</strong>
+              </span>
+            )}
+            <span style={{ fontSize: '11px', color: '#64748b', fontFamily: "'Inter', system-ui" }}>
+              {lang === 'sw' ? 'Zone' : 'Zone'}: <strong>{plan.region}</strong>
+            </span>
+          </div>
+
+          {plan.drugAlerts.length > 0 && (
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#92400e', letterSpacing: '0.5px', marginBottom: '6px', fontFamily: "'Inter', system-ui" }}>
+                {lang === 'sw' ? 'Tahadhari za Dawa na Chakula' : 'Drug-Food Alerts'} ({plan.drugAlerts.length})
+              </div>
+              {plan.drugAlerts.map(a => (
+                <div key={a.id} style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '6px', padding: '8px', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: INK, fontFamily: "'Inter', system-ui" }}>
+                    {lang === 'sw' ? a.title_sw : a.title_en}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#92400e', fontFamily: "'Inter', system-ui", marginTop: '2px' }}>
+                    {lang === 'sw' ? a.body_sw : a.body_en}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {recGroups.length > 0 && (
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: SLATE, letterSpacing: '0.5px', marginBottom: '6px', fontFamily: "'Inter', system-ui" }}>
+                {lang === 'sw' ? 'Vyakula Salama kwa Mgonjwa Huyu' : 'Safe Foods for This Patient'}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {recGroups.map(group => (
+                  <div key={group.key} style={{ background: group.bg, border: `1.5px solid ${group.color}30`, borderRadius: '6px', padding: '8px 10px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: group.color, marginBottom: '5px', fontFamily: "'Inter', system-ui" }}>
+                      {group.label}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {group.items.map(item => (
+                        <span key={item.id} style={{ fontSize: '11px', color: INK, background: '#fff', border: `1px solid ${group.color}40`, borderRadius: '4px', padding: '2px 8px', fontFamily: "'Inter', system-ui" }}>
+                          {lang === 'sw' ? item.name_sw : item.name_en}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {cautions.length > 0 && (
             <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '8px', padding: '12px', marginBottom: '14px' }}>
@@ -168,24 +239,6 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
               {plan.avoidFoods.map((f, i) => (
                 <div key={i} style={{ fontSize: '11px', color: '#991b1b', fontFamily: "'Inter', system-ui", marginBottom: '3px' }}>
                   • <strong>{lang === 'sw' ? f.name_sw : f.name_en}</strong> — {lang === 'sw' ? f.reason_sw : f.reason_en}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {plan.drugAlerts.length > 0 && (
-            <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#92400e', letterSpacing: '0.5px', marginBottom: '6px', fontFamily: "'Inter', system-ui" }}>
-                {lang === 'sw' ? 'Tahadhari za Dawa na Chakula' : 'Drug-Food Alerts'}
-              </div>
-              {plan.drugAlerts.map(a => (
-                <div key={a.id} style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '6px', padding: '8px', marginBottom: '4px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: INK, fontFamily: "'Inter', system-ui" }}>
-                    {lang === 'sw' ? a.title_sw : a.title_en}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#92400e', fontFamily: "'Inter', system-ui", marginTop: '2px' }}>
-                    {lang === 'sw' ? a.body_sw : a.body_en}
-                  </div>
                 </div>
               ))}
             </div>

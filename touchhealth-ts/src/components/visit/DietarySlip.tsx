@@ -12,19 +12,20 @@ export function buildDietarySlipHtml(
   patientName: string,
   lang: 'en' | 'sw',
 ): string {
-  const cautions = buildCautions(plan.conditions ?? [], lang);
-  const dayTotal = plan.meals.reduce((s, m) => s + m.totalCalories, 0);
+  const cautions = buildCautions(plan.conditions ?? [], lang, plan.targets);
+  const dayTotal = plan.meals.reduce((sum, meal) => sum + meal.totalCalories, 0);
+  const rec = plan.recommendedFoods;
 
   const headerHTML = `
     <div class="header">
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div>
-          <div class="org-name">RemoteCare Research Organization</div>
+          <div class="org-name">RemoteCare</div>
           <div class="slip-title">${L(lang, 'Dietary Advice Slip', 'Karatasi ya Ushauri wa Lishe')}</div>
         </div>
         <div style="text-align:right;">
           <div class="meta-bold">${escapeHtml(patientName)}</div>
-          <div class="meta">${escapeHtml(plan.diagnosis || '—')} · ${escapeHtml(plan.region)}</div>
+          <div class="meta">${escapeHtml(plan.diagnosis || '-')} · ${escapeHtml(plan.region)}</div>
           <div class="meta">${escapeHtml(plan.date)}</div>
         </div>
       </div>
@@ -34,11 +35,7 @@ export function buildDietarySlipHtml(
     <div class="targets">
       <div class="target-pill">
         <div class="target-value">${plan.targets.tdee}</div>
-        <div class="target-label">${L(lang, 'kcal/day', 'kcal/siku')}</div>
-      </div>
-      <div class="target-pill">
-        <div class="target-value">${dayTotal}</div>
-        <div class="target-label">${L(lang, 'Plan kcal', 'kcal mpango')}</div>
+        <div class="target-label">${L(lang, 'Calories', 'Kalori')}</div>
       </div>
       <div class="target-pill">
         <div class="target-value">${plan.targets.proteinG}g</div>
@@ -50,13 +47,26 @@ export function buildDietarySlipHtml(
       </div>
       <div class="target-pill">
         <div class="target-value">${Math.round(plan.targets.sodiumMg / 100) * 100}mg</div>
-        <div class="target-label">${L(lang, 'Sodium max', 'Chumvi max')}</div>
-      </div>
-      <div class="target-pill">
-        <div class="target-value">${plan.targets.fiberG}g</div>
-        <div class="target-label">${L(lang, 'Fibre', 'Nyuzi')}</div>
+        <div class="target-label">${L(lang, 'Sodium', 'Chumvi')}</div>
       </div>
     </div>`;
+
+  const summaryHTML = `
+    <div class="summary-strip">
+      ${plan.nutritionRisk ? `<div class="summary-chip">${escapeHtml(`${plan.nutritionRisk} ${L(lang, 'Nutrition Risk', 'Hatari ya Lishe')}`)}</div>` : ''}
+      ${plan.bmi != null ? `<div class="summary-meta">BMI: <strong>${plan.bmi.toFixed(1)}</strong></div>` : ''}
+      <div class="summary-meta">${L(lang, 'Zone', 'Zone')}: <strong>${escapeHtml(plan.region)}</strong></div>
+      <div class="summary-meta">${L(lang, 'Plan kcal', 'Kalori za mpango')}: <strong>${dayTotal}</strong></div>
+    </div>`;
+
+  const drugHTMLPageOne = plan.drugAlerts.length > 0 ? `
+    <div class="section warn-section">
+      <div class="section-title">${L(lang, 'Drug-Food Alerts', 'Tahadhari za Dawa na Chakula')}</div>
+      ${plan.drugAlerts.map(alert => `
+        <div class="drug-row"><strong>${escapeHtml(lang === 'sw' ? alert.title_sw : alert.title_en)}</strong> - ${escapeHtml(lang === 'sw' ? alert.body_sw : alert.body_en)}</div>
+      `).join('')}
+    </div>
+  ` : '';
 
   const mealHTML = `
     <div class="section-title-major">${L(lang, 'Sample Meal Combinations for Today', 'Mfano wa Mchanganyiko wa Chakula Leo')}</div>
@@ -76,53 +86,58 @@ export function buildDietarySlipHtml(
       </div>
     `).join('')}`;
 
-  /* ── PAGE 2 ─────────────────────────────────────────── */
-
-  const rec = plan.recommendedFoods;
   type RecGroup = {
     title: string;
     benefit: string;
     items: { id: string; name_en: string; name_sw: string }[];
     accent: string;
-    bg: string;
     border: string;
   };
+
   const recGroups: RecGroup[] = rec ? [
     {
-      title:   L(lang, 'Starches / Energy Foods', 'Wanga / Vyakula vya Nishati'),
+      title: L(lang, 'Starches / Energy Foods', 'Wanga / Vyakula vya Nishati'),
       benefit: L(lang, 'Good source of energy', 'Chanzo kizuri cha nishati'),
-      items:   rec.starch,   accent: '#92400e', bg: '#fffbeb', border: '#fcd34d',
+      items: rec.starch,
+      accent: '#92400e',
+      border: '#fcd34d',
     },
     {
-      title:   L(lang, 'Proteins / Body-building Foods', 'Protini / Vyakula vya Kujenga Mwili'),
+      title: L(lang, 'Proteins / Body-building Foods', 'Protini / Vyakula vya Kujenga Mwili'),
       benefit: L(lang, 'Builds and repairs tissue', 'Hujenga na kurekebisha tishu'),
-      items:   rec.protein,  accent: '#3730a3', bg: '#eef2ff', border: '#a5b4fc',
+      items: rec.protein,
+      accent: '#3730a3',
+      border: '#a5b4fc',
     },
     {
-      title:   L(lang, 'Vegetables', 'Mboga za Majani'),
-      benefit: L(lang, 'Rich in vitamins & fibre', 'Tajiri wa vitamini na nyuzi'),
-      items:   rec.vegetable, accent: '#166534', bg: '#f0fdf4', border: '#86efac',
+      title: L(lang, 'Vegetables', 'Mboga za Majani'),
+      benefit: L(lang, 'Rich in vitamins and fibre', 'Tajiri wa vitamini na nyuzi'),
+      items: rec.vegetable,
+      accent: '#166534',
+      border: '#86efac',
     },
     {
-      title:   L(lang, 'Fruits', 'Matunda'),
-      benefit: L(lang, 'Rich in vitamins & antioxidants', 'Tajiri wa vitamini na antioxidants'),
-      items:   rec.fruit,    accent: '#9a3412', bg: '#fff7ed', border: '#fdba74',
+      title: L(lang, 'Fruits', 'Matunda'),
+      benefit: L(lang, 'Rich in vitamins and antioxidants', 'Tajiri wa vitamini na antioxidants'),
+      items: rec.fruit,
+      accent: '#9a3412',
+      border: '#fdba74',
     },
-  ].filter(g => g.items.length > 0) : [];
+  ].filter(group => group.items.length > 0) : [];
 
   const safeHTML = recGroups.length > 0 ? `
     <div class="section safe-section" style="margin-bottom:8px;">
-      <div class="section-title">${L(lang, '✓ Foods to EAT — Safe for This Patient', '✓ Vyakula vya KULA — Salama kwa Mgonjwa Huyu')}</div>
-      ${recGroups.map(g => `
+      <div class="section-title">${L(lang, 'Safe Foods for This Patient', 'Vyakula Salama kwa Mgonjwa Huyu')}</div>
+      ${recGroups.map(group => `
         <div style="margin-bottom:7px;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
-            <div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:0.3px;color:${g.accent};">${g.title}</div>
-            <div style="font-size:7.5px;color:#64748b;font-style:italic;">${g.benefit}</div>
+            <div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:0.3px;color:${group.accent};">${group.title}</div>
+            <div style="font-size:7.5px;color:#64748b;font-style:italic;">${group.benefit}</div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;">
-            ${g.items.map(f => `
-              <div style="font-size:8.5px;color:${g.accent};padding:2px 0;border-bottom:1px solid ${g.border}40;">
-                ✓ <strong>${escapeHtml(lang === 'sw' ? f.name_sw : f.name_en)}</strong>
+            ${group.items.map(food => `
+              <div style="font-size:8.5px;color:${group.accent};padding:2px 0;border-bottom:1px solid ${group.border}40;">
+                - <strong>${escapeHtml(lang === 'sw' ? food.name_sw : food.name_en)}</strong>
               </div>
             `).join('')}
           </div>
@@ -133,10 +148,10 @@ export function buildDietarySlipHtml(
 
   const avoidHTML = plan.avoidFoods.length > 0 ? `
     <div class="section danger-section">
-      <div class="section-title">${L(lang, '✗ Foods to AVOID', '✗ Vyakula vya KUEPUKA')}</div>
+      <div class="section-title">${L(lang, 'Foods to Avoid', 'Vyakula vya Kuepuka')}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;">
-        ${plan.avoidFoods.map(f => `
-          <div class="avoid-row">• <strong>${escapeHtml(lang === 'sw' ? f.name_sw : f.name_en)}</strong> — ${escapeHtml(lang === 'sw' ? f.reason_sw : f.reason_en)}</div>
+        ${plan.avoidFoods.map(food => `
+          <div class="avoid-row">- <strong>${escapeHtml(lang === 'sw' ? food.name_sw : food.name_en)}</strong> - ${escapeHtml(lang === 'sw' ? food.reason_sw : food.reason_en)}</div>
         `).join('')}
       </div>
     </div>
@@ -144,9 +159,9 @@ export function buildDietarySlipHtml(
 
   const drugHTML = plan.drugAlerts.length > 0 ? `
     <div class="section warn-section">
-      <div class="section-title">${L(lang, '⚠ Drug-Food Warnings', '⚠ Tahadhari za Dawa na Chakula')}</div>
-      ${plan.drugAlerts.map(a => `
-        <div class="drug-row"><strong>${escapeHtml(lang === 'sw' ? a.title_sw : a.title_en)}</strong> — ${escapeHtml(lang === 'sw' ? a.body_sw : a.body_en)}</div>
+      <div class="section-title">${L(lang, 'Drug-Food Alerts', 'Tahadhari za Dawa na Chakula')}</div>
+      ${plan.drugAlerts.map(alert => `
+        <div class="drug-row"><strong>${escapeHtml(lang === 'sw' ? alert.title_sw : alert.title_en)}</strong> - ${escapeHtml(lang === 'sw' ? alert.body_sw : alert.body_en)}</div>
       `).join('')}
     </div>
   ` : '';
@@ -154,20 +169,20 @@ export function buildDietarySlipHtml(
   const cautionHTML = cautions.length > 0 ? `
     <div class="section caution-section">
       <div class="section-title">${L(lang, 'Key Dietary Rules', 'Kanuni Muhimu za Lishe')}</div>
-      ${cautions.map(c => `<div class="caution-row">• ${escapeHtml(c)}</div>`).join('')}
+      ${cautions.map(caution => `<div class="caution-row">- ${escapeHtml(caution)}</div>`).join('')}
     </div>
   ` : '';
 
   const footerHTML = `
     <div class="footer">
-      RCRO — ${L(lang, 'Your health, our priority', 'Afya yako, kipaumbele chetu')} · ${L(lang, 'Ask your doctor for more dietary guidance.', 'Muulize daktari wako kwa ushauri zaidi wa lishe.')}
+      RemoteCare - ${L(lang, 'Your health, our priority', 'Afya yako, kipaumbele chetu')} · ${L(lang, 'Ask your doctor for more dietary guidance.', 'Muulize daktari wako kwa ushauri zaidi wa lishe.')}
     </div>`;
 
   return `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
   <meta charset="UTF-8">
-  <title>${L(lang, 'Dietary Advice', 'Ushauri wa Lishe')} — ${escapeHtml(patientName)}</title>
+  <title>${L(lang, 'Dietary Advice', 'Ushauri wa Lishe')} - ${escapeHtml(patientName)}</title>
   <style>
     @page { size: A4 portrait; margin: 12mm 14mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -181,16 +196,18 @@ export function buildDietarySlipHtml(
     .target-pill { background: #f0fdf4; border: 1px solid #86efac; border-radius: 5px; padding: 5px 6px; text-align: center; flex: 1; }
     .target-value { font-size: 12px; font-weight: 800; color: #10b981; }
     .target-label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.2px; margin-top: 1px; }
+    .summary-strip { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
+    .summary-chip { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; border-radius: 9999px; padding: 3px 8px; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; }
+    .summary-meta { font-size: 8.5px; color: #475569; }
     .section-title-major { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #0d7377; margin: 10px 0 5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
     .meal-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 9px; margin-bottom: 6px; page-break-inside: avoid; }
     .meal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
     .meal-title { font-size: 10px; font-weight: 800; color: #0d7377; text-transform: uppercase; letter-spacing: 0.3px; }
     .meal-kcal { font-size: 10px; font-weight: 700; color: #10b981; background: #f0fdf4; border-radius: 3px; padding: 1px 7px; }
     .meal-note { font-size: 8.5px; color: #475569; font-style: italic; margin-bottom: 4px; }
-    .food-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #f1f5f9; font-size: 9px; }
+    .food-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #f1f5f9; font-size: 9px; gap: 12px; }
     .food-name { font-weight: 600; color: #132b31; }
-    .food-detail { color: #64748b; }
-    /* ── Page 2 ── */
+    .food-detail { color: #64748b; text-align: right; }
     .page-break { page-break-before: always; }
     .page2-header { border-bottom: 2.5px solid #10b981; padding-bottom: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end; }
     .page2-title { font-size: 12px; font-weight: 900; color: #0d7377; text-transform: uppercase; }
@@ -215,20 +232,20 @@ export function buildDietarySlipHtml(
   </style>
 </head>
 <body>
-  <div class="print-hint">${L(lang, 'To save as PDF: File → Print → "Save as PDF". Two pages will be generated.', 'Kuhifadhi kama PDF: Faili → Chapisha → "Hifadhi kama PDF". Kurasa mbili zitatengenezwa.')}</div>
+  <div class="print-hint">${L(lang, 'To save as PDF: File -> Print -> "Save as PDF". Two pages will be generated.', 'Kuhifadhi kama PDF: Faili -> Chapisha -> "Hifadhi kama PDF". Kurasa mbili zitatengenezwa.')}</div>
 
-  <!-- PAGE 1: Header + Targets + Meal Plan -->
   ${headerHTML}
   ${targetsHTML}
+  ${summaryHTML}
+  ${drugHTMLPageOne}
   ${mealHTML}
   ${footerHTML}
 
-  <!-- PAGE 2: Safe foods, Avoid, Warnings -->
   <div class="page-break">
     <div class="page2-header">
       <div>
         <div class="page2-title">${L(lang, 'Food Guide', 'Mwongozo wa Chakula')}</div>
-        <div class="meta">${escapeHtml(patientName)} · ${escapeHtml(plan.diagnosis || '—')} · ${escapeHtml(plan.date)}</div>
+        <div class="meta">${escapeHtml(patientName)} · ${escapeHtml(plan.diagnosis || '-')} · ${escapeHtml(plan.date)}</div>
       </div>
       <div class="meta">${L(lang, 'Page 2 of 2', 'Ukurasa 2 kati ya 2')}</div>
     </div>
@@ -244,7 +261,7 @@ export function buildDietarySlipHtml(
 
 function slipFilename(patientName: string): string {
   const safe = patientName.replace(/[^\w-]+/g, '_').slice(0, 40);
-  return `dietary-slip-${safe}-${new Date().toISOString().split('T')[0]}`;
+  return `meal-plan-${safe}-${new Date().toISOString().split('T')[0]}`;
 }
 
 function openSlipWindow(html: string): Window | null {
@@ -264,13 +281,12 @@ export function printDietarySlip(
   const html = buildDietarySlipHtml(plan, patientName, lang);
   const w = openSlipWindow(html);
   if (!w) {
-    alert(L(lang, 'Please allow popups to print the dietary slip.', 'Ruhusu popups ili kuchapisha karatasi ya lishe.'));
+    alert(L(lang, 'Please allow popups to print the meal plan.', 'Ruhusu popups ili kuchapisha mpango wa chakula.'));
     return;
   }
   setTimeout(() => { w.print(); }, 300);
 }
 
-/** Opens print dialog — user selects "Save as PDF" destination. */
 export function saveDietarySlipPdf(
   plan: GeneratedMealPlan,
   patientName: string,
@@ -279,7 +295,7 @@ export function saveDietarySlipPdf(
   const html = buildDietarySlipHtml(plan, patientName, lang);
   const w = openSlipWindow(html);
   if (!w) {
-    alert(L(lang, 'Please allow popups to save the dietary slip as PDF.', 'Ruhusu popups ili kuhifadhi karatasi kama PDF.'));
+    alert(L(lang, 'Please allow popups to save the meal plan as PDF.', 'Ruhusu popups ili kuhifadhi mpango wa chakula kama PDF.'));
     return;
   }
   setTimeout(() => { w.print(); }, 400);
@@ -305,15 +321,17 @@ function buildPlainTextSummary(
   patientName: string,
   lang: 'en' | 'sw',
 ): string {
-  const dayTotal = plan.meals.reduce((s, m) => s + m.totalCalories, 0);
+  const dayTotal = plan.meals.reduce((sum, meal) => sum + meal.totalCalories, 0);
   const lines = [
-    L(lang, `Dietary advice for ${patientName}`, `Ushauri wa lishe kwa ${patientName}`),
-    `${plan.region} · ${plan.diagnosis || '—'} · ${dayTotal} kcal/day`,
+    L(lang, `Meal plan for ${patientName}`, `Mpango wa chakula kwa ${patientName}`),
+    `${plan.region} · ${plan.diagnosis || '-'} · ${dayTotal} kcal/day`,
+    `${plan.targets.tdee} kcal · ${plan.targets.proteinG}g protein · ${plan.targets.carbsG}g carbs · ${plan.targets.sodiumMg}mg sodium`,
+    ...(plan.nutritionRisk ? [`${plan.nutritionRisk} ${L(lang, 'Nutrition Risk', 'Hatari ya Lishe')}`] : []),
     '',
     ...plan.meals.map(meal => {
       const title = lang === 'sw' ? meal.name_sw : meal.name_en;
-      const items = meal.items.map(i =>
-        `  - ${mealFoodName(i, lang)} (${formatMealItemDetail(i, lang)})`
+      const items = meal.items.map(item =>
+        `  - ${mealFoodName(item, lang)} (${formatMealItemDetail(item, lang)})`,
       ).join('\n');
       return `${title} (${meal.totalCalories} kcal)\n${items}`;
     }),
@@ -328,7 +346,7 @@ export async function shareDietarySlip(
 ): Promise<void> {
   const html = buildDietarySlipHtml(plan, patientName, lang);
   const text = buildPlainTextSummary(plan, patientName, lang);
-  const title = L(lang, `Meal plan — ${patientName}`, `Mpango wa chakula — ${patientName}`);
+  const title = L(lang, `Meal plan - ${patientName}`, `Mpango wa chakula - ${patientName}`);
 
   if (typeof navigator !== 'undefined' && navigator.share) {
     try {

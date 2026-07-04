@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-// TOUCH HEALTH · src/App.tsx
+// RemoteCare · src/App.tsx
 // Root component — auth gate, page routing, store init
 // ════════════════════════════════════════════════════════════
 
