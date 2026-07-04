@@ -1,6 +1,7 @@
 // RCRO NutritionTool — Kiswahili / English display helpers for meal plans
 
 import { getFoodsSync } from './dataLoader';
+import { formatMealPortion } from './mealPortions';
 import type { FoodItem, MealItem } from './types';
 
 export type PrepMethod = 'boiled' | 'steamed' | 'raw' | 'grilled';
@@ -22,14 +23,7 @@ export function localizePrep(prep: PrepMethod | string, lang: 'en' | 'sw'): stri
 }
 
 export function formatPortion(food: FoodItem, portionMultiplier: number, lang: 'en' | 'sw'): string {
-  if (food.serving) {
-    const rawUnits = food.serving.default_units * portionMultiplier;
-    const units = Math.min(3, Math.round(rawUnits * 2) / 2);
-    const unit = lang === 'sw' ? food.serving.unit_sw : food.serving.unit_en;
-    return `${units} ${unit}`;
-  }
-  const grams = Math.round(Math.min(350, 100 * portionMultiplier));
-  return lang === 'sw' ? `${grams}g` : `${grams}g`;
+  return formatMealPortion(food, portionMultiplier, lang);
 }
 
 export function formatMealItemDetail(item: MealItem, lang: 'en' | 'sw'): string {

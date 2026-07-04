@@ -6,6 +6,11 @@ import type { EvaluationResult, TZRegion } from './types';
 
 const AVOID_LIST_LIMIT = 5;
 const RECOMMEND_LIMIT = 20;
+const SEVERITY_RANK: Record<EvaluationResult['severity'], number> = {
+  Safe: 0,
+  Warning: 1,
+  Danger: 2,
+};
 
 function shortenReason(message: string): string {
   const main = message.split(/\s*TIP:/i)[0].trim();
@@ -36,6 +41,38 @@ export function evalFoodForPatient(
     message_en: 'No specific clinical restrictions for this selection.',
     message_sw: 'Hakuna vikwazo maalum vya kitabibu kwa chaguo hili.',
   };
+}
+
+export function evalFoodAcrossPreparations(
+  foodId: string,
+  conditions: string[],
+  preparationMethods: string[] = [],
+): EvaluationResult {
+  const candidatePreps = new Set<string>();
+
+  for (const prep of preparationMethods) {
+    if (prep && prep.trim()) candidatePreps.add(prep.trim());
+  }
+
+  for (const rule of getRulesSync()) {
+    const appliesToFood = !rule.target_food_id || rule.target_food_id === foodId;
+    if (appliesToFood && rule.target_prep_method && rule.target_prep_method !== 'Any') {
+      candidatePreps.add(rule.target_prep_method);
+    }
+  }
+
+  if (candidatePreps.size === 0) {
+    candidatePreps.add('Boiled');
+  }
+
+  let worst = evalFoodForPatient(foodId, 'Boiled', conditions);
+  for (const prep of candidatePreps) {
+    const result = evalFoodForPatient(foodId, prep, conditions);
+    if (SEVERITY_RANK[result.severity] > SEVERITY_RANK[worst.severity]) {
+      worst = result;
+    }
+  }
+  return worst;
 }
 
 export function searchFoods(query: string, zone: TZRegion, limit = 8) {
@@ -77,7 +114,7 @@ export function getRecommendedFoods(conditions: string[], zone: TZRegion): {
         const cats = Array.isArray(f.category) ? f.category : [f.category];
         if (!catFilter(cats)) return false;
         if (nameFilter && nameFilter.test(f.name_en)) return false;
-        return true;
+        return evalFoodAcrossPreparations(f.id, conditions, f.preparationMethods).severity === 'Safe';
       })
       .slice(0, perGroup)
       .map(f => ({ id: f.id, name_en: f.name_en, name_sw: f.name_sw ?? f.name_en }));

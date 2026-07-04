@@ -5,7 +5,7 @@ import {
   toMedIds,
   getDrugFoodInteractions,
   searchFoods,
-  evalFoodForPatient,
+  evalFoodAcrossPreparations,
   getPatientConditions,
   regionToZone,
   isFoodsReady,
@@ -146,6 +146,10 @@ export default function NutritionPanel({
 
   const activityLevel = patient.nutritionProfile?.activityLevel ?? 'Moderate';
   const bodyGoal = patient.nutritionProfile?.bodyGoal ?? 'maintain';
+  const availableFoodIds = useMemo(() => {
+    const ids = patient.nutritionProfile?.availableFoodIds?.filter(Boolean) ?? [];
+    return ids.length > 0 ? new Set(ids) : undefined;
+  }, [patient.nutritionProfile?.availableFoodIds]);
 
   const targets = useMemo(() => {
     if (!effectiveWeight || !effectiveHeight) return null;
@@ -195,6 +199,7 @@ export default function NutritionPanel({
           activityLevel,
           bodyGoal,
           medicationIds: medIds,
+          availableFoodIds,
         });
         onGenerateMealPlan(plan);
       } finally {
@@ -314,7 +319,7 @@ export default function NutritionPanel({
         {foodResults.length > 0 && (
           <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {foodResults.map(food => {
-              const result = evalFoodForPatient(food.id, 'Boiled', conditions);
+              const result = evalFoodAcrossPreparations(food.id, conditions, food.preparationMethods);
               const colors = { Safe: '#10b981', Warning: '#d97706', Danger: '#dc2626' };
               const bgs    = { Safe: '#f0fdf4', Warning: '#fffbeb', Danger: '#fef2f2' };
               return (

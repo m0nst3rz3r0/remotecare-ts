@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { loadZonePresets, setClinicalDataForTests } from './dataLoader';
 import type { FoodItem, ClinicalRule } from './types';
 import { isMealStarch, generateMealPlan, buildCautions } from './mealPlanner';
-import { formatMealItemDetail } from './mealLocalization';
+import { formatMealItemDetail, formatPortion } from './mealLocalization';
 import zonePresets from '../../data/zoneAvailabilityPresets.json';
 
 function loadJsonData() {
@@ -112,5 +112,73 @@ describe('meal planner', () => {
     const detail = formatMealItemDetail(breakfast.items[0], 'sw');
     expect(detail).toMatch(/Imechemshwa|Mbichi/);
     expect(detail).not.toMatch(/Boiled|tea cup/i);
+  });
+
+  it('does not cap displayed portions below the actual planned multiplier', () => {
+    const testFood: FoodItem = {
+      id: 'demo_food',
+      name_en: 'Demo Ugali',
+      name_sw: 'Ugali wa Mfano',
+      category: 'carb',
+      regions: ['All'],
+      glycemic_index: 'Medium',
+      macros_per_100g: { calories: 120, protein_g: 2, carbs_g: 24, fat_g: 1, sodium_mg: 0 },
+      serving: { unit_en: 'fist', unit_sw: 'ngumi', grams_per_unit: 150, default_units: 1 },
+    };
+
+    expect(formatPortion(testFood, 4, 'en')).toBe('4 fist');
+    expect(formatPortion(testFood, 3.5, 'sw')).toBe('3.5 ngumi');
+  });
+
+  it('respects available-food filters when generating a plan', () => {
+    const allowedIds = new Set([
+      'food_006_uji',
+      'food_019',
+      'food_051',
+      'food_096',
+      'food_097',
+      'food_016',
+      'food_053',
+      'food_056',
+      'food_148',
+      'food_028c',
+      'food_030',
+      'food_033',
+      'food_107',
+      'food_009',
+      'food_014',
+      'food_161',
+    ]);
+
+    const plan = generateMealPlan({
+      patientCode: 'RC-AVAILABLE',
+      age: 48,
+      sex: 'female',
+      weightKg: 70,
+      heightCm: 165,
+      conditions: [],
+      zone: 'Coast',
+      language: 'en',
+      medicationIds: [],
+      availableFoodIds: allowedIds,
+    });
+
+    expect(plan.meals.flatMap(meal => meal.items).every(item => allowedIds.has(item.foodId))).toBe(true);
+  });
+
+  it('normalizes diagnosis labels to canonical condition codes', () => {
+    const plan = generateMealPlan({
+      patientCode: 'RC-DX',
+      age: 52,
+      sex: 'female',
+      weightKg: 66,
+      heightCm: 162,
+      conditions: ['Diabetes', 'I10'],
+      zone: 'Lake Zone',
+      language: 'en',
+      medicationIds: [],
+    });
+
+    expect(plan.diagnosis).toBe('DM, HTN');
   });
 });

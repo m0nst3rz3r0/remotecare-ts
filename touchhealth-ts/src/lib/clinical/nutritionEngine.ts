@@ -58,13 +58,22 @@ export function computeNutritionTargets(params: {
   if (hasHTN || hasHF) sodiumMg = 1500;
   if (hasCKD) sodiumMg = 2000;
 
-  const fatG = Math.round(weightKg * 0.9);
+  const baselineFatG = Math.round(weightKg * 0.9);
+  const minimumFatG = Math.max(25, Math.round(weightKg * 0.6));
 
   const proteinKcal = proteinG * 4;
+  let fatG = baselineFatG;
   const fatKcal = fatG * 9;
-  const carbsG = Math.max(50, Math.round((targetCalories - proteinKcal - fatKcal) / 4));
+  let carbsG = Math.max(50, Math.round((targetCalories - proteinKcal - fatKcal) / 4));
 
-  const carbsCapped = hasDM ? Math.min(carbsG, Math.round(targetCalories * 0.50 / 4)) : carbsG;
+  if (hasDM) {
+    carbsG = Math.min(carbsG, Math.round(targetCalories * 0.50 / 4));
+  }
+
+  const caloriesGap = targetCalories - (proteinKcal + (carbsG * 4) + (fatG * 9));
+  if (caloriesGap !== 0) {
+    fatG = Math.max(minimumFatG, fatG + Math.round(caloriesGap / 9));
+  }
 
   const fiberG = hasDM ? 38 : 25;
 
@@ -72,7 +81,7 @@ export function computeNutritionTargets(params: {
     bmr,
     tdee: targetCalories,
     proteinG,
-    carbsG: Math.max(50, carbsCapped),
+    carbsG: Math.max(50, carbsG),
     fatG,
     sodiumMg,
     fiberG,

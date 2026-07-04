@@ -26,6 +26,8 @@ describe('clinical nutrition engine', () => {
     expect(targets.sodiumMg).toBe(1500);
     expect(targets.proteinG).toBeGreaterThan(40);
     expect(targets.proteinG).toBeLessThan(80);
+    const macroCalories = (targets.proteinG * 4) + (targets.carbsG * 4) + (targets.fatG * 9);
+    expect(Math.abs(macroCalories - targets.tdee)).toBeLessThanOrEqual(20);
   });
 
   it('maps Warfarin and Amlodipine to MED ids', () => {
