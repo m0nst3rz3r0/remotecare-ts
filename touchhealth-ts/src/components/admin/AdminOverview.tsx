@@ -174,7 +174,7 @@ export function OverviewView({ patients, hospitals, year, scopeLabel }: { patien
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                {['Month', 'New Enrolled', 'Active Seen', 'Attendance', 'BP Control', 'LTFU Rate'].map((heading) => (
+                {['Month', 'New Enrolled', 'Active Seen', 'Active DM', 'Active HTN', 'Attendance', 'BP Control', 'Combo Therapy', 'LTFU Rate'].map((heading) => (
                   <th key={heading} style={{ padding: '12px 20px', textAlign: 'left', fontSize: '10px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', whiteSpace: 'nowrap' }}>{heading}</th>
                 ))}
               </tr>
@@ -185,8 +185,11 @@ export function OverviewView({ patients, hospitals, year, scopeLabel }: { patien
                   <td style={{ padding: '14px 20px', fontWeight: 700, fontSize: '13px', color: INK }}>{row.label}</td>
                   <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: TEAL }}>{row.enrolment}</td>
                   <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: '#334155' }}>{row.activePatients}</td>
+                  <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: '#0891b2' }}>{row.activeDmPatients}</td>
+                  <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: '#db2777' }}>{row.activeHtnPatients}</td>
                   <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: '#7c3aed' }}>{row.attendanceRate !== null ? `${row.attendanceRate}%` : '-'}</td>
                   <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: row.bpControlRate !== null && row.bpControlRate >= 65 ? '#059669' : row.bpControlRate !== null && row.bpControlRate >= 45 ? '#d97706' : '#dc2626' }}>{row.bpControlRate !== null ? `${row.bpControlRate}%` : '-'}</td>
+                  <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: '#7c3aed' }}>{row.comboTherapyRate !== null ? `${row.comboTherapyRate}%` : '-'}</td>
                   <td style={{ padding: '14px 20px', fontFamily: "ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace", fontSize: '13px', color: row.ltfuRate !== null && row.ltfuRate > 0 ? '#dc2626' : '#64748b' }}>{row.ltfuRate !== null ? `${row.ltfuRate}%` : '-'}</td>
                 </tr>
               ))}

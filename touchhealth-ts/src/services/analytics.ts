@@ -91,8 +91,11 @@ export interface MonthlyOverviewRow {
   label: string;
   enrolment: number;
   activePatients: number;
+  activeDmPatients: number;
+  activeHtnPatients: number;
   attendanceRate: number | null;
   bpControlRate: number | null;
+  comboTherapyRate: number | null;
   ltfuRate: number | null;
 }
 
@@ -474,12 +477,21 @@ export function getMonthlyOverviewRows(
   patients: Patient[],
   year: number,
 ): MonthlyOverviewRow[] {
+  const enrolmentSeries = getMetricSeries('enrolment', patients, year);
+  const attendanceSeries = getMetricSeries('attendance', patients, year);
+  const bpControlSeries = getMetricSeries('bp_control', patients, year);
+  const comboTherapySeries = getMetricSeries('combo_therapy_rate', patients, year);
+  const ltfuSeries = getMetricSeries('ltfu_rate', patients, year);
+  const dmPatientSeries = getMetricSeries('dm_patients', patients, year);
+  const htnPatientSeries = getMetricSeries('htn_patients', patients, year);
+
   return ANALYTICS_MONTHS.map((label, index) => {
     const month = index + 1;
-    const enrolment = getMetricSeries('enrolment', patients, year)[index] ?? 0;
-    const attendanceRate = getMetricSeries('attendance', patients, year)[index];
-    const bpControlRate = getMetricSeries('bp_control', patients, year)[index];
-    const ltfuRate = getMetricSeries('ltfu_rate', patients, year)[index];
+    const enrolment = enrolmentSeries[index] ?? 0;
+    const attendanceRate = attendanceSeries[index];
+    const bpControlRate = bpControlSeries[index];
+    const comboTherapyRate = comboTherapySeries[index];
+    const ltfuRate = ltfuSeries[index];
     const activePatients = patients.filter((patient) => {
       if (!isActivePatientStatus(patient.status)) return false;
       return patient.visits?.some((visit) => +visit.month === month && +(visit.year ?? year) === year);
@@ -490,8 +502,11 @@ export function getMonthlyOverviewRows(
       label,
       enrolment,
       activePatients,
+      activeDmPatients: dmPatientSeries[index] ?? 0,
+      activeHtnPatients: htnPatientSeries[index] ?? 0,
       attendanceRate,
       bpControlRate,
+      comboTherapyRate,
       ltfuRate,
     };
   });
