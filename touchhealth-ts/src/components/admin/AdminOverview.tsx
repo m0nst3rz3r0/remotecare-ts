@@ -15,6 +15,7 @@ import { backupStatus } from '../../services/backup';
 import {
   getFacilityOverviewRows,
   getGlucoseControlSeries,
+  getMetricBarData,
   getMonthlyOverviewRows,
   getProgrammeOverview,
 } from '../../services/analytics';
@@ -115,10 +116,62 @@ function GlucoseControlChart({ patients, year }: { patients: Patient[]; year: nu
   return <div style={{ width: '100%', height: '220px' }}><Line data={data as any} options={options as any} /></div>;
 }
 
+function DrugComboBars({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: ReturnType<typeof getMetricBarData>;
+}) {
+  if (!rows || !rows.length) {
+    return (
+      <Card title={title}>
+        <div style={{ color: '#64748b', fontSize: '12px', fontWeight: 600 }}>
+          No combination data available in the current scope.
+        </div>
+      </Card>
+    );
+  }
+
+  const maxValue = Math.max(...rows.map((item) => item.value), 1);
+
+  return (
+    <Card title={title}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {rows.map((row) => {
+          const barPct = Math.round((row.value / maxValue) * 100);
+          return (
+            <div key={row.label}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, gap: 12 }}>
+                <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                  {row.label}
+                </span>
+                <span style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 13, fontWeight: 700, color: row.color, whiteSpace: 'nowrap' }}>
+                  {row.value} pts
+                </span>
+              </div>
+              <div style={{ height: 8, background: '#f1f5f9', borderRadius: 9999, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${barPct}%`, background: row.color, borderRadius: 9999 }} />
+              </div>
+              {row.controlRate !== undefined ? (
+                <div style={{ marginTop: 4, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 11, color: '#64748b' }}>
+                  {row.controlRate}% controlled
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 export function OverviewView({ patients, hospitals, year, scopeLabel }: { patients: Patient[]; hospitals: Hospital[]; year: number; scopeLabel: string }) {
   const stats = useMemo(() => getProgrammeOverview(patients), [patients]);
   const facilityRows = useMemo(() => getFacilityOverviewRows(hospitals, patients), [hospitals, patients]);
   const monthlyRows = useMemo(() => getMonthlyOverviewRows(patients, year), [patients, year]);
+  const htnDrugCombos = useMemo(() => getMetricBarData('htn_drug_combo', patients), [patients]);
+  const dmDrugCombos = useMemo(() => getMetricBarData('dm_drug_combo', patients), [patients]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -196,6 +249,11 @@ export function OverviewView({ patients, hospitals, year, scopeLabel }: { patien
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <DrugComboBars title="HTN Drug Combinations" rows={htnDrugCombos} />
+        <DrugComboBars title="DM Drug Combinations" rows={dmDrugCombos} />
       </div>
 
       <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
