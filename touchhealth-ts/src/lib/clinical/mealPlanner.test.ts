@@ -16,6 +16,11 @@ function loadJsonData() {
   return { foods, rules };
 }
 
+function unitsFromPortionText(text: string): number {
+  const match = text.match(/^(\d+(?:\.\d+)?)/);
+  return match ? Number(match[1]) : 0;
+}
+
 describe('meal planner', () => {
   beforeAll(() => {
     const { foods, rules } = loadJsonData();
@@ -180,5 +185,37 @@ describe('meal planner', () => {
     });
 
     expect(plan.diagnosis).toBe('DM, HTN');
+  });
+
+  it('keeps scaled meal portions within practical serving limits', () => {
+    const plan = generateMealPlan({
+      patientCode: 'RC-REALISTIC',
+      age: 55,
+      sex: 'female',
+      weightKg: 65,
+      heightCm: 162,
+      conditions: ['HTN'],
+      zone: 'Lake Zone',
+      language: 'en',
+      medicationIds: ['MED_CCB'],
+    });
+
+    const breakfastPorridge = plan.meals
+      .find(meal => meal.mealType === 'Breakfast')?.items
+      .find(item => /porridge|uji/i.test(item.name_en));
+    const lunchStarch = plan.meals
+      .find(meal => meal.mealType === 'Lunch')?.items
+      .find(item => /ugali|rice|wali/i.test(item.name_en));
+
+    expect(breakfastPorridge).toBeTruthy();
+    expect(lunchStarch).toBeTruthy();
+    expect(unitsFromPortionText(breakfastPorridge!.portionText)).toBeLessThanOrEqual(3);
+    expect(unitsFromPortionText(lunchStarch!.portionText)).toBeLessThanOrEqual(2.5);
+  });
+
+  it('aligns hypertension caution text with the sodium target', () => {
+    const cautions = buildCautions(['HTN'], 'en', { sodiumMg: 1500 });
+    expect(cautions.some(text => text.includes('1500mg/day'))).toBe(true);
+    expect(cautions.some(text => text.includes('5g/day'))).toBe(false);
   });
 });

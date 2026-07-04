@@ -1,5 +1,7 @@
 import type { FoodItem } from './types';
 
+type MealType = 'Breakfast' | 'Lunch' | 'Dinner';
+
 function formatQuantity(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
 }
@@ -8,6 +10,38 @@ export function getServingGrams(food: FoodItem, portionMultiplier: number): numb
   const gramsPerUnit = food.serving?.grams_per_unit ?? 100;
   const defaultUnits = food.serving?.default_units ?? 1;
   return gramsPerUnit * defaultUnits * portionMultiplier;
+}
+
+export function getPracticalPortionLimit(food: FoodItem, mealType: MealType): number {
+  const defaultUnits = food.serving?.default_units ?? 1;
+  const name = `${food.name_en} ${food.name_sw}`.toLowerCase();
+  const unit = `${food.serving?.unit_en ?? ''} ${food.serving?.unit_sw ?? ''}`.toLowerCase();
+  const categories = Array.isArray(food.category) ? food.category : [food.category];
+
+  const toMultiplier = (maxUnits: number) => Math.max(0.5, maxUnits / Math.max(defaultUnits, 0.5));
+
+  if (/porridge|uji/.test(name) || /tea cup|kikombe cha chai/.test(unit)) {
+    return toMultiplier(mealType === 'Breakfast' ? 3 : 2.5);
+  }
+  if (/ugali|stiff porridge|fist/.test(name) || /fist|ngumi/.test(unit)) {
+    return toMultiplier(mealType === 'Lunch' ? 2.5 : 2);
+  }
+  if (/piece/.test(unit) && categories.includes('carb')) {
+    return toMultiplier(mealType === 'Lunch' ? 3 : 2.5);
+  }
+  if (categories.includes('protein')) {
+    if (/palm/.test(unit)) return toMultiplier(mealType === 'Lunch' ? 1.5 : 1.25);
+    if (/egg|yai/.test(name)) return toMultiplier(1);
+    return toMultiplier(1.5);
+  }
+  if (categories.includes('vegetable') || categories.includes('veg') || categories.includes('vitamin')) {
+    return toMultiplier(1.5);
+  }
+  if (categories.includes('fruit')) {
+    return toMultiplier(1.5);
+  }
+
+  return Math.max(1.5, toMultiplier(2));
 }
 
 export function formatMealPortion(

@@ -5,7 +5,7 @@ import { normalizeConditionList } from './conditions';
 import { getDrugFoodInteractions } from './drugInteractions';
 import { evalFoodForPatient, getAvoidFoods, getRecommendedFoods } from './foodSafety';
 import { getMealTemplates, STARCH_EGG_INCOMPATIBLE, type MealBlueprint } from './mealTemplates';
-import { formatMealPortion, computeFoodMacros } from './mealPortions';
+import { computeFoodMacros, formatMealPortion, getPracticalPortionLimit } from './mealPortions';
 import { computeNutritionTargets } from './nutritionEngine';
 import type { PrepMethod } from './mealLocalization';
 import type { DailyMeal, FoodItem, GeneratedMealPlan, MealItem, NutritionTargets, TZRegion } from './types';
@@ -158,6 +158,7 @@ function scalePortion(portion: number, ratio: number, maxPortion: number): numbe
 
 function rebalanceMealPortions(
   resolved: ResolvedMealItem[],
+  mealType: 'Breakfast' | 'Lunch' | 'Dinner',
   mealTargetCalories: number,
 ): ResolvedMealItem[] {
   if (resolved.length === 0) return resolved;
@@ -168,9 +169,10 @@ function rebalanceMealPortions(
   const primaryRatio = mealTargetCalories / Math.max(currentKcal, 80);
 
   if (starchIdx >= 0 && primaryRatio >= 0.4 && primaryRatio <= 4.5) {
+    const starchMax = getPracticalPortionLimit(scaled[starchIdx].food, mealType);
     scaled[starchIdx] = {
       ...scaled[starchIdx],
-      portion: scalePortion(scaled[starchIdx].portion, primaryRatio, 4.0),
+      portion: scalePortion(scaled[starchIdx].portion, primaryRatio, starchMax),
     };
   }
 
@@ -182,8 +184,8 @@ function rebalanceMealPortions(
       ...item,
       portion: scalePortion(
         item.portion,
-        starchIdx >= 0 && idx !== starchIdx ? Math.min(finalRatio, 1.8) : finalRatio,
-        starchIdx >= 0 && idx === starchIdx ? 4.0 : 3.0,
+        starchIdx >= 0 && idx !== starchIdx ? Math.min(finalRatio, 1.25) : finalRatio,
+        getPracticalPortionLimit(item.food, mealType),
       ),
     }));
   }
@@ -219,7 +221,7 @@ function buildMealFromBlueprint(
   }
 
   resolved = repairIncompatibleEggMeals(resolved, conditions, zone, availableFoodIds);
-  resolved = rebalanceMealPortions(resolved, mealTargetCalories);
+  resolved = rebalanceMealPortions(resolved, blueprint.mealType, mealTargetCalories);
 
   const items: MealItem[] = resolved.map(({ food, portion, prep }) => ({
     foodId: food.id,
@@ -252,18 +254,23 @@ function buildMealFromBlueprint(
   };
 }
 
-export function buildCautions(conditions: string[], lang: 'en' | 'sw'): string[] {
+export function buildCautions(
+  conditions: string[],
+  lang: 'en' | 'sw',
+  targets?: Pick<NutritionTargets, 'sodiumMg'>,
+): string[] {
   const dx = normalizeConditionList(conditions);
   const L = (en: string, sw: string) => lang === 'en' ? en : sw;
   const cautions: string[] = [];
+  const sodiumTarget = targets?.sodiumMg ?? (dx.some(d => /hf|heart failure|htn|hypertension/i.test(d)) ? 1500 : 2000);
 
   if (dx.some(d => /dm|diabetes/i.test(d))) cautions.push(L(
     'Diabetes: avoid sugary drinks, limit starch to one fist per meal, choose low-GI foods.',
     'Kisukari: epuka vinywaji vyenye sukari, punguza wanga hadi ngumi moja kwa mlo, chagua vyakula vya GI ya chini.',
   ));
   if (dx.some(d => /htn|hypertension/i.test(d))) cautions.push(L(
-    'Hypertension: keep salt under 5g/day. Avoid salty processed foods and excess coconut milk.',
-    'Presha: weka chumvi chini ya gramu 5 kwa siku. Epuka vyakula vilivyosindikwa vyenye chumvi na maziwa mengi ya nazi.',
+    `Hypertension: keep sodium under ${sodiumTarget}mg/day. Avoid salty processed foods and excess coconut milk.`,
+    `Presha: weka sodiamu chini ya ${sodiumTarget}mg kwa siku. Epuka vyakula vilivyosindikwa vyenye chumvi na maziwa mengi ya nazi.`,
   ));
   if (dx.some(d => /ckd|kidney/i.test(d))) cautions.push(L(
     'CKD: limit protein and potassium. Confirm fluid limits with your renal team.',
@@ -329,7 +336,7 @@ export function generateMealPlan(params: {
   const drugAlerts = getDrugFoodInteractions(medicationIds);
   const avoidFoods = getAvoidFoods(conditions, zone);
   const recommendedFoods = getRecommendedFoods(conditions, zone);
-  const cautions = buildCautions(conditions, language);
+  const cautions = buildCautions(conditions, language, targets);
 
   return {
     patientCode,
