@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, Send, X } from 'lucide-react';
 import {
-  buildSMSMessage,
-  getPatientNextDate,
-  getPatientSMSReason,
+  buildSMSPreview,
 } from '../../services/sms';
 import { loadClinicSettings, loadSMSConfig } from '../../services/storage';
 import type { Patient } from '../../types';
@@ -92,12 +90,12 @@ export function ClinicConfirmModal({
   const [expanded, setExpanded] = useState<number | null>(null);
 
   const previews = useMemo(() => rows.map((row) => {
-    const reason = getPatientSMSReason(row.patient, clinicCfg) ?? 'reminder';
+    const preview = buildSMSPreview(row.patient, cfg, clinicCfg, lang);
     return {
       row,
-      reason,
-      message: buildSMSMessage(row.patient, cfg, lang, getPatientNextDate(row.patient, clinicCfg), reason),
-      hasPhone: !!row.patient.phone,
+      reason: preview?.reason ?? 'reminder',
+      message: preview?.message ?? '',
+      hasPhone: preview?.hasPhone ?? false,
     };
   }), [rows, lang, cfg, clinicCfg]);
 

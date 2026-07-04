@@ -36,6 +36,7 @@ import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import BackupPanel from '../components/ui/BackupPanel';
 import {
+  buildSMSPreview,
   sendSMS as sendSMSService,
   daysUntilAppointment,
   buildSMSMessage,
@@ -1043,9 +1044,10 @@ function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clini
                 </thead>
                 <tbody>
                   {smsFilteredPatients.map((patient) => {
-                    const days = daysUntilAppointment(patient, clinicSettings);
-                    const resolvedReason = smsReason[patient.id] ?? getPatientSMSReason(patient, clinicSettings) ?? 'reminder';
-                    const preview = buildSMSMessage(
+                    const smsPreview = buildSMSPreview(patient, smsConfig, clinicSettings, smsLang, smsReason[patient.id]);
+                    const days = smsPreview?.daysUntil ?? daysUntilAppointment(patient, clinicSettings);
+                    const resolvedReason = smsPreview?.reason ?? getPatientSMSReason(patient, clinicSettings) ?? 'reminder';
+                    const preview = smsPreview?.message ?? buildSMSMessage(
                       patient,
                       smsConfig,
                       smsLang,

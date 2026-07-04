@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSMSMessage, filterPatientsForSmsTab, getPatientSMSReason } from './sms';
+import { buildSMSMessage, buildSMSPreview, filterPatientsForSmsTab, getBulkSendCandidates, getPatientSMSReason, resolvePatientSMSReason } from './sms';
 import type { ClinicSettings, Patient, SMSConfig, Visit } from '../types';
 
 const clinicCfg: ClinicSettings = {
@@ -107,5 +107,46 @@ describe('sms logic', () => {
 
     expect(message).toContain('ulikosa kliniki');
     expect(message).toContain('Facility A');
+  });
+
+  it('builds a preview using an override reason', () => {
+    const patient = mkPatient({});
+    const preview = buildSMSPreview(patient, smsCfg, clinicCfg, 'en', 'ltfu_warning');
+
+    expect(preview?.reason).toBe('ltfu_warning');
+    expect(preview?.message).toContain('we have missed you');
+    expect(preview?.hasPhone).toBe(true);
+  });
+
+  it('resolves override reason before automatic classification', () => {
+    const patient = mkPatient({
+      scheduledNext: {
+        date: '2026-06-01',
+        note: 'Follow-up',
+        scheduledOn: '2026-05-01',
+        scheduledBy: 'Admin',
+      },
+    });
+
+    expect(resolvePatientSMSReason(patient, clinicCfg, 'reminder')).toBe('reminder');
+  });
+
+  it('builds bulk send candidates from shared rules', () => {
+    const due = mkPatient({
+      id: 1,
+      scheduledNext: {
+        date: '2026-06-01',
+        note: 'Follow-up',
+        scheduledOn: '2026-05-01',
+        scheduledBy: 'Admin',
+      },
+    });
+    const noPhone = mkPatient({ id: 2, phone: undefined });
+
+    const candidates = getBulkSendCandidates([due, noPhone], clinicCfg);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]?.patient.id).toBe(1);
+    expect(candidates[0]?.reason).toBe('missed_appointment');
   });
 });

@@ -42,6 +42,15 @@ import { supabase } from './supabase';
 
 export type SmsPatientTab = 'ltfu' | 'overdue' | 'reminder' | 'all';
 
+export interface SMSPreview {
+  patient: Patient;
+  reason: SMSReason;
+  nextDate: Date;
+  daysUntil: number;
+  message: string;
+  hasPhone: boolean;
+}
+
 // ── Message building ──────────────────────────────────────────
 
 export function buildSMSMessage(
@@ -85,6 +94,47 @@ export function getPatientNextDate(patient: Patient, cfg: ClinicSettings): Date 
 export function daysUntilAppointment(patient: Patient, cfg: ClinicSettings): number {
   const nd = getPatientNextDate(patient, cfg);
   return Math.round((nd.getTime() - Date.now()) / 864e5);
+}
+
+export function resolvePatientSMSReason(
+  patient: Patient,
+  cfg: ClinicSettings,
+  overrideReason?: SMSReason | null,
+  withinDays = 7,
+): SMSReason | null {
+  return overrideReason ?? getPatientSMSReason(patient, cfg, withinDays);
+}
+
+export function buildSMSPreview(
+  patient: Patient,
+  cfg: SMSConfig,
+  clinicCfg: ClinicSettings,
+  lang: 'en' | 'sw',
+  overrideReason?: SMSReason | null,
+): SMSPreview | null {
+  const reason = resolvePatientSMSReason(patient, clinicCfg, overrideReason);
+  if (!reason) return null;
+
+  const nextDate = getPatientNextDate(patient, clinicCfg);
+  return {
+    patient,
+    reason,
+    nextDate,
+    daysUntil: daysUntilAppointment(patient, clinicCfg),
+    message: buildSMSMessage(patient, cfg, lang, nextDate, reason),
+    hasPhone: !!patient.phone,
+  };
+}
+
+export function getBulkSendCandidates(
+  patients: Patient[],
+  clinicCfg: ClinicSettings,
+  overrides: Record<number, SMSReason> = {},
+): Array<{ patient: Patient; reason: SMSReason }> {
+  return patients.flatMap((patient) => {
+    const reason = resolvePatientSMSReason(patient, clinicCfg, overrides[patient.id]);
+    return patient.phone && reason ? [{ patient, reason }] : [];
+  });
 }
 
 export function filterPatientsForSmsTab(
@@ -216,8 +266,9 @@ export async function sendSMS(
   sentBy?: string,
 ): Promise<SMSLogEntry> {
   const resolvedReason = reason ?? getPatientSMSReason(patient, clinicCfg) ?? 'reminder';
-  const nextDate = getPatientNextDate(patient, clinicCfg);
-  const message  = buildSMSMessage(patient, cfg, lang, nextDate, resolvedReason);
+  const preview = buildSMSPreview(patient, cfg, clinicCfg, lang, resolvedReason);
+  const nextDate = preview?.nextDate ?? getPatientNextDate(patient, clinicCfg);
+  const message  = preview?.message ?? buildSMSMessage(patient, cfg, lang, nextDate, resolvedReason);
 
   // Decrypt phone number — only here, only for this send operation
   const rawPhone = await decryptPhone(

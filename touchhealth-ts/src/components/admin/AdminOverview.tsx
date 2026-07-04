@@ -18,9 +18,8 @@ import {
   getProgrammeOverview,
 } from '../../services/analytics';
 import {
+  buildSMSPreview,
   buildSMSMessage,
-  getPatientNextDate,
-  getPatientSMSReason,
   smsAlreadySentRecently,
 } from '../../services/sms';
 import type { ClinicSettings, Hospital, Patient, SMSReason } from '../../types';
@@ -217,12 +216,12 @@ export function AdminBulkConfirmModal({
 }) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const previews = useMemo(() => patients.map((patient) => {
-    const reason = smsReason[patient.id] ?? getPatientSMSReason(patient, clinicSettings) ?? 'reminder';
+    const preview = buildSMSPreview(patient, smsConfig, clinicSettings, lang, smsReason[patient.id]);
     return {
       patient,
-      reason,
-      message: buildSMSMessage(patient, smsConfig, lang, getPatientNextDate(patient, clinicSettings), reason),
-      hasPhone: !!patient.phone,
+      reason: preview?.reason ?? 'reminder',
+      message: preview?.message ?? buildSMSMessage(patient, smsConfig, lang, new Date(), 'reminder'),
+      hasPhone: preview?.hasPhone ?? false,
       recentlySent: smsAlreadySentRecently(patient.id, 3),
     };
   }), [patients, lang, smsConfig, clinicSettings, smsReason]);

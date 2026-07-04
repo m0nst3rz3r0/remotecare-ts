@@ -9,7 +9,7 @@ import {
   ChevronUp,
   Send,
 } from 'lucide-react';
-import { daysUntilAppointment, getPatientNextDate, buildSMSMessage, sendSMS as sendSMSService, getPatientSMSReason, exportSMSLogCSV } from '../../services/sms';
+import { buildSMSPreview, daysUntilAppointment, sendSMS as sendSMSService, exportSMSLogCSV } from '../../services/sms';
 import { loadSMSConfig, loadClinicSettings } from '../../services/storage';
 import type { Patient, SMSLogEntry, SMSReason } from '../../types';
 
@@ -62,13 +62,13 @@ export function ComposeDrawer({
 }) {
   const cfg = loadSMSConfig();
   const clinicCfg = loadClinicSettings();
-  const autoReason = getPatientSMSReason(patient, clinicCfg) ?? 'reminder';
+  const autoReason = buildSMSPreview(patient, cfg, clinicCfg, lang)?.reason ?? 'reminder';
   const [reason, setReason] = useState<SMSReason>(autoReason);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [result, setResult] = useState<SMSLogEntry | null>(null);
 
-  const message = buildSMSMessage(patient, cfg, lang, getPatientNextDate(patient, clinicCfg), reason);
+  const message = buildSMSPreview(patient, cfg, clinicCfg, lang, reason)?.message ?? '';
 
   const handleSend = async () => {
     setSending(true);
@@ -144,12 +144,12 @@ export function BulkConfirmModal({
   const clinicCfg = loadClinicSettings();
   const [expanded, setExpanded] = useState<number | null>(null);
   const previews = useMemo(() => patients.map((patient) => {
-    const reason = getPatientSMSReason(patient, clinicCfg) ?? 'reminder';
+    const preview = buildSMSPreview(patient, cfg, clinicCfg, lang);
     return {
       patient,
-      reason,
-      message: buildSMSMessage(patient, cfg, lang, getPatientNextDate(patient, clinicCfg), reason),
-      hasPhone: !!patient.phone,
+      reason: preview?.reason ?? 'reminder',
+      message: preview?.message ?? '',
+      hasPhone: preview?.hasPhone ?? false,
     };
   }), [patients, lang, cfg, clinicCfg]);
 

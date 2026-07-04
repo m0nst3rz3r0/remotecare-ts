@@ -39,7 +39,7 @@ import { useAuthStore }  from '../store/useAuthStore';
 import { usePatientStore, selectVisiblePatients, selectSelectedPatient } from '../store/usePatientStore';
 import { isDue } from '../services/clinical';
 import { maskPhone } from '../utils/phone';
-import { sendSMS as sendSMSService } from '../services/sms';
+import { buildSMSPreview, getBulkSendCandidates, sendSMS as sendSMSService } from '../services/sms';
 import { BulkConfirmModal, ComposeDrawer, ReasonBadge, SectionHeader, StatusBadge, daysUntilAppointment, exportSMSLogCSV } from '../components/ltfu/LtfuPageParts';
 import {
   loadSMSConfig, saveSMSConfig,
@@ -153,7 +153,7 @@ export default function LTFUPage() {
   const handleBulkConfirm = useCallback(async () => {
     const cfg       = loadSMSConfig();
     const clinicCfg = loadClinicSettings();
-    const toSend    = selectedPatients.filter(p => p.phone);
+    const toSend    = getBulkSendCandidates(selectedPatients, clinicCfg).map((entry) => entry.patient);
 
     setBulkPhase('sending');
     setBulkProgress({ current: 0, total: toSend.length });
@@ -166,7 +166,7 @@ export default function LTFUPage() {
       if (abortRef.current) break;
       setBulkProgress({ current: i + 1, total: toSend.length });
       try {
-        const reason = getPatientSMSReason(toSend[i], clinicCfg) ?? 'reminder';
+        const reason = buildSMSPreview(toSend[i], cfg, clinicCfg, lang)?.reason ?? 'reminder';
         const entry  = await sendSMSService(toSend[i], lang, cfg, clinicCfg, reason, smsSenderName);
         entries.push(entry);
         (entry.status === 'sent' || entry.status === 'demo') ? sent++ : failed++;
@@ -520,7 +520,7 @@ export default function LTFUPage() {
               const isSelected  = selected.has(p.id);
               const isActive    = selectedPatient?.id === p.id;
               const hasPhone    = !!p.phone;
-              const autoReason  = getPatientSMSReason(p, clinicSettings) ?? 'reminder';
+              const autoReason  = buildSMSPreview(p, smsConfig, clinicSettings, lang)?.reason ?? 'reminder';
 
               return (
                 <div
