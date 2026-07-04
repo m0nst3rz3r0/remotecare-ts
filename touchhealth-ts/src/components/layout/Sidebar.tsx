@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, LayoutDashboard, LogOut, TrendingUp, UserCog, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutDashboard, LogOut, TrendingUp, UserCog, Users, type LucideIcon } from 'lucide-react';
 import { useAuthStore }    from '../../store/useAuthStore';
 import { useUIStore }      from '../../store/useUIStore';
 import { loadUsers }       from '../../services/auth';
@@ -14,7 +14,7 @@ import { getUserInitials } from '../../services/auth';
 interface NavItem {
   id: string;
   label: string;
-  icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number; style?: React.CSSProperties }>;
+  icon: LucideIcon;
   badge?: number;
   section: string;
 }

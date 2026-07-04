@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PageWrapper from '../components/layout/PageWrapper';
 import ZoneSettingsPanel from '../components/ZoneSettingsPanel';
 import type { Hospital, Patient, User } from '../types';
@@ -50,11 +50,25 @@ import {
 import { loadSMSConfig, saveSMSConfig, loadSMSLog } from '../services/storage';
 import type { SMSConfig } from '../types';
 import { maskPhone } from '../utils/phone';
-import DirectoryPage from './DirectoryPage';
-import AnalyticsBuilder from './AnalyticsBuilder';
 
 import { Target, Smartphone, X, Send } from 'lucide-react';
 import { AdminBulkConfirmModal, OverviewView, titleForAdminPage } from '../components/admin/AdminOverview';
+const CARD_STYLE: React.CSSProperties = {
+  background: '#fff',
+  border: '1px solid #e2e8f0',
+  borderRadius: 12,
+};
+
+const DirectoryPage = lazy(() => import('./DirectoryPage'));
+const AnalyticsBuilder = lazy(() => import('./AnalyticsBuilder'));
+
+function AdminSectionFallback() {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6 text-[13px] text-slate-500">
+      Loading section...
+    </div>
+  );
+}
 
 // ── Design tokens — aligned with the rest of the app ─────────
 function SettingsView({ patients, clinicSettings }: { patients: Patient[]; clinicSettings: any }) {
@@ -1378,14 +1392,20 @@ export default function AdminPage() {
       )}
 
       {activePage === 'trends' && (
-        <AnalyticsBuilder
-          scopedPatients={scopedPatients}
-          scopeLabel={scopeLabel}
-          isSuperAdmin={superAdmin}
-        />
+        <Suspense fallback={<AdminSectionFallback />}>
+          <AnalyticsBuilder
+            scopedPatients={scopedPatients}
+            scopeLabel={scopeLabel}
+            isSuperAdmin={superAdmin}
+          />
+        </Suspense>
       )}
 
-      {activePage === 'directory'       && <DirectoryPage />}
+      {activePage === 'directory' && (
+        <Suspense fallback={<AdminSectionFallback />}>
+          <DirectoryPage />
+        </Suspense>
+      )}
       {activePage === 'settings'         && <SettingsView patients={patients} clinicSettings={clinicSettings} />}
       {activePage === 'user-management'   && <SettingsView patients={patients} clinicSettings={clinicSettings} />}
     </PageWrapper>

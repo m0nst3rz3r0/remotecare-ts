@@ -7,6 +7,11 @@ import { loadClinicSettings, loadSMSConfig } from '../../services/storage';
 import type { Patient } from '../../types';
 
 export type SlotStatus = 'seen' | 'expected' | 'overdue' | 'upcoming';
+export type BulkSendState =
+  | { phase: 'idle' }
+  | { phase: 'confirm' }
+  | { phase: 'sending'; current: number; total: number }
+  | { phase: 'done'; sent: number; skipped: number; failed: number };
 
 export interface ClinicRow {
   patient: Patient;
@@ -21,12 +26,25 @@ export interface ClinicRow {
   sgCrisis: boolean;
 }
 
-const STATUS_CFG: Record<SlotStatus, { label: string; bg: string; color: string; border: string }> = {
+export const STATUS_CFG: Record<SlotStatus, { label: string; bg: string; color: string; border: string }> = {
   seen: { label: 'Seen', bg: '#dcfce7', color: '#14532d', border: '#86efac' },
   expected: { label: 'Expected', bg: '#fef3c7', color: '#78350f', border: '#fcd34d' },
   overdue: { label: 'Overdue', bg: '#fee2e2', color: '#7f1d1d', border: '#fca5a5' },
   upcoming: { label: 'Upcoming', bg: '#e0f2fe', color: '#0369a1', border: '#7dd3fc' },
 };
+
+export function condStyle(cond: Patient['cond']): React.CSSProperties {
+  if (cond === 'DM') return { background: '#dbeafe', color: '#1d4ed8' };
+  if (cond === 'DM+HTN') return { background: '#fef3c7', color: '#92400e' };
+  return { background: '#fee2e2', color: '#b91c1c' };
+}
+
+export function fmt12h(hour: number): string {
+  const normalizedHour = ((hour % 24) + 24) % 24;
+  const suffix = normalizedHour >= 12 ? 'PM' : 'AM';
+  const displayHour = normalizedHour % 12 || 12;
+  return `${displayHour}:00 ${suffix}`;
+}
 
 function ProgressRing({ pct, size = 56, stroke = 5, color = '#16a34a' }: {
   pct: number; size?: number; stroke?: number; color?: string;

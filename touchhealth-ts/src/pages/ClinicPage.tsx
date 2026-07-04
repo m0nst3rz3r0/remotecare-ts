@@ -35,7 +35,17 @@ import {
 } from '../services/clinical';
 import { sendSMS, getPatientSMSReason } from '../services/sms';
 import { loadSMSConfig, loadClinicSettings } from '../services/storage';
-import { ClinicConfirmModal, ClinicStatCard, useLiveClock, type ClinicRow, type SlotStatus } from '../components/clinic/ClinicPageParts';
+import {
+  ClinicConfirmModal,
+  ClinicStatCard,
+  STATUS_CFG,
+  condStyle,
+  fmt12h,
+  useLiveClock,
+  type BulkSendState,
+  type ClinicRow,
+  type SlotStatus,
+} from '../components/clinic/ClinicPageParts';
 
 // ── Constants ─────────────────────────────────────────────────
 const CLINIC_OPEN_HOUR  = 7;
