@@ -17,7 +17,7 @@ import {
   ANALYTICS_METRICS,
   ANALYTICS_MONTHS,
   getMetricBarData,
-  getMetricSeries,
+  getMetricTrendSeries,
   isBarMetric,
   type MetricDef,
   type MetricId,
@@ -132,6 +132,8 @@ export default function AnalyticsBuilder({
   const currentYear = new Date().getFullYear();
   const [internalYear, setInternalYear] = useState(selectedYear ?? currentYear);
   const [yearB, setYearB] = useState(currentYear - 1);
+  const [trendMode, setTrendMode] = useState<'yearly' | 'monthly'>('yearly');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [compare, setCompare] = useState(false);
   const [metricA, setMetricA] = useState<MetricId>('enrolment');
   const [metricB, setMetricB] = useState<MetricId>('bp_control');
@@ -159,10 +161,22 @@ export default function AnalyticsBuilder({
     return scopeLabel;
   }, [district, isSuperAdmin, region, scopeLabel]);
 
-  const seriesA = useMemo(() => getMetricSeries(metricA, patients, year), [metricA, patients, year]);
-  const seriesB = useMemo(() => getMetricSeries(metricB, patients, year), [metricB, patients, year]);
-  const seriesAComp = useMemo(() => getMetricSeries(metricA, patients, yearB), [metricA, patients, yearB]);
-  const seriesBComp = useMemo(() => getMetricSeries(metricB, patients, yearB), [metricB, patients, yearB]);
+  const trendA = useMemo(() => getMetricTrendSeries(metricA, patients, {
+    mode: trendMode,
+    year,
+    month: selectedMonth,
+    compareYear: compare ? yearB : undefined,
+  }), [compare, metricA, patients, selectedMonth, trendMode, year, yearB]);
+  const trendB = useMemo(() => getMetricTrendSeries(metricB, patients, {
+    mode: trendMode,
+    year,
+    month: selectedMonth,
+    compareYear: compare && trendMode === 'yearly' ? yearB : undefined,
+  }), [compare, metricB, patients, selectedMonth, trendMode, year, yearB]);
+  const seriesA = trendA.primary;
+  const seriesB = trendB.primary;
+  const seriesAComp = trendA.comparison;
+  const seriesBComp = trendB.comparison;
   const barDataA = useMemo(() => getMetricBarData(metricA, patients), [metricA, patients]);
 
   const defA = ANALYTICS_METRICS.find((metric) => metric.id === metricA)!;
@@ -185,7 +199,7 @@ export default function AnalyticsBuilder({
       },
     ];
 
-    if (compare) {
+    if (compare && trendMode === 'yearly' && seriesAComp?.length) {
       rows.push({
         label: `${defA.label} (${yearB})`,
         data: seriesAComp,
@@ -217,7 +231,7 @@ export default function AnalyticsBuilder({
         yAxisID: 'yB',
       });
 
-      if (compare) {
+      if (compare && trendMode === 'yearly' && seriesBComp?.length) {
         rows.push({
           label: `${defB.label} (${yearB})`,
           data: seriesBComp,
@@ -236,7 +250,7 @@ export default function AnalyticsBuilder({
     }
 
     return rows;
-  }, [compare, defA, defB, metricA, seriesA, seriesAComp, seriesB, seriesBComp, showSecond, year, yearB]);
+  }, [compare, defA, defB, metricA, seriesA, seriesAComp, seriesB, seriesBComp, showSecond, trendMode, year, yearB]);
 
   const summaryA = useMemo(() => {
     const values = seriesA.filter((v): v is number => v !== null);
@@ -306,7 +320,10 @@ export default function AnalyticsBuilder({
     },
   }), [defA, defB, metricA, showSecond]);
 
-  const chartData = useMemo(() => ({ labels: ANALYTICS_MONTHS, datasets }), [datasets]);
+  const chartData = useMemo(() => ({
+    labels: trendMode === 'yearly' ? trendA.labels : trendA.labels,
+    datasets,
+  }), [datasets, trendA.labels, trendMode]);
 
   const card: React.CSSProperties = {
     background: 'rgba(255,255,255,0.78)',
@@ -338,10 +355,29 @@ export default function AnalyticsBuilder({
             </Select>
           </div>
 
+          <div style={{ minWidth: 140 }}>
+            <Label>Trend View</Label>
+            <Select value={trendMode} onChange={(v) => setTrendMode(v as 'yearly' | 'monthly')}>
+              <option value="yearly">Yearly</option>
+              <option value="monthly">Monthly</option>
+            </Select>
+          </div>
+
+          {trendMode === 'monthly' && (
+            <div style={{ minWidth: 140 }}>
+              <Label>Month</Label>
+              <Select value={String(selectedMonth)} onChange={(v) => setSelectedMonth(Number(v))}>
+                {ANALYTICS_MONTHS.map((value, index) => (
+                  <option key={value} value={index + 1}>{value}</option>
+                ))}
+              </Select>
+            </div>
+          )}
+
           <div style={{ minWidth: 150 }}>
             <Label>Compare to year</Label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Select value={String(yearB)} onChange={(v) => setYearB(Number(v))} disabled={!compare}>
+              <Select value={String(yearB)} onChange={(v) => setYearB(Number(v))} disabled={!compare || trendMode !== 'yearly'}>
                 {Array.from({ length: 6 }, (_, i) => currentYear - i).map((value) => (
                   <option key={value} value={value}>{value}</option>
                 ))}
@@ -354,10 +390,12 @@ export default function AnalyticsBuilder({
                   fontFamily: FONT,
                   fontSize: 12,
                   cursor: 'pointer',
-                  background: compare ? '#1a56db' : 'rgba(255,255,255,0.85)',
-                  color: compare ? '#fff' : '#64748b',
-                  border: `1.5px solid ${compare ? '#1a56db' : '#e2e8f0'}`,
+                  background: compare && trendMode === 'yearly' ? '#1a56db' : 'rgba(255,255,255,0.85)',
+                  color: compare && trendMode === 'yearly' ? '#fff' : '#64748b',
+                  border: `1.5px solid ${compare && trendMode === 'yearly' ? '#1a56db' : '#e2e8f0'}`,
+                  opacity: trendMode === 'yearly' ? 1 : 0.6,
                 }}
+                disabled={trendMode !== 'yearly'}
               >
                 {compare ? 'On' : 'Off'}
               </button>
@@ -502,7 +540,8 @@ export default function AnalyticsBuilder({
               <Line data={chartData as any} options={chartOptions as any} />
             </div>
             <div style={{ marginTop: 10, fontFamily: FONT, fontSize: 11, color: '#94a3b8', textAlign: 'right' }}>
-              {compare ? <span style={{ marginRight: 14 }}>dashed = {yearB}</span> : null}
+              {compare && trendMode === 'yearly' ? <span style={{ marginRight: 14 }}>dashed = {yearB}</span> : null}
+              {trendMode === 'monthly' ? <span style={{ marginRight: 14 }}>showing {ANALYTICS_MONTHS[selectedMonth - 1]} across years</span> : null}
               Scope: <strong style={{ color: '#64748b' }}>{displayScope}</strong>
             </div>
           </div>

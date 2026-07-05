@@ -99,6 +99,14 @@ export interface MonthlyOverviewRow {
   ltfuRate: number | null;
 }
 
+export interface TrendSeriesConfig {
+  mode: 'yearly' | 'monthly';
+  year: number;
+  month: number;
+  compareYear?: number;
+  yearsBack?: number;
+}
+
 export const ANALYTICS_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export const ANALYTICS_METRICS: MetricDef[] = [
@@ -389,6 +397,32 @@ export function getMetricSeries(
         return null;
     }
   });
+}
+
+export function getMetricTrendSeries(
+  metricId: MetricId,
+  patients: Patient[],
+  config: TrendSeriesConfig,
+): { labels: string[]; primary: (number | null)[]; comparison?: (number | null)[] } {
+  if (config.mode === 'yearly') {
+    return {
+      labels: ANALYTICS_MONTHS,
+      primary: getMetricSeries(metricId, patients, config.year),
+      comparison: typeof config.compareYear === 'number'
+        ? getMetricSeries(metricId, patients, config.compareYear)
+        : undefined,
+    };
+  }
+
+  const yearsBack = config.yearsBack ?? 5;
+  const years = Array.from({ length: yearsBack }, (_, index) => config.year - (yearsBack - index - 1));
+  const labels = years.map(String);
+  const primary = years.map((year) => getMetricSeries(metricId, patients, year)[config.month - 1] ?? null);
+
+  return {
+    labels,
+    primary,
+  };
 }
 
 export function getMetricBarData(metricId: MetricId, patients: Patient[]): BarData[] | null {
