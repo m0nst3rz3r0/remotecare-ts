@@ -2,6 +2,7 @@ import {
   bpClass,
   getMonthlyAttendanceRate,
   getMonthlyStats,
+  getCurrentMeds,
   isControlled,
   isDueWithSettings,
   isGlucoseControlled,
@@ -45,6 +46,7 @@ export interface BarData {
   value: number;
   controlRate?: number;
   color: string;
+  details?: string[];
 }
 
 export interface ProgrammeOverview {
@@ -174,6 +176,15 @@ function getVisitYear(visit: Visit) {
   return +(visit.year ?? new Date(visit.date ?? '').getFullYear());
 }
 
+function isDateInScope(date: string | undefined, scope?: BarMetricScope) {
+  if (!scope || (!scope.year && !scope.month)) return true;
+  const parsed = new Date(date ?? '');
+  if (Number.isNaN(parsed.getTime())) return false;
+  if (typeof scope.year === 'number' && parsed.getFullYear() !== scope.year) return false;
+  if (typeof scope.month === 'number' && parsed.getMonth() + 1 !== scope.month) return false;
+  return true;
+}
+
 function getScopedVisit(patient: Patient, scope?: BarMetricScope): Visit | null {
   const visits = [...(patient.visits ?? [])]
     .filter((visit) => {
@@ -187,9 +198,26 @@ function getScopedVisit(patient: Patient, scope?: BarMetricScope): Visit | null 
   return visits[0] ?? null;
 }
 
-function getScopedVisitMeds(patient: Patient, scope?: BarMetricScope): string[] {
+function getScopedMedicationNames(patient: Patient, scope?: BarMetricScope): string[] {
   const visit = getScopedVisit(patient, scope);
-  return visit ? getVisitMeds(visit) : [];
+  const scopedMedicationRecord = [...(patient.medications ?? [])]
+    .filter((record) => isDateInScope(record.date, scope))
+    .sort((a, b) => new Date(b.date ?? '').getTime() - new Date(a.date ?? '').getTime())[0];
+
+  if (visit && scopedMedicationRecord) {
+    return new Date(visit.date ?? '').getTime() >= new Date(scopedMedicationRecord.date ?? '').getTime()
+      ? getVisitMeds(visit)
+      : (scopedMedicationRecord.meds ?? []).map((med) => med.name ?? '');
+  }
+
+  if (visit) return getVisitMeds(visit);
+  if (scopedMedicationRecord) return (scopedMedicationRecord.meds ?? []).map((med) => med.name ?? '');
+
+  if (scope) {
+    return getCurrentMeds(patient).map((med) => med.name ?? '');
+  }
+
+  return getCurrentMeds(patient).map((med) => med.name ?? '');
 }
 
 function isPatientDm(patient: Patient) {
@@ -212,6 +240,37 @@ function isScopedGlucoseControlled(patient: Patient, scope?: BarMetricScope) {
   const visit = getScopedVisit(patient, scope);
   if (!visit || visit.sugar == null) return false;
   return isGlucoseControlled(visit.sugar);
+}
+
+function formatDrugLabel(drug: string) {
+  const label = drug.replace(/[-_]/g, ' ');
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function getDrugDetailsForClass(
+  patients: Patient[],
+  classes: Record<string, string[]>,
+  classLabel: string,
+  scope?: BarMetricScope,
+): string[] {
+  const counts = new Map<string, number>();
+
+  patients.forEach((patient) => {
+    const uniqueDrugs = new Set(
+      getScopedMedicationNames(patient, scope)
+        .map((med) => detectDrug(med, classes))
+        .filter((drug): drug is string => Boolean(drug))
+        .filter((drug) => detectClass(drug, classes) === classLabel),
+    );
+
+    uniqueDrugs.forEach((drug) => {
+      counts.set(drug, (counts.get(drug) ?? 0) + 1);
+    });
+  });
+
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([drug, count]) => `${formatDrugLabel(drug)} (${count})`);
 }
 
 function getActivePatients(patients: Patient[]) {
@@ -455,15 +514,22 @@ export function getMetricTrendSeries(
     };
   }
 
-  const firstYear = 2025;
-  const startYear = Math.min(firstYear, config.year);
-  const years = Array.from({ length: config.year - startYear + 1 }, (_, index) => startYear + index);
-  const labels = years.map(String);
-  const primary = years.map((year) => getMetricSeries(metricId, patients, year)[config.month - 1] ?? null);
+  const primary = ANALYTICS_MONTHS.map((_, index) => (
+    index === config.month - 1
+      ? getMetricSeries(metricId, patients, config.year)[index] ?? null
+      : null
+  ));
 
   return {
-    labels,
+    labels: ANALYTICS_MONTHS,
     primary,
+    comparison: typeof config.compareYear === 'number'
+      ? ANALYTICS_MONTHS.map((_, index) => (
+          index === config.month - 1
+            ? getMetricSeries(metricId, patients, config.compareYear as number)[index] ?? null
+            : null
+        ))
+      : undefined,
   };
 }
 
@@ -477,9 +543,10 @@ export function getMetricBarData(metricId: MetricId, patients: Patient[], scope?
     return Object.keys(allClasses).map((cls, index) => ({
       label: cls,
       value: Math.round(
-        (activePatients.filter((patient) => getScopedVisitMeds(patient, scope).some((med) => detectClass(med, allClasses) === cls)).length / activePatients.length) * 100,
+        (activePatients.filter((patient) => getScopedMedicationNames(patient, scope).some((med) => detectClass(med, allClasses) === cls)).length / activePatients.length) * 100,
       ),
       color: colors[index % colors.length],
+      details: getDrugDetailsForClass(activePatients, allClasses, cls, scope),
     }));
   }
 
@@ -488,12 +555,17 @@ export function getMetricBarData(metricId: MetricId, patients: Patient[], scope?
     if (!htnPatients.length) return null;
     return Object.keys(HTN_CLASSES)
       .map((cls, index) => {
-        const onDrug = htnPatients.filter((patient) => getScopedVisitMeds(patient, scope).some((med) => detectClass(med, HTN_CLASSES) === cls));
+        const onDrug = htnPatients.filter((patient) => getScopedMedicationNames(patient, scope).some((med) => detectClass(med, HTN_CLASSES) === cls));
         if (!onDrug.length) return { label: cls, value: 0, color: colors[index] };
         const controlled = onDrug.filter((patient) => isScopedBpControlled(patient, scope));
-        return { label: cls, value: Math.round((controlled.length / onDrug.length) * 100), color: colors[index] };
+        return {
+          label: cls,
+          value: Math.round((controlled.length / onDrug.length) * 100),
+          color: colors[index],
+          details: getDrugDetailsForClass(onDrug, HTN_CLASSES, cls, scope),
+        };
       })
-      .filter((row) => row.value > 0 || patients.some((patient) => getScopedVisitMeds(patient, scope).some((med) => detectClass(med, HTN_CLASSES) === row.label)));
+      .filter((row) => row.value > 0 || patients.some((patient) => getScopedMedicationNames(patient, scope).some((med) => detectClass(med, HTN_CLASSES) === row.label)));
   }
 
   if (metricId === 'sugar_by_drug') {
@@ -501,10 +573,15 @@ export function getMetricBarData(metricId: MetricId, patients: Patient[], scope?
     if (!dmPatients.length) return null;
     return Object.keys(DM_CLASSES)
       .map((cls, index) => {
-        const onDrug = dmPatients.filter((patient) => getScopedVisitMeds(patient, scope).some((med) => detectClass(med, DM_CLASSES) === cls));
+        const onDrug = dmPatients.filter((patient) => getScopedMedicationNames(patient, scope).some((med) => detectClass(med, DM_CLASSES) === cls));
         if (!onDrug.length) return null;
         const controlled = onDrug.filter((patient) => isScopedGlucoseControlled(patient, scope));
-        return { label: cls, value: Math.round((controlled.length / onDrug.length) * 100), color: colors[index] };
+        return {
+          label: cls,
+          value: Math.round((controlled.length / onDrug.length) * 100),
+          color: colors[index],
+          details: getDrugDetailsForClass(onDrug, DM_CLASSES, cls, scope),
+        };
       })
       .filter(Boolean) as BarData[];
   }
@@ -520,7 +597,7 @@ export function getMetricBarData(metricId: MetricId, patients: Patient[], scope?
     const classes = isHtn ? HTN_CLASSES : DM_CLASSES;
 
     cohort.forEach((patient) => {
-      const meds = getScopedVisitMeds(patient, scope);
+      const meds = getScopedMedicationNames(patient, scope);
       const combo = [...new Set(meds.map((med) => detectDrug(med, classes)).filter(Boolean))].sort();
       if (!combo.length) return;
       const key = combo.map((drug) => {

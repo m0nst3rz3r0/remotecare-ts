@@ -105,7 +105,7 @@ describe('analytics service', () => {
     });
   });
 
-  it('starts monthly trend labels at 2025 for cross-year views', () => {
+  it('keeps monthly mode on the Jan-Dec axis and only populates the selected month', () => {
     const trend = getMetricTrendSeries('enrolment', [
       mkPatient({ enrol: '2025-04-10' }),
       mkPatient({ id: 2, code: 'PT-002', enrol: '2026-04-10' }),
@@ -113,10 +113,12 @@ describe('analytics service', () => {
       mode: 'monthly',
       year: 2026,
       month: 4,
+      compareYear: 2025,
     });
 
-    expect(trend.labels).toEqual(['2025', '2026']);
-    expect(trend.primary).toEqual([1, 1]);
+    expect(trend.labels).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
+    expect(trend.primary).toEqual([null, null, null, 1, null, null, null, null, null, null, null, null]);
+    expect(trend.comparison).toEqual([null, null, null, 1, null, null, null, null, null, null, null, null]);
   });
 
   it('builds HTN combination bars from the selected month and year', () => {
@@ -154,5 +156,56 @@ describe('analytics service', () => {
       value: 1,
       controlRate: 100,
     });
+  });
+
+  it('builds HTN combinations from saved medication records when visit meds are absent', () => {
+    const rows = getMetricBarData('htn_drug_combo', [
+      mkPatient({
+        code: 'MED-RECORD-COMBO',
+        visits: [mkVisit({
+          date: '2026-04-12',
+          month: 4,
+          year: 2026,
+          meds: [],
+        })],
+        medications: [{
+          date: '2026-04-20',
+          meds: [{ name: 'Losartan 50mg' }, { name: 'Amlodipine 5mg' }] as any,
+        }],
+      }),
+    ], { year: 2026 });
+
+    expect(rows?.[0]).toMatchObject({
+      label: 'Amlodipine + Losartan',
+      value: 1,
+    });
+  });
+
+  it('includes exact prescribed drugs under each drug class row', () => {
+    const rows = getMetricBarData('bp_by_drug', [
+      mkPatient({
+        code: 'HTN-1',
+        visits: [mkVisit({
+          sbp: 128,
+          dbp: 80,
+          meds: [{ name: 'Losartan 50mg' }, { name: 'Amlodipine 5mg' }] as any,
+        })],
+      }),
+      mkPatient({
+        id: 2,
+        code: 'HTN-2',
+        visits: [mkVisit({
+          sbp: 135,
+          dbp: 84,
+          meds: [{ name: 'Losartan 100mg' }] as any,
+        })],
+      }),
+    ], { year: 2026, month: 4 });
+
+    const arbRow = rows?.find((row) => row.label === 'ARB');
+    const ccbRow = rows?.find((row) => row.label === 'CCB');
+
+    expect(arbRow?.details).toEqual(['Losartan (2)']);
+    expect(ccbRow?.details).toEqual(['Amlodipine (1)']);
   });
 });
