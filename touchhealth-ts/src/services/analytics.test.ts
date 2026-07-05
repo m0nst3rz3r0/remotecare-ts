@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getMetricBarData,
+  getMetricTrendSeries,
   getDirectorySummary,
   getMonthlyVisitRows,
   getProgrammeOverview,
@@ -100,6 +102,57 @@ describe('analytics service', () => {
       controlled: 1,
       missed: 2,
       ltfu: 1,
+    });
+  });
+
+  it('starts monthly trend labels at 2025 for cross-year views', () => {
+    const trend = getMetricTrendSeries('enrolment', [
+      mkPatient({ enrol: '2025-04-10' }),
+      mkPatient({ id: 2, code: 'PT-002', enrol: '2026-04-10' }),
+    ], {
+      mode: 'monthly',
+      year: 2026,
+      month: 4,
+    });
+
+    expect(trend.labels).toEqual(['2025', '2026']);
+    expect(trend.primary).toEqual([1, 1]);
+  });
+
+  it('builds HTN combination bars from the selected month and year', () => {
+    const patients = [
+      mkPatient({
+        code: 'COMBO-PT',
+        visits: [
+          mkVisit({
+            id: 'v-2026-04',
+            date: '2026-04-15',
+            month: 4,
+            year: 2026,
+            sbp: 128,
+            dbp: 80,
+            meds: [{ name: 'Losartan 50mg' }, { name: 'Amlodipine 5mg' }] as any,
+          }),
+          mkVisit({
+            id: 'v-2026-06',
+            date: '2026-06-15',
+            month: 6,
+            year: 2026,
+            sbp: 150,
+            dbp: 96,
+            meds: [{ name: 'Losartan 50mg' }] as any,
+          }),
+        ],
+      }),
+    ];
+
+    const rows = getMetricBarData('htn_drug_combo', patients, { year: 2026, month: 4 });
+
+    expect(rows).toBeTruthy();
+    expect(rows?.[0]).toMatchObject({
+      label: 'Amlodipine + Losartan',
+      value: 1,
+      controlRate: 100,
     });
   });
 });

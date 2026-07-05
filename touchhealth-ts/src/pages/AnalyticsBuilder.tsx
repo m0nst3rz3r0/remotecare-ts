@@ -177,7 +177,9 @@ export default function AnalyticsBuilder({
   const seriesB = trendB.primary;
   const seriesAComp = trendA.comparison;
   const seriesBComp = trendB.comparison;
-  const barDataA = useMemo(() => getMetricBarData(metricA, patients), [metricA, patients]);
+  const barDataA = useMemo(() => getMetricBarData(metricA, patients, trendMode === 'monthly'
+    ? { year, month: selectedMonth }
+    : { year }), [metricA, patients, selectedMonth, trendMode, year]);
 
   const defA = ANALYTICS_METRICS.find((metric) => metric.id === metricA)!;
   const defB = ANALYTICS_METRICS.find((metric) => metric.id === metricB)!;
@@ -336,6 +338,10 @@ export default function AnalyticsBuilder({
     marginBottom: 16,
   };
 
+  const barScopeLabel = trendMode === 'monthly'
+    ? `${ANALYTICS_MONTHS[selectedMonth - 1]} ${year}`
+    : String(year);
+
   return (
     <div>
       <div style={card}>
@@ -479,6 +485,9 @@ export default function AnalyticsBuilder({
         <div style={card}>
           <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 12 }}>
             {defA.label}
+            <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 500, color: '#64748b' }}>
+              {barScopeLabel}
+            </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {barDataA.map((row) => {
@@ -504,6 +513,15 @@ export default function AnalyticsBuilder({
                 </div>
               );
             })}
+          </div>
+        </div>
+      ) : isBarMetric(metricA) ? (
+        <div style={card}>
+          <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>
+            {defA.label}
+          </div>
+          <div style={{ fontFamily: FONT, fontSize: 12, color: '#64748b' }}>
+            No recorded data for {barScopeLabel} in this scope.
           </div>
         </div>
       ) : null}

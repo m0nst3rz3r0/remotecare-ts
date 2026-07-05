@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  countByCondition,
   countByStatus,
   filterPatients,
   isActivePatientStatus,
@@ -94,5 +95,25 @@ describe('patient status semantics', () => {
     });
 
     expect(updated[0].status).toBe('active');
+  });
+
+  it('counts inferred DM+HTN patients even when the stored condition is incomplete', () => {
+    const counts = countByCondition([
+      mkPatient({
+        id: 30,
+        cond: 'HTN',
+        visits: [mkVisit({
+          sugar: 12,
+          sugarType: 'RBS',
+          meds: [{ name: 'Losartan 50mg' }, { name: 'Metformin 500mg' }] as any,
+        })],
+      }),
+    ]);
+
+    expect(counts).toEqual({
+      htn: 0,
+      dm: 0,
+      dmHtn: 1,
+    });
   });
 });

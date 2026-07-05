@@ -28,6 +28,7 @@ import type {
 import type { GeneratedMealPlan } from '../lib/clinical/types';
 import { calculateBMI } from '../lib/clinical/calculators';
 import { getNutritionRiskLevel } from '../lib/clinical/nutritionEngine';
+import { resolvePatientCondition } from '../lib/clinical/conditions';
 import { Diagnosis } from '../data/icd10';
 import { InvestigationResult } from '../data/investigations';
 import { today, getLastVisit, nextVisitDate } from './clinical';
@@ -633,10 +634,11 @@ export function filterPatients(
 // ── STATS HELPERS ─────────────────────────────────────────────
 
 export function countByCondition(patients: Patient[]) {
+  const resolved = patients.map((patient) => resolvePatientCondition(patient));
   return {
-    htn:    patients.filter((p) => p.cond === 'HTN').length,
-    dm:     patients.filter((p) => p.cond === 'DM').length,
-    dmHtn:  patients.filter((p) => p.cond === 'DM+HTN').length,
+    htn:    resolved.filter((condition) => condition === 'HTN').length,
+    dm:     resolved.filter((condition) => condition === 'DM').length,
+    dmHtn:  resolved.filter((condition) => condition === 'DM+HTN').length,
   };
 }
 
