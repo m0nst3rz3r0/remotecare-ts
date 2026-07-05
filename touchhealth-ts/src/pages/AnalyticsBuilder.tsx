@@ -118,15 +118,19 @@ interface AnalyticsBuilderProps {
   scopedPatients: Patient[];
   scopeLabel: string;
   isSuperAdmin: boolean;
+  selectedYear?: number;
+  onSelectedYearChange?: (year: number) => void;
 }
 
 export default function AnalyticsBuilder({
   scopedPatients,
   scopeLabel,
   isSuperAdmin,
+  selectedYear,
+  onSelectedYearChange,
 }: AnalyticsBuilderProps) {
   const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState(currentYear);
+  const [internalYear, setInternalYear] = useState(selectedYear ?? currentYear);
   const [yearB, setYearB] = useState(currentYear - 1);
   const [compare, setCompare] = useState(false);
   const [metricA, setMetricA] = useState<MetricId>('enrolment');
@@ -134,6 +138,7 @@ export default function AnalyticsBuilder({
   const [showSecond, setShowSecond] = useState(false);
   const [region, setRegion] = useState('');
   const [district, setDistrict] = useState('');
+  const year = selectedYear ?? internalYear;
 
   const allRegions = useMemo(() => Object.keys(TZ_GEO).sort(), []);
   const districtOptions = useMemo(() => (region ? TZ_GEO[region] ?? [] : []), [region]);
@@ -320,7 +325,13 @@ export default function AnalyticsBuilder({
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 110 }}>
             <Label>Year</Label>
-            <Select value={String(year)} onChange={(v) => setYear(Number(v))}>
+            <Select value={String(year)} onChange={(v) => {
+              const nextYear = Number(v);
+              if (selectedYear === undefined) {
+                setInternalYear(nextYear);
+              }
+              onSelectedYearChange?.(nextYear);
+            }}>
               {Array.from({ length: 6 }, (_, i) => currentYear - i).map((value) => (
                 <option key={value} value={value}>{value}</option>
               ))}

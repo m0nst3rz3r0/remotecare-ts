@@ -251,6 +251,8 @@ export default function AdminPage() {
             scopedPatients={scopedPatients}
             scopeLabel={scopeLabel}
             isSuperAdmin={superAdmin}
+            selectedYear={overviewYear}
+            onSelectedYearChange={setOverviewYear}
           />
         </Suspense>
       )}

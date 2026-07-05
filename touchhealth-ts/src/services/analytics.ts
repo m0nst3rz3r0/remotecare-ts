@@ -144,6 +144,15 @@ function detectClass(medName: string, classes: Record<string, string[]>): string
   return null;
 }
 
+function detectDrug(medName: string, classes: Record<string, string[]>): string | null {
+  const lower = medName.toLowerCase();
+  for (const drugs of Object.values(classes)) {
+    const matched = drugs.find((drug) => lower.includes(drug));
+    if (matched) return matched;
+  }
+  return null;
+}
+
 function getLastVisitMeds(patient: Patient): string[] {
   const visits = [...(patient.visits ?? [])].sort(
     (a, b) => new Date(b.date ?? '').getTime() - new Date(a.date ?? '').getTime(),
@@ -441,9 +450,12 @@ export function getMetricBarData(metricId: MetricId, patients: Patient[]): BarDa
 
     cohort.forEach((patient) => {
       const meds = getLastVisitMeds(patient);
-      const combo = [...new Set(meds.map((med) => detectClass(med, classes)).filter(Boolean))].sort();
+      const combo = [...new Set(meds.map((med) => detectDrug(med, classes)).filter(Boolean))].sort();
       if (!combo.length) return;
-      const key = combo.length === 1 ? combo[0]! : combo.join(' + ');
+      const key = combo.map((drug) => {
+        const label = String(drug).replace(/[-_]/g, ' ');
+        return label.charAt(0).toUpperCase() + label.slice(1);
+      }).join(' + ');
       if (!comboMap.has(key)) comboMap.set(key, []);
       comboMap.get(key)!.push(patient);
     });
