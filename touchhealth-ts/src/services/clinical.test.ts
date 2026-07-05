@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getCurrentMedicationSnapshot,
+  getInitialVisitDiagnoses,
   getAdherenceMonthState,
   getMonthlyAttendanceRate,
   getMonthlyStats,
@@ -75,5 +77,48 @@ describe('programme attendance metrics', () => {
 
     expect(stats2025.bpControlRate).toBe(0);
     expect(stats2026.bpControlRate).toBe(100);
+  });
+
+  it('carries forward the most recent attended diagnoses into the next visit', () => {
+    const diagnoses = getInitialVisitDiagnoses(mkPatient({
+      cond: 'HTN',
+      visits: [
+        mkVisit({
+          id: 'older',
+          date: '2026-03-01',
+          diagnoses: [{ id: 'dx-old', code: 'I10', description: 'Essential (Primary) Hypertension', isPrimary: true }],
+        }),
+        mkVisit({
+          id: 'latest',
+          date: '2026-04-27',
+          diagnoses: [
+            { id: 'dx-htn', code: 'I10', description: 'Essential (Primary) Hypertension' },
+            { id: 'dx-dm', code: 'E11.2', description: 'Type 2 diabetes mellitus with kidney complications', isPrimary: true },
+          ],
+        }),
+      ],
+    }));
+
+    expect(diagnoses.map((diagnosis) => diagnosis.code)).toEqual(['I10', 'E11.2']);
+    expect(diagnoses.find((diagnosis) => diagnosis.code === 'E11.2')?.isPrimary).toBe(true);
+  });
+
+  it('prefers the newest medication snapshot between medication edits and visit meds', () => {
+    const snapshot = getCurrentMedicationSnapshot(mkPatient({
+      visits: [mkVisit({
+        date: '2026-04-27',
+        meds: [{ name: 'Losartan 50mg' }] as any,
+      })],
+      medications: [{
+        date: '2026-04-27',
+        changedAt: '2026-04-27T15:30:00.000Z',
+        changedBy: 'Dr A',
+        meds: [{ name: 'Amlodipine 5mg' }] as any,
+      }],
+    }));
+
+    expect(snapshot.meds.map((med) => med.name)).toEqual(['Amlodipine 5mg']);
+    expect(snapshot.changedBy).toBe('Dr A');
+    expect(snapshot.source).toBe('record');
   });
 });

@@ -43,7 +43,7 @@ interface PatientState {
   deletePatient: (patientId: number) => void;
   setStatus: (patientId: number, status: PatientStatus) => void;
   recallPatient: (patientId: number, settings: ClinicSettings, by?: string) => void;
-  updateMedications: (patientId: number, meds: Medication[]) => void;
+  updateMedications: (patientId: number, meds: Medication[], changedBy?: string) => void;
   addHbA1c: (patientId: number, value: number, quarter: HbA1cQuarter, year: number, recordedBy: string) => void;
   removeHbA1c: (patientId: number, year: number, quarter: HbA1cQuarter) => void;
   scheduleNext: (patientId: number, date: string, note: string, by: string) => void;
@@ -94,8 +94,8 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     persistPatientsState(set, recallFromLtfu(get().patients, patientId, settings, by));
   },
 
-  updateMedications: (patientId, meds) => {
-    persistPatientsState(set, updateMedications(get().patients, patientId, meds));
+  updateMedications: (patientId, meds, changedBy = '') => {
+    persistPatientsState(set, updateMedications(get().patients, patientId, meds, changedBy));
   },
 
   addHbA1c: (patientId, value, quarter, year, recordedBy) => {

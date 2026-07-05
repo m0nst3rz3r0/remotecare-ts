@@ -4,7 +4,7 @@ import type { HbA1cQuarter, Patient } from '../../types';
 import { maskPhone } from '../../utils/phone';
 import {
   bpClass,
-  getCurrentMeds,
+  getCurrentMedicationSnapshot,
   getHbA1cTrend,
   getLatestHbA1c,
   getLastVisit,
@@ -584,6 +584,10 @@ export default function PatientDetail() {
   const isDM = patient?.cond === 'DM' || patient?.cond === 'DM+HTN';
 
   const lv = useMemo(() => (patient ? getLastVisit(patient) : null), [patient]);
+  const currentMedicationSnapshot = useMemo(
+    () => (patient ? getCurrentMedicationSnapshot(patient) : null),
+    [patient],
+  );
 
   const bpCls = useMemo(() => {
     if (!lv?.sbp || !lv?.dbp) return null;
@@ -782,9 +786,15 @@ export default function PatientDetail() {
           <div className="text-[10px] uppercase font-extrabold tracking-[0.5px] text-[var(--slate)] mb-2">
             Current medications
           </div>
+          {currentMedicationSnapshot?.date ? (
+            <div className="text-[11px] text-[var(--slate)] mb-2">
+              Updated {formatDate(currentMedicationSnapshot.date)}
+              {currentMedicationSnapshot.changedBy ? ` by ${currentMedicationSnapshot.changedBy}` : ''}
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
-            {(getCurrentMeds(patient) ?? []).length ? (
-              getCurrentMeds(patient).map((m, idx) => (
+            {currentMedicationSnapshot?.meds.length ? (
+              currentMedicationSnapshot.meds.map((m, idx) => (
                 <span
                   key={idx}
                   className="px-3 py-1 rounded-full text-[12px] font-extrabold"

@@ -94,6 +94,7 @@ export default function LTFUPage() {
   const abortRef = useRef(false);
 
   const smsSenderName = currentUser?.displayName ?? currentUser?.username ?? 'Doctor';
+  const canManageSmsAdmin = currentUser?.role === 'admin';
 
   const visiblePatients = useMemo(
     () => selectVisiblePatients(patients, currentUser),
@@ -324,15 +325,17 @@ export default function LTFUPage() {
             <AlertOctagon size={12} /> LTFU ({ltfuPatients.filter(p => p.phone).length})
           </button>
 
-          <button onClick={() => setConfigOpen(!configOpen)} style={{
-            padding: '7px 14px', borderRadius: 6, border: `1px solid ${TEAL}`,
-            background: configOpen ? TEAL : '#fff', color: configOpen ? '#fff' : TEAL,
-            fontSize: 11, fontWeight: 700, cursor: 'pointer',
-            fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-          }}>
-            <Settings size={12} /> SMS Config
-          </button>
+          {canManageSmsAdmin && (
+            <button onClick={() => setConfigOpen(!configOpen)} style={{
+              padding: '7px 14px', borderRadius: 6, border: `1px solid ${TEAL}`,
+              background: configOpen ? TEAL : '#fff', color: configOpen ? '#fff' : TEAL,
+              fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}>
+              <Settings size={12} /> SMS Config
+            </button>
+          )}
         </div>
       </div>
 
@@ -355,7 +358,7 @@ export default function LTFUPage() {
       )}
 
       {/* ── SMS Config panel ── */}
-      {configOpen && (
+      {canManageSmsAdmin && configOpen && (
         <div style={{ background: '#fff', borderRadius: 8, border: '1px solid rgba(191,200,205,.3)', marginBottom: 16, overflow: 'hidden' }}>
           <SectionHeader title="SMS Configuration" right={
             <button onClick={() => setConfigOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: 18 }}>×</button>
@@ -577,18 +580,20 @@ export default function LTFUPage() {
                     >
                       <Smartphone size={10} /> Send
                     </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setLogFilter(logFilter === p.code ? null : p.code); }}
-                      style={{
-                        padding: '4px 8px', borderRadius: 4, border: `1px solid rgba(191,200,205,.5)`,
-                        background: logFilter === p.code ? '#f4f4f2' : '#fff',
-                        fontSize: 10, fontWeight: 700, cursor: 'pointer', color: '#516169',
-                        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                      }}
-                    >
-                      <ClipboardList size={10} /> {smsLog.filter(e => e.ptCode === p.code).length} msgs
-                    </button>
+                    {canManageSmsAdmin && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setLogFilter(logFilter === p.code ? null : p.code); }}
+                        style={{
+                          padding: '4px 8px', borderRadius: 4, border: `1px solid rgba(191,200,205,.5)`,
+                          background: logFilter === p.code ? '#f4f4f2' : '#fff',
+                          fontSize: 10, fontWeight: 700, cursor: 'pointer', color: '#516169',
+                          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                        }}
+                      >
+                        <ClipboardList size={10} /> {smsLog.filter(e => e.ptCode === p.code).length} msgs
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -615,6 +620,7 @@ export default function LTFUPage() {
       </div>
 
       {/* ── SMS Log ── */}
+      {canManageSmsAdmin ? (
       <div style={{ background: '#fff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.08)', border: '1px solid rgba(191,200,205,.2)', marginTop: 16, marginBottom: showBulkBar ? 80 : 0 }}>
         <SectionHeader
           title={logFilter ? `SMS Log — ${logFilter} (${displayedLog.length})` : `SMS Log — All (${smsLog.length})`}
@@ -689,6 +695,7 @@ export default function LTFUPage() {
           </table>
         </div>
       </div>
+      ) : null}
 
       {/* ── Floating bulk SMS panel ── */}
       {showBulkBar && (

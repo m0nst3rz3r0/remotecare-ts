@@ -108,6 +108,8 @@ export interface Medication {
 
 export interface MedicationRecord {
   date: string;
+  changedAt?: string;
+  changedBy?: string;
   meds: Medication[];
 }
 

@@ -7,8 +7,11 @@ export default function NavTabs() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const activePage  = useUIStore((s) => s.activePage);
   const navigateTo  = useUIStore((s) => s.navigateTo);
+  const visitModalOpen = useUIStore((s) => s.visitModalOpen);
+  const medModalOpen = useUIStore((s) => s.medModalOpen);
   const patients    = usePatientStore((s) => s.patients);
   const counts      = selectTopbarCounts(patients);
+  const modalOpen = visitModalOpen || medModalOpen;
 
   // Admin/SuperAdmin use the sidebar instead
   if (!currentUser || currentUser.role !== 'doctor') return null;
@@ -22,11 +25,16 @@ export default function NavTabs() {
 
   return (
     <nav style={{
-      position: 'sticky', top: 52, zIndex: 190,
+      position: 'sticky', top: 52, zIndex: 30,
       height: 48, padding: '0 20px',
       display: 'flex', alignItems: 'stretch', gap: 2,
       background: '#ffffff',
       borderBottom: '1px solid rgba(191,200,205,.25)',
+      overflowX: 'auto',
+      overflowY: 'hidden',
+      scrollbarWidth: 'thin',
+      pointerEvents: modalOpen ? 'none' : 'auto',
+      opacity: modalOpen ? 0.85 : 1,
     }}>
       {tabs.map((t) => {
         const active = activePage === t.id;
@@ -37,6 +45,7 @@ export default function NavTabs() {
             onClick={() => navigateTo(t.id as any)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
+              flex: '0 0 auto',
               padding: '0 16px',
               fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: 11, fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '.5px',

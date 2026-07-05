@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePatientStore } from '../../store/usePatientStore';
 import { useUIStore } from '../../store/useUIStore';
 import type { Medication, Patient } from '../../types';
-import { HTN_MEDS, getCurrentMeds } from '../../services/clinical';
+import { HTN_MEDS, getCurrentMedicationSnapshot } from '../../services/clinical';
 import MedRow from './MedRow';
 import Button from '../ui/Button';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 function defaultMedication(): Medication {
   return { name: HTN_MEDS[0] };
@@ -17,6 +19,8 @@ export default function MedModal() {
 
   const patients = usePatientStore((s) => s.patients);
   const updateMedications = usePatientStore((s) => s.updateMedications);
+  const currentUser = useAuthStore((s) => s.currentUser);
+  useBodyScrollLock(open);
 
   const patient: Patient | null = useMemo(() => {
     if (patientId === null) return null;
@@ -24,22 +28,24 @@ export default function MedModal() {
   }, [patientId, patients]);
 
   const [meds, setMeds] = useState<Medication[]>([]);
+  const currentSnapshot = useMemo(() => (patient ? getCurrentMedicationSnapshot(patient) : null), [patient]);
 
   useEffect(() => {
     if (!open || !patient) return;
-    const current = getCurrentMeds(patient);
+    const current = currentSnapshot?.meds ?? [];
     setMeds(current.length ? current : [defaultMedication()]);
-  }, [open, patient]);
+  }, [currentSnapshot, open, patient]);
 
   if (!open || !patient || patientId === null) return null;
 
   const onSave = () => {
-    updateMedications(patientId, meds);
+    const changedBy = currentUser?.displayName ?? currentUser?.username ?? 'Doctor';
+    updateMedications(patientId, meds, changedBy);
     close();
   };
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0" style={{ zIndex: 410 }}>
       <div
         className="absolute inset-0"
         onClick={close}
@@ -47,7 +53,7 @@ export default function MedModal() {
       />
 
       <div
-        className="absolute right-0 top-0 h-full w-full max-w-[520px] bg-white border-l border-slate-200 shadow-lg"
+        className="absolute right-0 top-0 h-full w-full max-w-[520px] bg-white border-l border-slate-200 shadow-lg flex flex-col"
       >
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
           <div>
@@ -61,9 +67,9 @@ export default function MedModal() {
           <Button size="xs" variant="ghost" label="Close" onClick={close} />
         </div>
 
-        <div className="p-4 overflow-auto">
+        <div className="p-4 overflow-auto flex-1" style={{ overscrollBehavior: 'contain' }}>
           <div className="text-xs uppercase font-bold tracking-wider text-slate-500 mb-2">
-            Current meds (saved on “Today”)
+            {currentSnapshot?.date ? `Current meds (updated ${currentSnapshot.date})` : 'Current meds'}
           </div>
 
           <div className="space-y-3">
@@ -105,4 +111,3 @@ export default function MedModal() {
     </div>
   );
 }
-

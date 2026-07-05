@@ -14,6 +14,9 @@ import type {
   HbA1cQuarter,
   ClinicSettings,
   ClinicDayIndex,
+  Diagnosis,
+  Medication,
+  MedicationRecord,
 } from '../types';
 
 // ── CONSTANTS ────────────────────────────────────────────────
@@ -699,14 +702,97 @@ export function isControlled(patient: Patient): boolean {
   );
 }
 
-export function getCurrentMeds(patient: Patient) {
-  if (patient.medications?.length) {
-    const sorted = [...patient.medications].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    return sorted[0].meds ?? [];
+export interface MedicationSnapshot {
+  meds: Medication[];
+  source: 'record' | 'visit' | 'none';
+  date: string | null;
+  changedAt?: string;
+  changedBy?: string;
+}
+
+function getMedicationRecordSortKey(record: MedicationRecord): number {
+  return new Date(record.changedAt ?? record.date).getTime();
+}
+
+export function getLatestMedicationRecord(patient: Patient): MedicationRecord | null {
+  if (!patient.medications?.length) return null;
+  return [...patient.medications].sort(
+    (a, b) => getMedicationRecordSortKey(b) - getMedicationRecordSortKey(a),
+  )[0] ?? null;
+}
+
+export function getCurrentMedicationSnapshot(patient: Patient): MedicationSnapshot {
+  const latestRecord = getLatestMedicationRecord(patient);
+  const latestVisit = getLastVisit(patient);
+  const latestVisitTime = latestVisit ? new Date(latestVisit.date).getTime() : -Infinity;
+  const latestRecordTime = latestRecord ? getMedicationRecordSortKey(latestRecord) : -Infinity;
+
+  if (latestRecord && latestRecordTime >= latestVisitTime) {
+    return {
+      meds: latestRecord.meds ?? [],
+      source: 'record',
+      date: latestRecord.date ?? null,
+      changedAt: latestRecord.changedAt,
+      changedBy: latestRecord.changedBy,
+    };
   }
-  return getLastVisit(patient)?.meds ?? [];
+
+  if (latestVisit) {
+    return {
+      meds: latestVisit.meds ?? [],
+      source: 'visit',
+      date: latestVisit.date ?? null,
+    };
+  }
+
+  return {
+    meds: [],
+    source: 'none',
+    date: null,
+  };
+}
+
+export function getCurrentMeds(patient: Patient) {
+  return getCurrentMedicationSnapshot(patient).meds;
+}
+
+function getRegisteredConditionDiagnoses(patient: Patient): Diagnosis[] {
+  const diagnoses: Diagnosis[] = [];
+  if (patient.cond === 'DM' || patient.cond === 'DM+HTN') {
+    diagnoses.push({ id: 'dx-E11-core', code: 'E11', description: 'Type 2 Diabetes Mellitus', isPrimary: patient.cond === 'DM' });
+  }
+  if (patient.cond === 'HTN' || patient.cond === 'DM+HTN') {
+    diagnoses.push({ id: 'dx-I10-core', code: 'I10', description: 'Essential (Primary) Hypertension', isPrimary: patient.cond === 'HTN' });
+  }
+  return diagnoses;
+}
+
+export function getInitialVisitDiagnoses(patient: Patient): Diagnosis[] {
+  const protectedDiagnoses = getRegisteredConditionDiagnoses(patient);
+  const lastDiagnoses = getLastVisit(patient)?.diagnoses ?? [];
+  const merged = new Map<string, Diagnosis>();
+
+  [...protectedDiagnoses, ...lastDiagnoses].forEach((diagnosis) => {
+    const existing = merged.get(diagnosis.code);
+    merged.set(diagnosis.code, {
+      id: diagnosis.id ?? `dx-${diagnosis.code}`,
+      code: diagnosis.code,
+      description: diagnosis.description,
+      isPrimary: diagnosis.isPrimary ?? existing?.isPrimary ?? false,
+    });
+  });
+
+  const diagnoses = [...merged.values()];
+  const lastPrimary = lastDiagnoses.find((diagnosis) => diagnosis.isPrimary);
+  const defaultPrimaryCode = lastPrimary?.code
+    ?? protectedDiagnoses.find((diagnosis) => diagnosis.isPrimary)?.code
+    ?? protectedDiagnoses[0]?.code
+    ?? diagnoses[0]?.code;
+
+  return diagnoses.map((diagnosis) => ({
+    ...diagnosis,
+    isPrimary: diagnosis.code === defaultPrimaryCode,
+  }));
 }
 
 // ── BMI ───────────────────────────────────────────────────────

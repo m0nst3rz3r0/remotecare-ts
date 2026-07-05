@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import Topbar from './components/layout/Topbar';
 import NavTabs from './components/layout/NavTabs';
 import Sidebar from './components/layout/Sidebar';
@@ -16,12 +16,13 @@ import AuthPage from './pages/AuthPage';
 import { useAuthStore } from './store/useAuthStore';
 import { usePatientStore } from './store/usePatientStore';
 import { useUIStore } from './store/useUIStore';
+import { lazyWithRetry } from './utils/lazyWithRetry';
 
-const PatientsPage = lazy(() => import('./pages/PatientsPage'));
-const LTFUPage = lazy(() => import('./pages/LTFUPage'));
-const ClinicPage = lazy(() => import('./pages/ClinicPage'));
-const ReportsPage = lazy(() => import('./pages/ReportsPage'));
-const AdminPage = lazy(() => import('./pages/AdminPage'));
+const PatientsPage = lazyWithRetry(() => import('./pages/PatientsPage'), 'patients');
+const LTFUPage = lazyWithRetry(() => import('./pages/LTFUPage'), 'ltfu');
+const ClinicPage = lazyWithRetry(() => import('./pages/ClinicPage'), 'clinic');
+const ReportsPage = lazyWithRetry(() => import('./pages/ReportsPage'), 'reports');
+const AdminPage = lazyWithRetry(() => import('./pages/AdminPage'), 'admin');
 
 function PageFallback() {
   return (

@@ -367,6 +367,10 @@ export interface RecordVisitParams {
   mealPlan?:     GeneratedMealPlan;
 }
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
 export function recordVisit(
   patients: Patient[],
   params: RecordVisitParams
@@ -415,7 +419,7 @@ export function recordVisit(
     let medications = [...(p.medications ?? [])];
     if (att && meds.length) {
       medications = medications.filter((m) => m.date !== date);
-      medications.push({ date, meds });
+      medications.push({ date, changedAt: nowIso(), changedBy: scheduledBy ?? '', meds });
     }
 
     let scheduledNext: ScheduledAppointment | undefined = p.scheduledNext;
@@ -540,11 +544,17 @@ export function confirmAllPredicted(
 export function updateMedications(
   patients: Patient[],
   patientId: number,
-  meds: Medication[]
+  meds: Medication[],
+  changedBy: string = ''
 ): Patient[] {
   return patients.map((p) => {
     if (p.id !== patientId) return p;
-    const record: MedicationRecord = { date: today(), meds };
+    const record: MedicationRecord = {
+      date: today(),
+      changedAt: nowIso(),
+      changedBy,
+      meds,
+    };
     return {
       ...p,
       medications: [...(p.medications ?? []), record],

@@ -7,6 +7,7 @@ import { useUIStore } from '../../store/useUIStore';
 import {
   calculateBMI,
   getCurrentMeds,
+  getInitialVisitDiagnoses,
   getCurrentQuarter,
   nextVisitDate,
   bpClass,
@@ -24,6 +25,7 @@ import DrugInteractionAlert from './DrugInteractionAlert';
 import NutritionPanel from './NutritionPanel';
 import MealPlanModal from './MealPlanModal';
 import type { GeneratedMealPlan } from '../../lib/clinical';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 // ── Helpers ──────────────────────────────────────────────────
 function toISODate(d: Date) { return d.toISOString().split('T')[0]; }
@@ -43,7 +45,7 @@ function SectionCard({
 }: { title: string; color?: string; bg?: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div style={{ background: bg, borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(191,200,205,.3)', marginBottom: '14px' }}>
+    <div style={{ background: bg, borderRadius: '8px', overflow: 'visible', border: '1px solid rgba(191,200,205,.3)', marginBottom: '14px' }}>
       <div
         onClick={() => setOpen(!open)}
         style={{ background: color, height: '36px', padding: '0 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
@@ -92,7 +94,7 @@ function DiagnosisSearch({
     const q = query.toLowerCase();
     return ICD10_CODES.filter(
       (c) => c.code.toLowerCase().includes(q) || c.description.toLowerCase().includes(q),
-    ).slice(0, 8);
+    ).slice(0, 16);
   }, [query]);
 
   return (
@@ -140,7 +142,7 @@ function DiagnosisSearch({
           placeholder="Search ICD-10 code or diagnosis name…"
         />
         {results.length > 0 && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #0d6e87', borderTop: 'none', borderRadius: '0 0 4px 4px', zIndex: 9999, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 20px rgba(15,31,38,.1)' }}>
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #0d6e87', borderTop: 'none', borderRadius: '0 0 4px 4px', zIndex: 9999, maxHeight: '320px', overflowY: 'auto', overscrollBehavior: 'contain', boxShadow: '0 4px 20px rgba(15,31,38,.1)' }}>
             {results.map((r) => (
               <div
                 key={r.code}
@@ -244,6 +246,7 @@ export default function VisitModal() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const patients   = usePatientStore((s) => s.patients);
   const recordVisit = usePatientStore((s) => s.recordVisit);
+  useBodyScrollLock(open);
 
   const patient: Patient | null = useMemo(() => {
     if (patientId === null) return null;
@@ -290,12 +293,11 @@ export default function VisitModal() {
   // Pre-seeded chips for the patient's registered condition (DM / HTN)
   const seedComorbidities = useMemo<SelectedDiagnosis[]>(() => {
     if (!patient) return [];
-    const list: SelectedDiagnosis[] = [];
-    if (patient.cond === 'DM' || patient.cond === 'DM+HTN')
-      list.push({ code: 'E11', description: 'Type 2 Diabetes Mellitus', isPrimary: patient.cond === 'DM' });
-    if (patient.cond === 'HTN' || patient.cond === 'DM+HTN')
-      list.push({ code: 'I10', description: 'Essential (Primary) Hypertension', isPrimary: patient.cond === 'HTN' });
-    return list;
+    return getInitialVisitDiagnoses(patient).map((diagnosis) => ({
+      code: diagnosis.code,
+      description: diagnosis.description,
+      isPrimary: diagnosis.isPrimary,
+    }));
   }, [patient]);
   const [comorbidities, setComorbidities] = useState<SelectedDiagnosis[]>([]);
 
@@ -455,7 +457,7 @@ export default function VisitModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0" style={{ zIndex: 400 }}>
       <div className="absolute inset-0" onClick={close} style={{ background: 'rgba(0,0,0,.45)' }} />
 
       <div className="absolute inset-y-0 right-0 w-full max-w-[760px] bg-white border-l border-slate-200 flex flex-col" style={{ boxShadow: '-8px 0 48px rgba(15,31,38,.2)' }}>
@@ -472,7 +474,7 @@ export default function VisitModal() {
         </div>
 
         {/* ── Scrollable body ──────────────────────────────── */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '16px 20px' }}>
 
           {/* Visit date + attendance */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>

@@ -185,6 +185,10 @@ function isDateInScope(date: string | undefined, scope?: BarMetricScope) {
   return true;
 }
 
+function getMedicationRecordTime(record: Patient['medications'][number]) {
+  return new Date(record.changedAt ?? record.date ?? '').getTime();
+}
+
 function getScopedVisit(patient: Patient, scope?: BarMetricScope): Visit | null {
   const visits = [...(patient.visits ?? [])]
     .filter((visit) => {
@@ -201,11 +205,11 @@ function getScopedVisit(patient: Patient, scope?: BarMetricScope): Visit | null 
 function getScopedMedicationNames(patient: Patient, scope?: BarMetricScope): string[] {
   const visit = getScopedVisit(patient, scope);
   const scopedMedicationRecord = [...(patient.medications ?? [])]
-    .filter((record) => isDateInScope(record.date, scope))
-    .sort((a, b) => new Date(b.date ?? '').getTime() - new Date(a.date ?? '').getTime())[0];
+    .filter((record) => isDateInScope(record.changedAt ?? record.date, scope))
+    .sort((a, b) => getMedicationRecordTime(b) - getMedicationRecordTime(a))[0];
 
   if (visit && scopedMedicationRecord) {
-    return new Date(visit.date ?? '').getTime() >= new Date(scopedMedicationRecord.date ?? '').getTime()
+    return new Date(visit.date ?? '').getTime() >= getMedicationRecordTime(scopedMedicationRecord)
       ? getVisitMeds(visit)
       : (scopedMedicationRecord.meds ?? []).map((med) => med.name ?? '');
   }

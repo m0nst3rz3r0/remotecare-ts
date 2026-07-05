@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Target, X } from 'lucide-react';
 import PageWrapper from '../components/layout/PageWrapper';
 import SyncBar from '../components/ui/SyncBar';
@@ -10,9 +10,10 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useUIStore } from '../store/useUIStore';
 import { loadHospitals } from '../services/auth';
 import { TZ_GEO } from '../utils/geo';
+import { lazyWithRetry } from '../utils/lazyWithRetry';
 
-const DirectoryPage = lazy(() => import('./DirectoryPage'));
-const AnalyticsBuilder = lazy(() => import('./AnalyticsBuilder'));
+const DirectoryPage = lazyWithRetry(() => import('./DirectoryPage'), 'directory');
+const AnalyticsBuilder = lazyWithRetry(() => import('./AnalyticsBuilder'), 'analytics-builder');
 
 function AdminSectionFallback() {
   return (
