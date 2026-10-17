@@ -1,6 +1,6 @@
 // RCRO NutritionTool — food safety evaluator
 
-import { getRulesSync, getFoodsForZone } from './dataLoader';
+import { getRulesSync, getFoodsForZone, getFoodsSync, isFoodsReady, supportedPreparations } from './dataLoader';
 import { conditionMatches } from './conditions';
 import type { EvaluationResult, TZRegion } from './types';
 
@@ -8,8 +8,9 @@ const AVOID_LIST_LIMIT = 5;
 const RECOMMEND_LIMIT = 20;
 const SEVERITY_RANK: Record<EvaluationResult['severity'], number> = {
   Safe: 0,
+  not_assessed: 2,
   Warning: 1,
-  Danger: 2,
+  Danger: 3,
 };
 
 function shortenReason(message: string): string {
@@ -24,6 +25,11 @@ export function evalFoodForPatient(
   conditions: string[],
 ): EvaluationResult {
   const rules = getRulesSync();
+  const food = getFoodsSync().find((f) => f.id === foodId);
+  if (!isFoodsReady() || !food || !supportedPreparations(food).includes(prepMethod.toLowerCase())) return {
+    severity: 'not_assessed', message_en: 'Food or preparation has not been assessed with a validated dataset.',
+    message_sw: 'Chakula au maandalizi hayajatathminiwa kwa data iliyohakikiwa.', reasons: [],
+  };
   const applicable = rules.filter(r => {
     const foodMatch = !r.target_food_id || r.target_food_id === foodId;
     const prepMatch = r.target_prep_method === 'Any' ||
@@ -33,11 +39,12 @@ export function evalFoodForPatient(
 
   for (const sev of ['Danger', 'Warning', 'Safe'] as const) {
     const r = applicable.find(x => x.safety_level === sev);
-    if (r) return { severity: sev, message_en: r.alert_message_en, message_sw: r.alert_message_sw };
+    if (r) return { severity: sev, message_en: r.alert_message_en, message_sw: r.alert_message_sw,
+      reasons: applicable.map((rule) => ({ ruleId: rule.id, message_en: rule.alert_message_en, message_sw: rule.alert_message_sw })) };
   }
 
   return {
-    severity: 'Safe',
+    severity: 'Safe', reasons: [],
     message_en: 'No specific clinical restrictions for this selection.',
     message_sw: 'Hakuna vikwazo maalum vya kitabibu kwa chaguo hili.',
   };
@@ -54,24 +61,15 @@ export function evalFoodAcrossPreparations(
     if (prep && prep.trim()) candidatePreps.add(prep.trim());
   }
 
-  for (const rule of getRulesSync()) {
-    const appliesToFood = !rule.target_food_id || rule.target_food_id === foodId;
-    if (appliesToFood && rule.target_prep_method && rule.target_prep_method !== 'Any') {
-      candidatePreps.add(rule.target_prep_method);
-    }
-  }
-
-  if (candidatePreps.size === 0) {
-    candidatePreps.add('Boiled');
-  }
-
-  let worst = evalFoodForPatient(foodId, 'Boiled', conditions);
+  const food = getFoodsSync().find((f) => f.id === foodId);
+  for (const prep of food ? supportedPreparations(food) : []) candidatePreps.add(prep);
+  if (!candidatePreps.size) return evalFoodForPatient(foodId, 'unsupported', conditions);
+  let worst = evalFoodForPatient(foodId, [...candidatePreps][0], conditions);
   for (const prep of candidatePreps) {
     const result = evalFoodForPatient(foodId, prep, conditions);
-    if (SEVERITY_RANK[result.severity] > SEVERITY_RANK[worst.severity]) {
-      worst = result;
-    }
+    if (SEVERITY_RANK[result.severity] > SEVERITY_RANK[worst.severity]) worst = result;
   }
+
   return worst;
 }
 
@@ -88,33 +86,23 @@ export function searchFoods(query: string, zone: TZRegion, limit = 8) {
 }
 
 /** Returns zone-appropriate foods rated Safe for this patient, grouped by category */
-export function getRecommendedFoods(conditions: string[], zone: TZRegion): {
+export function getRecommendedFoods(conditions: string[], zone: TZRegion, availableFoodIds?: Set<string>, excludedFoodIds: string[] = []): {
   starch: Array<{ id: string; name_en: string; name_sw: string }>;
   protein: Array<{ id: string; name_en: string; name_sw: string }>;
   vegetable: Array<{ id: string; name_en: string; name_sw: string }>;
   fruit: Array<{ id: string; name_en: string; name_sw: string }>;
 } {
-  const rules = getRulesSync();
   const foods = getFoodsForZone(zone);
-
-  const dangerIds = new Set<string>();
-  for (const rule of rules) {
-    if (rule.safety_level === 'Danger' && rule.target_food_id &&
-        conditionMatches(rule.condition, conditions)) {
-      dangerIds.add(rule.target_food_id);
-    }
-  }
-
   const perGroup = Math.floor(RECOMMEND_LIMIT / 4) + 1;
 
   const pick = (catFilter: (cats: string[]) => boolean, nameFilter?: RegExp) => {
     return foods
       .filter(f => {
-        if (dangerIds.has(f.id)) return false;
+        if ((availableFoodIds && !availableFoodIds.has(f.id)) || excludedFoodIds.includes(f.id)) return false;
         const cats = Array.isArray(f.category) ? f.category : [f.category];
         if (!catFilter(cats)) return false;
         if (nameFilter && nameFilter.test(f.name_en)) return false;
-        return evalFoodAcrossPreparations(f.id, conditions, f.preparationMethods).severity === 'Safe';
+        return supportedPreparations(f).some((prep) => evalFoodForPatient(f.id, prep, conditions).severity === 'Safe');
       })
       .slice(0, perGroup)
       .map(f => ({ id: f.id, name_en: f.name_en, name_sw: f.name_sw ?? f.name_en }));

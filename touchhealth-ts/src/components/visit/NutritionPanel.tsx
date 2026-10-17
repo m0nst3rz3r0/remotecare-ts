@@ -1,4 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import NutritionAssessmentEditor from './NutritionAssessmentEditor';
+import NutritionPlanReview from './NutritionPlanReview';
+import { defaultNutritionAssessment } from '../../lib/clinical/nutritionPolicy';
+import { isPlanStale, validatePlan } from '../../lib/clinical/planValidation';
+import { usePatientStore } from '../../store/usePatientStore';
+import { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { AlertTriangle, Info, Utensils, Printer, Share2, FileDown, Eye } from 'lucide-react';
 import {
   computeNutritionTargets,
@@ -8,12 +13,11 @@ import {
   evalFoodAcrossPreparations,
   getPatientConditions,
   regionToZone,
-  isFoodsReady,
   getNutritionRiskLevel,
   generateMealPlan,
   getRecommendedFoods,
 } from '../../lib/clinical';
-import { getClinicZone } from '../../lib/clinical/dataLoader';
+import { getClinicalDataState, subscribeClinicalData, preloadClinicalData, getClinicZone } from '../../lib/clinical/dataLoader';
 import { calculateBMI } from '../../lib/clinical/calculators';
 import type { GeneratedMealPlan, TZRegion } from '../../lib/clinical';
 import type { Patient } from '../../types';
@@ -45,13 +49,14 @@ interface NutritionPanelProps {
   language: 'en' | 'sw';
   mealPlan?: GeneratedMealPlan | null;
   onGenerateMealPlan: (plan: GeneratedMealPlan) => void;
+  onUpdateMealPlan?: (plan: GeneratedMealPlan) => void;
   onOpenMealPlan?: () => void;
 }
 
 function RecommendedFoodsSection({
-  conditions, zone, language,
-}: { conditions: string[]; zone: TZRegion; language: 'en' | 'sw' }) {
-  const recs = useMemo(() => getRecommendedFoods(conditions, zone), [conditions, zone]);
+  conditions, zone, language, availableFoodIds, excludedFoodIds,
+}: { availableFoodIds?: Set<string>; excludedFoodIds?: string[]; conditions: string[]; zone: TZRegion; language: 'en' | 'sw' }) {
+  const recs = useMemo(() => getRecommendedFoods(conditions, zone, availableFoodIds, excludedFoodIds), [conditions, zone, availableFoodIds, excludedFoodIds]);
   const hasAny = recs.starch.length > 0 || recs.protein.length > 0 || recs.vegetable.length > 0 || recs.fruit.length > 0;
   if (!hasAny) return null;
 
@@ -85,7 +90,7 @@ function RecommendedFoodsSection({
   return (
     <div style={{ marginBottom: '14px' }}>
       <div style={labelStyle}>
-        {language === 'sw' ? 'Vyakula Salama kwa Mgonjwa Huyu' : 'Safe Foods for This Patient'}
+        {language === 'sw' ? 'Chaguo za vyakula ? hakiki maandalizi' : 'Assessed food options ? check preparation'}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {groups.map(g => (
@@ -117,17 +122,19 @@ function RecommendedFoodsSection({
 
 export default function NutritionPanel({
   patient, weightKg, heightCm, currentMeds,
-  visitDiagnoses, language, mealPlan, onGenerateMealPlan, onOpenMealPlan,
+  visitDiagnoses, language, mealPlan, onGenerateMealPlan, onOpenMealPlan, onUpdateMealPlan,
 }: NutritionPanelProps) {
   const [foodQuery, setFoodQuery] = useState('');
   const [generating, setGenerating] = useState(false);
-  const [dataReady, setDataReady] = useState(isFoodsReady());
-
-  useEffect(() => {
-    if (dataReady) return;
-    const t = setInterval(() => { if (isFoodsReady()) { setDataReady(true); clearInterval(t); } }, 200);
-    return () => clearInterval(t);
-  }, [dataReady]);
+  const dataState = useSyncExternalStore(subscribeClinicalData, getClinicalDataState);
+  const dataReady = dataState.status === 'ready';
+  const [error, setError] = useState('');
+  const saveAssessment = usePatientStore(s => s.setNutritionAssessment);
+  const resolveConflict = usePatientStore(s => s.resolveNutrition);
+  const assessment = useMemo(() => patient.nutritionProfile?.assessment ?? {
+    ...defaultNutritionAssessment(), activityLevel: patient.nutritionProfile?.activityLevel ?? 'Moderate',
+    bodyGoal: patient.nutritionProfile?.bodyGoal ?? 'maintain', availableFoodIds: patient.nutritionProfile?.availableFoodIds,
+  }, [patient.nutritionProfile]);
 
   const effectiveWeight = weightKg ??
     patient.visits.slice().reverse().find(v => v.weight)?.weight ?? null;
@@ -144,16 +151,12 @@ export default function NutritionPanel({
     ?? getClinicZone()
     ?? regionToZone(patient.region);
 
-  const activityLevel = patient.nutritionProfile?.activityLevel ?? 'Moderate';
-  const bodyGoal = patient.nutritionProfile?.bodyGoal ?? 'maintain';
-  const availableFoodIds = useMemo(() => {
-    const ids = patient.nutritionProfile?.availableFoodIds?.filter(Boolean) ?? [];
-    return ids.length > 0 ? new Set(ids) : undefined;
-  }, [patient.nutritionProfile?.availableFoodIds]);
+  const { activityLevel, bodyGoal } = assessment;
+  const availableFoodIds = useMemo(() => assessment.availableFoodIds ? new Set(assessment.availableFoodIds) : undefined, [assessment.availableFoodIds]);
 
   const targets = useMemo(() => {
     if (!effectiveWeight || !effectiveHeight) return null;
-    return computeNutritionTargets({
+    try { return { ...computeNutritionTargets({
       age: patient.age,
       sex: patient.sex === 'M' ? 'male' : 'female',
       weightKg: effectiveWeight,
@@ -161,8 +164,8 @@ export default function NutritionPanel({
       activityLevel,
       diagnoses: conditions,
       bodyGoal,
-    });
-  }, [effectiveWeight, effectiveHeight, patient.age, patient.sex, activityLevel, conditions, bodyGoal]);
+    }), ...assessment.adjustedTargets }; } catch { return null; }
+  }, [effectiveWeight, effectiveHeight, patient.age, patient.sex, activityLevel, conditions, bodyGoal, assessment.adjustedTargets]);
 
   const bmi = effectiveWeight && effectiveHeight
     ? calculateBMI(effectiveWeight, effectiveHeight) : null;
@@ -172,6 +175,12 @@ export default function NutritionPanel({
     : null;
 
   const medIds = useMemo(() => toMedIds(currentMeds), [currentMeds]);
+  useEffect(() => {
+    if (!mealPlan || !effectiveWeight || !effectiveHeight || !dataReady || mealPlan.stale) return;
+    const input = { age: patient.age, sex: patient.sex === 'M' ? 'male' as const : 'female' as const,
+      weightKg: effectiveWeight, heightCm: effectiveHeight, conditions, medicationIds: medIds, zone, assessment };
+    if (isPlanStale(mealPlan, input)) onUpdateMealPlan?.(validatePlan({ ...mealPlan, stale: true }));
+  }, [mealPlan, effectiveWeight, effectiveHeight, dataReady, patient.age, patient.sex, conditions, medIds, zone, assessment, onUpdateMealPlan]);
   const drugAlerts = useMemo(() => getDrugFoodInteractions(medIds), [medIds]);
 
   const foodResults = useMemo(() => {
@@ -200,9 +209,10 @@ export default function NutritionPanel({
           bodyGoal,
           medicationIds: medIds,
           availableFoodIds,
+          assessment,
         });
         onGenerateMealPlan(plan);
-      } finally {
+      } catch (e) { setError(e instanceof Error ? e.message : 'Generation failed'); } finally {
         setGenerating(false);
       }
     }, 10);
@@ -215,13 +225,23 @@ export default function NutritionPanel({
   if (!dataReady) {
     return (
       <div style={{ padding: '12px', color: SLATE, fontSize: '12px', textAlign: 'center' }}>
-        Loading nutrition data…
+        {dataState.status === 'error' ? dataState.error : (language === 'sw' ? 'Inapakia taarifa za lishe?' : 'Loading nutrition data?')}
+        {dataState.status === 'error' && <button type="button" onClick={() => void preloadClinicalData()}>Retry / Jaribu tena</button>}
       </div>
     );
   }
 
   return (
     <div style={{ padding: '4px 0' }}>
+      {dataState.cached && <p role="status">{language === 'sw' ? 'Unatumia taarifa zilizohifadhiwa kwenye kifaa.' : 'Using the last validated offline dataset.'}</p>}
+      {error && <p role="alert">{error}</p>}
+      {patient.nutritionSync?.conflict && <div role="alert" className="p-3 bg-amber-100 mb-3">
+        <p>{language === 'sw' ? 'Kifaa kingine kimebadili lishe. Chagua taarifa za kuhifadhi.' : 'Another device changed this nutrition record. Choose which draft to retain, then sync manually.'}</p>
+        {(['local','cloud'] as const).map(choice => <button type="button" className="border p-2 m-1" key={choice} onClick={() => { resolveConflict(patient.id,choice); const updated = usePatientStore.getState().patients.find(p => p.id === patient.id); const saved = updated?.visits.slice().reverse().find(v => v.mealPlan)?.mealPlan; if (saved) onUpdateMealPlan?.(saved); }}>{choice === 'local' ? 'Keep local draft / Hifadhi ya kifaa' : 'Use cloud / Tumia ya mtandaoni'}</button>)}
+      </div>}
+      <NutritionAssessmentEditor value={assessment} onChange={value => saveAssessment(patient.id,value)} language={language} />
+      <p className="text-xs mb-3">{language === 'sw' ? 'Malengo ni makadirio ya awali; yanahitaji uhakiki wa kitabibu.' : 'Targets are provisional estimates and require clinical review.'}</p>
+      {!mealPlan && patient.visits.some(v => v.mealPlan) && <button type="button" onClick={() => { const saved = patient.visits.slice().reverse().find(v => v.mealPlan)?.mealPlan; if (saved) onUpdateMealPlan?.(saved); }}>Open saved plan / Fungua mpango uliohifadhiwa</button>}
       {targets ? (
         <div style={{ marginBottom: '14px' }}>
           <div style={labelStyle}>Daily Targets</div>
@@ -304,7 +324,7 @@ export default function NutritionPanel({
       )}
 
       {dataReady && (
-        <RecommendedFoodsSection conditions={conditions} zone={zone} language={language} />
+        <RecommendedFoodsSection conditions={conditions} zone={zone} language={language} availableFoodIds={availableFoodIds} excludedFoodIds={assessment.excludedFoodIds} />
       )}
 
       <div style={{ marginBottom: '14px' }}>
@@ -319,9 +339,9 @@ export default function NutritionPanel({
         {foodResults.length > 0 && (
           <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {foodResults.map(food => {
-              const result = evalFoodAcrossPreparations(food.id, conditions, food.preparationMethods);
-              const colors = { Safe: '#10b981', Warning: '#d97706', Danger: '#dc2626' };
-              const bgs    = { Safe: '#f0fdf4', Warning: '#fffbeb', Danger: '#fef2f2' };
+              const result = evalFoodAcrossPreparations(food.id, [...conditions, ...medIds], food.preparationMethods);
+              const colors = { Safe: '#10b981', Warning: '#d97706', Danger: '#dc2626', not_assessed: '#64748b' };
+              const bgs    = { Safe: '#f0fdf4', Warning: '#fffbeb', Danger: '#fef2f2', not_assessed: '#f1f5f9' };
               return (
                 <div key={food.id} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -331,6 +351,7 @@ export default function NutritionPanel({
                 }}>
                   <span style={{ fontSize: '12px', color: INK, fontFamily: "'Inter', system-ui" }}>
                     {language === 'sw' ? food.name_sw : food.name_en}
+                    <span style={{display:'block',fontSize:'10px',color:SLATE}}>{(result.reasons?.length ? result.reasons : [result]).map((reason,i) => <span key={i} style={{display:'block'}}>{language === 'sw' ? reason.message_sw : reason.message_en}</span>)}</span>
                   </span>
                   <span style={{
                     fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
@@ -339,7 +360,7 @@ export default function NutritionPanel({
                     color: colors[result.severity], fontFamily: "'Inter', system-ui",
                     letterSpacing: '0.4px',
                   }}>
-                    {result.severity}
+                    {result.severity === 'not_assessed' ? (language === 'sw' ? 'Haijatathminiwa' : 'Not assessed') : result.severity}
                   </span>
                 </div>
               );
@@ -368,8 +389,9 @@ export default function NutritionPanel({
 
       {mealPlan && (
         <div style={{ marginTop: '14px', padding: '12px', background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '8px' }}>
+          <NutritionPlanReview plan={mealPlan} onChange={onUpdateMealPlan} language={language} />
           <div style={{ ...labelStyle, color: '#166534', marginBottom: '8px' }}>
-            {language === 'sw' ? 'Mpango Umetengenezwa — Chapisha au Shiriki' : 'Plan Ready — Print or Share'}
+            {language === 'sw' ? 'Mpango ? hakiki kabla ya kuchapisha au kushiriki' : 'Plan Ready — Print or Share'}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {onOpenMealPlan && (

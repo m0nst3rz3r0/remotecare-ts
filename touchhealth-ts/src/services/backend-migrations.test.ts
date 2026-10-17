@@ -21,7 +21,7 @@ beforeAll(async () => {
     create function auth.uid() returns uuid language sql stable as $$ select (auth.jwt()->>'sub')::uuid $$;
     create function auth.role() returns text language sql stable as $$ select auth.jwt()->>'role' $$;
     grant usage on schema public, auth to anon, authenticated, service_role;`);
-  for (const name of ['001_schema_baseline','002_rls_policies','003_soft_delete_sync','004_auth_and_devices','005_sms_ledger']) {
+  for (const name of ['001_schema_baseline','002_rls_policies','003_soft_delete_sync','004_auth_and_devices','005_sms_ledger','006_nutrition_sync']) {
     await db.exec(readFileSync(new URL('../../../supabase/migrations/' + name + '.sql', import.meta.url), 'utf8'));
   }
   await db.exec(`grant all on all tables in schema public to service_role;
@@ -45,7 +45,7 @@ describe('database authorization and device provisioning', () => {
         create function auth.jwt() returns jsonb language sql stable as $$ select '{}'::jsonb $$;
         create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
         create function auth.role() returns text language sql stable as $$ select 'anon' $$;`);
-      for (const name of ['001_schema_baseline','002_rls_policies','003_soft_delete_sync','004_auth_and_devices','005_sms_ledger']) {
+      for (const name of ['001_schema_baseline','002_rls_policies','003_soft_delete_sync','004_auth_and_devices','005_sms_ledger','006_nutrition_sync']) {
         let sql = readFileSync(new URL('../../../supabase/migrations/' + name + '.sql', import.meta.url), 'utf8');
         if (name === '001_schema_baseline') sql = sql.replace(/id\s+bigint\s+primary key/, 'id text primary key')
           .replace(/patient_id\s+bigint\s+not null/, 'patient_id text not null');
@@ -162,5 +162,53 @@ describe('SMS transactional reservation', () => {
     await db.exec('reset role'); await identify(otherId);
     expect((await db.query('select * from sms_requests')).rows).toHaveLength(0);
     await expect(db.query('select reserve_sms($1::jsonb)', [JSON.stringify(payload(idB))])).rejects.toThrow(/permission denied/);
+  });
+});
+
+describe('nutrition revision synchronization', () => {
+  beforeEach(async () => {
+    await db.exec("insert into visits(id,patient_id,date) values ('nutrition-visit',1,'2026-10-01')");
+    await identify(doctorId);
+  });
+  const sync = async (revision: number, profile: unknown, plans: unknown = {}) => {
+    const response = await db.query<{result:{applied:boolean;revision:number;profile:unknown;plans:unknown}}>('select sync_nutrition($1,$2,$3::jsonb,$4::jsonb) as result',['1',revision,JSON.stringify(profile),JSON.stringify(plans)]);
+    return response.rows[0].result;
+  };
+  it('accepts one device revision, preserves the second draft as a conflict and supports explicit resolution', async () => {
+    expect(await sync(0,{assessment:{activityLevel:'Light'}})).toMatchObject({applied:true,revision:1});
+    const conflict=await sync(0,{assessment:{activityLevel:'Active'}});
+    expect(conflict).toMatchObject({applied:false,revision:1,profile:{assessment:{activityLevel:'Light'}}});
+    expect(await sync(1,{assessment:{activityLevel:'Active'}})).toMatchObject({applied:true,revision:2});
+    expect(await sync(0,{assessment:{activityLevel:'Active'}})).toMatchObject({applied:true,revision:2});
+  });
+  it('serializes two device updates at the same revision', async()=>{
+    const results=await Promise.all([sync(0,{assessment:{activityLevel:'Light'}}),sync(0,{assessment:{activityLevel:'Active'}})]);
+    expect(results.filter(r=>r.applied)).toHaveLength(1);
+    expect(results.filter(r=>!r.applied)).toHaveLength(1);
+  });
+  it('preserves an approved snapshot when replacing a plan', async()=>{
+    const approved={schemaVersion:2,approval:{accountId:doctorId,note:'Reviewed'},meals:[]};
+    expect(await sync(0,{}, {'nutrition-visit':approved})).toMatchObject({applied:true,revision:1});
+    const draft={schemaVersion:2,meals:[],history:[approved]};
+    expect(await sync(1,{}, {'nutrition-visit':draft})).toMatchObject({applied:true,revision:2});
+    const saved=await db.query<{meal_plan:unknown}>("select meal_plan from visits where id='nutrition-visit'");
+    expect(saved.rows[0].meal_plan).toEqual(draft);
+  });
+  it('rejects cross-facility access',async()=>{
+    await db.exec('reset role');await identify(otherId);
+    await expect(sync(0,{})).rejects.toThrow(/access denied/);
+  });
+  it('prevents bypassing revision checks with direct patient writes',async()=>{
+    await expect(db.query("update patients set nutrition_profile='{}' where id=1")).rejects.toThrow(/permission denied/);
+  });
+  it('prevents bypassing revision checks with direct visit writes',async()=>{
+    await expect(db.query("update visits set meal_plan='{}' where id='nutrition-visit'")).rejects.toThrow(/permission denied/);
+  });
+  it('rejects plans for a visit that has not synchronized',async()=>{
+    await expect(sync(0,{}, {'missing-visit':{schemaVersion:2}})).rejects.toThrow(/Sync the visit/);
+  });
+  it('rejects rewriting an approved snapshot without retaining it',async()=>{
+    const approved={schemaVersion:2,approval:{accountId:doctorId},meals:[]};await sync(0,{}, {'nutrition-visit':approved});
+    await expect(sync(1,{}, {'nutrition-visit':{schemaVersion:2,meals:[]}})).rejects.toThrow(/Preserve the previous/);
   });
 });

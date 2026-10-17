@@ -1,3 +1,4 @@
+import { refreshNutritionPlans } from './nutritionRecords';
 // ════════════════════════════════════════════════════════════
 // TOUCH HEALTH · src/services/storage.ts
 // Single source of truth for all localStorage reads/writes
@@ -19,6 +20,7 @@
 import { supabase, requireOnlineSession } from './supabase';
 import { maskPhone } from '../utils/phone';
 import { canAccessLocalFacility } from './facilityAccess';
+import { pushNutrition, type NutritionSyncResult } from './nutritionSync';
 import { logger } from '../utils/logger';
 import type {
   Patient, User, Hospital, ClinicSettings,
@@ -72,8 +74,8 @@ function normalizeLegacyPatientStatuses(patients: Patient[]): Patient[] {
 
 export function loadPatients(): Patient[] {
   const raw = load<Patient[]>(KEYS.PATIENTS, []);
-  const normalized = normalizeLegacyPatientStatuses(raw);
-  if (normalized.some((p, i) => p.status !== raw[i]?.status)) {
+  const normalized = normalizeLegacyPatientStatuses(raw).map(refreshNutritionPlans);
+  if (normalized.some((p, i) => p !== raw[i])) {
     persist(KEYS.PATIENTS, normalized);
   }
   return normalized;
@@ -235,6 +237,7 @@ export async function syncPatientsWithCloud() {
       }
     }
     const localPatients = Array.from(localByCode.values());
+    const nutritionResults = new Map<number, NutritionSyncResult>();
     if (localPatients.length < visibleLocal.length) {
       savePatients([...localPatients, ...otherFacilities]);
     }
@@ -302,6 +305,8 @@ export async function syncPatientsWithCloud() {
             if (medError) throw new Error('Medication push failed: ' + medError.message);
           }
         }
+        const nutrition = await pushNutrition(patient);
+        if (nutrition) nutritionResults.set(patient.id, nutrition);
       }
     }
 
@@ -371,6 +376,7 @@ export async function syncPatientsWithCloud() {
           diagnoses:           v.diagnoses ?? [],
           investigations:      v.investigations ?? [],
           drugWarnings:        v.drug_warnings ?? [],
+          mealPlan:            v.meal_plan ?? undefined,
           meds:                medsByVisit.get(String(v.id)) ?? [],
         } as Visit);
       });
@@ -383,6 +389,7 @@ export async function syncPatientsWithCloud() {
       const mergedPatients: Patient[] = [
         ...canonicalCloud.map((cp) => {
           const normId = normalize(cp.id);
+          const nutrition = nutritionResults.get(normId);
           const cloudVisits = visitsByPatient.get(String(normId)) ?? [];
           const localMatch  = localByCode.get(cp.code as string);
           const cloudVisitIds = new Set(cloudVisits.map((v) => String(v.id)));
@@ -393,7 +400,9 @@ export async function syncPatientsWithCloud() {
             ...cp,
             id:          normId,
             status:      cp.status as PatientStatus,
-            visits:      [...cloudVisits, ...localOnlyVisits],
+            visits:      [...cloudVisits, ...localOnlyVisits].map((visit) => nutrition ? { ...visit, mealPlan: nutrition.plans[visit.id] ?? visit.mealPlan } : visit),
+            nutritionProfile: nutrition ? nutrition.profile : cp.nutrition_profile ?? undefined,
+            nutritionSync: nutrition?.state ?? { revision: Number(cp.nutrition_revision ?? 0), dirty: false },
             medications: localMatch?.medications ?? [],
             hba1c:       localMatch?.hba1c ?? [],
             callLog:     localMatch?.callLog ?? [],
@@ -406,7 +415,10 @@ export async function syncPatientsWithCloud() {
 
       // Preserve registrations and edits made locally while network calls ran.
       const snapshot = new Map(rawLocal.map((p) => [p.id, JSON.stringify(p)]));
-      const changed = loadPatients().filter((p) => snapshot.get(p.id) !== JSON.stringify(p));
+      const changed = loadPatients().filter((p) => snapshot.get(p.id) !== JSON.stringify(p)).map((p) => {
+        const nutrition = nutritionResults.get(p.id);
+        return nutrition ? { ...p, nutritionSync: { ...nutrition.state, dirty: true } } : p;
+      });
       const changedIds = new Set(changed.map((p) => p.id));
       savePatients([...mergedPatients.filter((p) => !changedIds.has(p.id)), ...changed]);
     }
@@ -428,6 +440,7 @@ export async function syncPatientsWithCloud() {
     if (cloudHospitals) saveHospitals(cloudHospitals as Hospital[]);
 
     setLastSync();
+    if ([...nutritionResults.values()].some((result) => result.state.conflict)) return { success: false, error: 'Nutrition conflict: another device changed the plan. Your draft is retained. Resolve it in Nutrition & Meal Plan, then sync again.' };
     return { success: true };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Network or internal error';

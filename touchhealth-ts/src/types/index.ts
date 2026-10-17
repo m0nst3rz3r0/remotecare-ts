@@ -3,7 +3,7 @@
 // src/types/index.ts — All TypeScript type definitions
 // ════════════════════════════════════════════════════════════
 
-import type { GeneratedMealPlan } from '../lib/clinical/types';
+import type { GeneratedMealPlan, NutritionAssessment, NutritionSyncState } from '../lib/clinical/types';
 
 // ── ENUMS ────────────────────────────────────────────────────
 
@@ -230,6 +230,7 @@ export interface Patient {
   callLog?: CallLogEntry[];
   scheduledNext?: ScheduledAppointment;
   nutritionProfile?: {
+    assessment?: NutritionAssessment;
     activityLevel?: 'Sedentary' | 'Light' | 'Moderate' | 'Active' | 'Very Active';
     bodyGoal?: 'lose_weight' | 'maintain' | 'gain_muscle';
     nutritionTargetKcal?: number;
@@ -242,6 +243,7 @@ export interface Patient {
     availableFoodIds?: string[];
     afyaLisheReferralSent?: boolean;
   };
+  nutritionSync?: NutritionSyncState;
 }
 
 // ── CLINICAL CLASSIFICATION ──────────────────────────────────

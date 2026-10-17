@@ -29,6 +29,7 @@ export function formatPortion(food: FoodItem, portionMultiplier: number, lang: '
 export function formatMealItemDetail(item: MealItem, lang: 'en' | 'sw'): string {
   const food = getFoodsSync().find(f => f.id === item.foodId);
   const prep = localizePrep(item.prepMethod ?? item.preparation, lang);
+  if (item.grams != null) return `${(lang === 'sw' ? item.portionText_sw : item.portionText_en) ?? item.portionText} (${item.grams}g), ${prep}`;
   if (food && item.portionMultiplier != null) {
     return `${formatPortion(food, item.portionMultiplier, lang)}, ${prep}`;
   }

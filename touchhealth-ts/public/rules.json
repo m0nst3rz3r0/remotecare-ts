@@ -1836,7 +1836,7 @@
     "alert_message_sw": "Ugali wa Mahindi: Kiwango cha juu cha sukari na 25.6g wanga kwa 100g husababisha kupanda kwa haraka kwa sukari ya damu. TIP: Punguza kiasi nusu, kula pamoja na protini au mafuta salama, au chagua badala kama mchele wa kuchanganya au ugali wa mtama."
   },
   {
-    "id": "rule_200",
+    "id": "rule_200_legacy_2",
     "target_food_id": "food_001",
     "target_prep_method": "Any",
     "condition": "HTN",
@@ -1845,7 +1845,7 @@
     "alert_message_sw": "Biskuti: Ina chumvi nyingi (1302mg kwa 100g) inayopandisha presha kwa kushikilia maji na kufunga mishipa. TIP: Kiasi nusu ya kawaida, oshea iwezekanavyo, na kula pamoja na mboga za potasiamu kama mchicha au ndizi."
   },
   {
-    "id": "rule_201",
+    "id": "rule_201_legacy_2",
     "target_food_id": "food_001",
     "target_prep_method": "Any",
     "condition": "DM",
@@ -1854,7 +1854,7 @@
     "alert_message_sw": "Biskuti: Kiwango cha juu cha sukari na 71.5g wanga kwa 100g husababisha kupanda kwa haraka kwa sukari ya damu. TIP: Punguza kiasi nusu, kula pamoja na protini au mafuta salama, au chagua badala kama mchele wa kuchanganya au ugali wa mtama."
   },
   {
-    "id": "rule_202",
+    "id": "rule_202_legacy_2",
     "target_food_id": "food_001",
     "target_prep_method": "Any",
     "condition": "DM",
@@ -1863,7 +1863,7 @@
     "alert_message_sw": "Biskuti: Ina sukari zilizounganishwa zinazosababisha kupanda kwa haraka kwa sukari ya damu bila thamani ya lishe. TIP: Epuka kabisa. Ukihitaji utamu, tumia stevia kidogo au la matunda yote kama berries kwa kiasi cha kudhibitiwa."
   },
   {
-    "id": "rule_203",
+    "id": "rule_203_legacy_2",
     "target_food_id": "food_002",
     "target_prep_method": "Any",
     "condition": "HTN",
@@ -1872,7 +1872,7 @@
     "alert_message_sw": "Mkate Mweupe: Ina chumvi nyingi (609mg kwa 100g) inayopandisha presha kwa kushikilia maji na kufunga mishipa. TIP: Kiasi nusu ya kawaida, oshea iwezekanavyo, na kula pamoja na mboga za potasiamu kama mchicha au ndizi."
   },
   {
-    "id": "rule_204",
+    "id": "rule_204_legacy_2",
     "target_food_id": "food_002",
     "target_prep_method": "Any",
     "condition": "DM",
@@ -1881,7 +1881,7 @@
     "alert_message_sw": "Mkate Mweupe: Kiwango cha juu cha sukari na 51.9g wanga kwa 100g husababisha kupanda kwa haraka kwa sukari ya damu. TIP: Punguza kiasi nusu, kula pamoja na protini au mafuta salama, au chagua badala kama mchele wa kuchanganya au ugali wa mtama."
   },
   {
-    "id": "rule_205",
+    "id": "rule_205_legacy_2",
     "target_food_id": "food_004",
     "target_prep_method": "Any",
     "condition": "DM",
@@ -1890,7 +1890,7 @@
     "alert_message_sw": "Mahindi Yaliyopigwa (Kupikwa): Kiwango cha juu cha sukari na 25.4g wanga kwa 100g husababisha kupanda kwa haraka kwa sukari ya damu. TIP: Punguza kiasi nusu, kula pamoja na protini au mafuta salama, au chagua badala kama mchele wa kuchanganya au ugali wa mtama."
   },
   {
-    "id": "rule_206",
+    "id": "rule_206_legacy_2",
     "target_food_id": "food_005",
     "target_prep_method": "Any",
     "condition": "DM",
@@ -1899,7 +1899,7 @@
     "alert_message_sw": "Unga wa Mahindi ya Njano: Kiwango cha juu cha sukari na 76.9g wanga kwa 100g husababisha kupanda kwa haraka kwa sukari ya damu. TIP: Punguza kiasi nusu, kula pamoja na protini au mafuta salama, au chagua badala kama mchele wa kuchanganya au ugali wa mtama."
   },
   {
-    "id": "rule_207",
+    "id": "rule_207_legacy_2",
     "target_food_id": "food_006",
     "target_prep_method": "Any",
     "condition": "DM",
@@ -1908,7 +1908,7 @@
     "alert_message_sw": "Mtama wa Bulrush: Kiwango cha wastani cha GI lakini wanga mwingi (68.7g kwa 100g) bado unaweza kupandisha sukari. TIP: Kiasi nusu ya ngumi, ongeza mboga zenye fiber, na kula pole pole kuboresha mwili kushughulika na sukari."
   },
   {
-    "id": "rule_208",
+    "id": "rule_208_legacy_2",
     "target_food_id": "food_012",
     "target_prep_method": "Any",
     "condition": "DM",
@@ -1917,7 +1917,7 @@
     "alert_message_sw": "Semolina: Kiwango cha wastani cha GI lakini wanga mwingi (76.3g kwa 100g) bado unaweza kupandisha sukari. TIP: Kiasi nusu ya ngumi, ongeza mboga zenye fiber, na kula pole pole kuboresha mwili kushughulika na sukari."
   },
   {
-    "id": "rule_209",
+    "id": "rule_209_legacy_2",
     "target_food_id": "food_013",
     "target_prep_method": "Any",
     "condition": "DM",
@@ -1926,7 +1926,7 @@
     "alert_message_sw": "Tambi: Kiwango cha wastani cha GI lakini wanga mwingi (77.8g kwa 100g) bado unaweza kupandisha sukari. TIP: Kiasi nusu ya ngumi, ongeza mboga zenye fiber, na kula pole pole kuboresha mwili kushughulika na sukari."
   },
   {
-    "id": "rule_210",
+    "id": "rule_210_legacy_2",
     "target_food_id": "food_014",
     "target_prep_method": "Any",
     "condition": "DM",

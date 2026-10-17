@@ -1,6 +1,12 @@
 import type { FoodItem } from './types';
 
-type MealType = 'Breakfast' | 'Lunch' | 'Dinner';
+type MealType = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
+
+export function roundPortion(food: FoodItem, multiplier: number): number {
+  if (!Number.isFinite(multiplier) || multiplier <= 0) throw new Error('Portion must be a positive number.');
+  if (food.serving) return Math.max(0.5, Math.round(food.serving.default_units * multiplier * 2) / 2) / food.serving.default_units;
+  return Math.max(5, Math.round(multiplier * 100 / 5) * 5) / 100;
+}
 
 function formatQuantity(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
@@ -62,11 +68,13 @@ export function formatMealPortion(
 
 export function computeFoodMacros(food: FoodItem, portionMultiplier: number) {
   const m = food.macros_per_100g;
-  const factor = getServingGrams(food, portionMultiplier) / 100;
+  const factor = getServingGrams(food, roundPortion(food, portionMultiplier)) / 100;
   return {
     calories: Math.round(m.calories * factor),
     protein: Math.round((m.protein_g ?? 0) * factor * 10) / 10,
     carbs: Math.round((m.carbs_g ?? 0) * factor * 10) / 10,
     fat: Math.round((m.fat_g ?? 0) * factor * 10) / 10,
+    sodiumMg: Number.isFinite(m.sodium_mg) ? Math.round(m.sodium_mg * factor) : null,
+    fiberG: Number.isFinite(m.fiber_g) ? Math.round(m.fiber_g! * factor * 10) / 10 : null,
   };
 }

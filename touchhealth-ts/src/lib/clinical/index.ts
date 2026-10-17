@@ -1,5 +1,5 @@
 // RCRO NutritionTool — barrel export
-export const CLINICAL_ENGINE_VERSION = '1.0.0';
+export const CLINICAL_ENGINE_VERSION = '2.0.0';
 
 export * from './types';
 export * from './dataLoader';
@@ -11,3 +11,6 @@ export * from './drugInteractions';
 export * from './foodSafety';
 export * from './mealPlanner';
 export * from './mealLocalization';
+
+export * from './nutritionPolicy';
+export * from './planValidation';

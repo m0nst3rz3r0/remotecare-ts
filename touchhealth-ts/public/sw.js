@@ -1,7 +1,7 @@
 // Hand-written service worker to satisfy `/sw.js` registration now.
 // Once SW build tooling is added, `src/sw.ts` should be the source of truth.
 
-const CACHE_NAME = 'touchhealth-v4';
+const CACHE_NAME = 'touchhealth-v5';
 
 const PRECACHE_URLS = ['/', '/index.html', '/foods.json', '/rules.json'];
 

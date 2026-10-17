@@ -10,8 +10,8 @@ import zonePresets from './data/zoneAvailabilityPresets.json';
 import type { ZonePreset } from './lib/clinical/types';
 import { logger } from './utils/logger';
 
-preloadClinicalData().catch((e) => logger.warn('Clinical preload failed', e));
 loadZonePresets(zonePresets as Record<string, ZonePreset>);
+preloadClinicalData().catch((e) => logger.warn('Clinical preload failed', e));
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {

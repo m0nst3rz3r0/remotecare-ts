@@ -1,6 +1,6 @@
 // RCRO NutritionTool — shared types
 
-export type Severity = 'Safe' | 'Warning' | 'Danger';
+export type Severity = 'Safe' | 'Warning' | 'Danger' | 'not_assessed';
 export type ActivityLevel = 'Sedentary' | 'Light' | 'Moderate' | 'Active' | 'Very Active';
 export type BodyGoal = 'lose_weight' | 'maintain' | 'gain_muscle';
 export type TZRegion =
@@ -59,6 +59,7 @@ export interface EvaluationResult {
   severity: Severity;
   message_en: string;
   message_sw: string;
+  reasons?: Array<{ ruleId: string; message_en: string; message_sw: string }>;
 }
 
 export interface NutritionTargets {
@@ -76,15 +77,21 @@ export interface MealItem {
   name_en: string;
   name_sw: string;
   portionText: string;
+  portionText_en?: string;
+  portionText_sw?: string;
   preparation: string;
   /** For re-localizing portions when language toggles */
   portionMultiplier?: number;
   prepMethod?: string;
   macros: { calories: number; protein: number; carbs: number; fat: number };
+  grams?: number;
+  sodiumMg?: number | null;
+  fiberG?: number | null;
+  ingredient?: boolean;
 }
 
 export interface DailyMeal {
-  mealType: 'Breakfast' | 'Lunch' | 'Dinner';
+  mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
   name_en: string;
   name_sw: string;
   items: MealItem[];
@@ -105,6 +112,19 @@ export interface DrugFoodInteraction {
 }
 
 export interface GeneratedMealPlan {
+  schemaVersion?: 2;
+  id?: string;
+  datasetMetadata?: typeof import('./nutritionPolicy').NUTRITION_DATA_METADATA;
+  datasetVersion?: string;
+  policyVersion?: string;
+  assessment?: NutritionAssessment;
+  inputSnapshot?: NutritionInputs;
+  inputFingerprint?: string;
+  totals?: NutrientTotals;
+  validation?: PlanValidation;
+  approval?: NutritionApproval;
+  stale?: boolean;
+  history?: NutritionPlanSnapshot[];
   patientCode: string;
   date: string;
   diagnosis: string;
@@ -126,6 +146,47 @@ export interface GeneratedMealPlan {
     fruit:     { id: string; name_en: string; name_sw: string }[];
   };
   generatedAt: string;
+}
+
+export type ScreeningAnswer = 'unknown' | 'no' | 'yes';
+export interface NutritionAssessment {
+  activityLevel: ActivityLevel;
+  bodyGoal: BodyGoal;
+  availableFoodIds?: string[];
+  excludedFoodIds: string[];
+  allergyScreen: ScreeningAnswer;
+  allergyDetails: string;
+  pregnancyOrBreastfeeding: ScreeningAnswer;
+  significantWeightLoss: ScreeningAnswer;
+  specialistCondition: ScreeningAnswer;
+  measurementDate: string;
+  adjustedTargets?: Partial<Pick<NutritionTargets, 'tdee' | 'proteinG' | 'carbsG' | 'fatG' | 'sodiumMg' | 'fiberG'>>;
+  targetAdjustmentReason?: string;
+  cookingIngredients: Array<{ foodId: string; grams: number; mealType: 'Breakfast' | 'Lunch' | 'Dinner' }>;
+}
+export interface NutritionInputs {
+  age: number; sex: 'male' | 'female'; weightKg: number; heightCm: number;
+  conditions: string[]; medicationIds: string[]; zone: TZRegion;
+  assessment: NutritionAssessment;
+}
+export interface NutrientTotals {
+  calories: number; protein: number; carbs: number; fat: number;
+  sodiumMg: number | null; fiberG: number | null;
+}
+export interface PlanIssue { code: string; message_en: string; message_sw: string }
+export interface PlanValidation {
+  status: 'complete' | 'incomplete' | 'needs_review';
+  issues: PlanIssue[];
+  assumptions: string[];
+}
+export interface NutritionApproval {
+  accountId: string; accountName: string; deviceId: string; approvedAt: string;
+  fingerprint: string; note: string;
+}
+export type NutritionPlanSnapshot = Omit<GeneratedMealPlan, 'history'>;
+export interface NutritionSyncState {
+  revision: number; dirty?: boolean;
+  conflict?: { revision: number; profile: unknown; plans: Record<string, GeneratedMealPlan | null> };
 }
 
 export interface ZonePreset {

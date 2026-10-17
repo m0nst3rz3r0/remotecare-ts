@@ -391,7 +391,7 @@ export function recordVisit(
     } = params;
 
     const visit: Visit = {
-      id:        'v' + randomUUID(),
+      id:        p.visits.find((v) => v.date === date)?.id ?? 'v' + randomUUID(),
       month,
       year:      new Date(date).getFullYear(),
       date,
@@ -457,6 +457,7 @@ export function recordVisit(
       const bmiVal = weight && height ? calculateBMI(weight, height) : 0;
       nutritionProfile = {
         ...p.nutritionProfile,
+        assessment: mealPlan.assessment,
         nutritionTargetKcal: mealPlan.targets.tdee,
         nutritionProteinG: mealPlan.targets.proteinG,
         nutritionSodiumMg: mealPlan.targets.sodiumMg,
@@ -470,7 +471,14 @@ export function recordVisit(
       };
     }
 
-    return { ...p, visits, medications, scheduledNext, hba1c, status: nextStatus, nutritionProfile };
+    const previousPlan = p.visits.find((v) => v.date === date)?.mealPlan;
+    if (previousPlan && !visit.mealPlan) visit.mealPlan = previousPlan;
+    if (previousPlan?.approval && visit.mealPlan && JSON.stringify(previousPlan) !== JSON.stringify(visit.mealPlan)) {
+      const { history, ...snapshot } = previousPlan;
+      visit.mealPlan = { ...visit.mealPlan, history: [...(history ?? []), ...(visit.mealPlan.history ?? []), snapshot] };
+    }
+    return { ...p, visits, medications, scheduledNext, hba1c, status: nextStatus, nutritionProfile,
+      nutritionSync: att && mealPlan ? { ...p.nutritionSync, revision: p.nutritionSync?.revision ?? 0, dirty: true } : p.nutritionSync };
   });
 }
 

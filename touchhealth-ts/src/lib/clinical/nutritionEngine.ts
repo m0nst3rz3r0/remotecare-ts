@@ -20,6 +20,13 @@ export function computeNutritionTargets(params: {
     bodyGoal = 'maintain',
   } = params;
 
+  if (!Number.isFinite(age) || age <= 0 || age > 120 || !Number.isFinite(weightKg) || weightKg <= 0 || weightKg > 500
+    || !Number.isFinite(heightCm) || heightCm <= 0 || heightCm > 250 || !['male','female'].includes(sex)) {
+    throw new Error('Valid age, sex, weight and height are required.');
+  }
+
+  if (!['Sedentary','Light','Moderate','Active','Very Active'].includes(activityLevel) || !['lose_weight','maintain','gain_muscle'].includes(bodyGoal)) throw new Error('Select a valid activity level and body goal.');
+
   const { bmr, tdee: baseTDEE } = calculateTDEE({
     weightKg, heightCm, age, sex, activityLevel, workType: 'Moderate', fitnessStatus: 'Beginner',
   });
@@ -50,13 +57,12 @@ export function computeNutritionTargets(params: {
 
   let proteinG = Math.round(weightKg * 0.9);
   if (hasCKD) proteinG = Math.round(weightKg * 0.7);
-  if (hasTB || hasHIV) proteinG = Math.round(weightKg * 1.2);
-  if (bodyGoal === 'gain_muscle') proteinG = Math.round(weightKg * 1.5);
-  if (hasCKD && bodyGoal === 'gain_muscle') proteinG = Math.min(proteinG, Math.round(weightKg * 1.0));
+  if (!hasCKD && (hasTB || hasHIV)) proteinG = Math.round(weightKg * 1.2);
+  if (!hasCKD && bodyGoal === 'gain_muscle') proteinG = Math.round(weightKg * 1.5);
 
   let sodiumMg = 2300;
   if (hasHTN || hasHF) sodiumMg = 1500;
-  if (hasCKD) sodiumMg = 2000;
+  if (hasCKD) sodiumMg = Math.min(sodiumMg, 2000);
 
   const baselineFatG = Math.round(weightKg * 0.9);
   const minimumFatG = Math.max(25, Math.round(weightKg * 0.6));

@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { isPlanStale, invalidatePlan, archiveApproved } from '../../lib/clinical/planValidation';
+import { toMedIds, getPatientConditions, regionToZone } from '../../lib/clinical';
+import { getClinicZone, getClinicalDataState } from '../../lib/clinical/dataLoader';
+import { defaultNutritionAssessment } from '../../lib/clinical/nutritionPolicy';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Check, ChevronDown, Star, X, Stethoscope } from 'lucide-react';
 import type { HbA1cQuarter, Medication, Patient, SugarTestType } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -349,8 +353,11 @@ export default function VisitModal() {
   );
 
   // ── Reset on open ─────────────────────────────────────────
+  const initializedVisit = useRef<number | null>(null);
   useEffect(() => {
-    if (!open || !patient) return;
+    if (!open || !patient) { initializedVisit.current = null; return; }
+    if (initializedVisit.current === patient.id) return;
+    initializedVisit.current = patient.id;
     setVisitDate(today());
     setAttended(true);
     setSbp(''); setDbp(''); setSugar(''); setSugarType('FBS');
@@ -375,6 +382,18 @@ export default function VisitModal() {
     if (!open) return;
     setNextDate(toISODate(computedNextDate));
   }, [computedNextDate, open]);
+
+  useEffect(() => {
+    if (!mealPlan || !patient || mealPlan.stale || getClinicalDataState().status !== 'ready') return;
+    const weight = parseNumber(weightKg) ?? patient.visits.slice().reverse().find(v => v.weight)?.weight;
+    const height = parseNumber(heightCm) ?? patient.visits.slice().reverse().find(v => v.height)?.height;
+    if (!weight || !height) { setMealPlan(invalidatePlan(mealPlan)); return; }
+    const input = { age: patient.age, sex: patient.sex === 'M' ? 'male' as const : 'female' as const,
+      weightKg: weight, heightCm: height, conditions: getPatientConditions(patient.cond,currentDiagnosisCodes),
+      medicationIds: toMedIds(currentMedNames), zone: (patient.nutritionProfile?.zoneOverride as import('../../lib/clinical').TZRegion | undefined) ?? getClinicZone() ?? regionToZone(patient.region),
+      assessment: patient.nutritionProfile?.assessment ?? mealPlan.assessment ?? defaultNutritionAssessment() };
+    if (isPlanStale(mealPlan,input)) setMealPlan(invalidatePlan(mealPlan));
+  }, [mealPlan, patient, weightKg, heightCm, currentMedNames, currentDiagnosisCodes]);
 
   if (!open || !patient || patientId === null || !currentUser) return null;
 
@@ -879,8 +898,9 @@ export default function VisitModal() {
                   visitDiagnoses={currentDiagnosisCodes}
                   language={visitLanguage}
                   mealPlan={mealPlan}
+                  onUpdateMealPlan={setMealPlan}
                   onGenerateMealPlan={(plan) => {
-                    setMealPlan(plan);
+                    setMealPlan({ ...plan, history: [...(mealPlan ? archiveApproved(mealPlan) ?? [] : []), ...(plan.history ?? [])] });
                     setShowMealPlan(true);
                   }}
                   onOpenMealPlan={() => setShowMealPlan(true)}

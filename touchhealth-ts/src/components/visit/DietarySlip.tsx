@@ -1,3 +1,4 @@
+import { planStatusText, planNutritionText } from '../../lib/clinical/planValidation';
 import type { GeneratedMealPlan } from '../../lib/clinical';
 import { buildCautions } from '../../lib/clinical/mealPlanner';
 import { formatMealItemDetail, mealFoodName } from '../../lib/clinical/mealLocalization';
@@ -232,6 +233,9 @@ export function buildDietarySlipHtml(
   </style>
 </head>
 <body>
+  <div style="border:2px solid #92400e;padding:12px;font-weight:bold">${escapeHtml(planStatusText(plan, lang))}
+  ${(plan.validation?.issues ?? []).map(i => `<p>${escapeHtml(lang === 'sw' ? i.message_sw : i.message_en)}</p>`).join('')}
+  <p>${escapeHtml(planNutritionText(plan, lang))}</p></div>
   <div class="print-hint">${L(lang, 'To save as PDF: File -> Print -> "Save as PDF". Two pages will be generated.', 'Kuhifadhi kama PDF: Faili -> Chapisha -> "Hifadhi kama PDF". Kurasa mbili zitatengenezwa.')}</div>
 
   ${headerHTML}
@@ -323,6 +327,9 @@ function buildPlainTextSummary(
 ): string {
   const dayTotal = plan.meals.reduce((sum, meal) => sum + meal.totalCalories, 0);
   const lines = [
+    planStatusText(plan, lang),
+    ...(plan.validation?.issues ?? []).map(i => lang === 'sw' ? i.message_sw : i.message_en),
+    planNutritionText(plan, lang),
     L(lang, `Meal plan for ${patientName}`, `Mpango wa chakula kwa ${patientName}`),
     `${plan.region} · ${plan.diagnosis || '-'} · ${dayTotal} kcal/day`,
     `${plan.targets.tdee} kcal · ${plan.targets.proteinG}g protein · ${plan.targets.carbsG}g carbs · ${plan.targets.sodiumMg}mg sodium`,

@@ -1,13 +1,18 @@
 // RCRO NutritionTool - offline meal plan generator
 
-import { getFoodsForZone, getZonePresets } from './dataLoader';
+import { getFoodsForZone, getZonePresets, getClinicalDataState, isFoodsReady } from './dataLoader';
 import { calculateBMI } from './calculators';
 import { normalizeConditionList } from './conditions';
 import { getDrugFoodInteractions } from './drugInteractions';
 import { evalFoodForPatient, getAvoidFoods, getRecommendedFoods } from './foodSafety';
 import { getMealTemplates, STARCH_EGG_INCOMPATIBLE, type MealBlueprint } from './mealTemplates';
-import { computeFoodMacros, formatMealPortion, getPracticalPortionLimit } from './mealPortions';
+import { computeFoodMacros, getPracticalPortionLimit } from './mealPortions';
 import { computeNutritionTargets, getNutritionRiskLevel } from './nutritionEngine';
+import { makeMealItem, validatePlan, inputFingerprint, findFood } from './planValidation';
+import { balanceDailyMeals } from './dailyBalancer';
+import { defaultNutritionAssessment, NUTRITION_POLICY, NUTRITION_DATA_METADATA } from './nutritionPolicy';
+import { randomUUID } from '../../utils/id';
+import type { NutritionAssessment, NutritionInputs } from './types';
 import type { PrepMethod } from './mealLocalization';
 import type { DailyMeal, FoodItem, GeneratedMealPlan, MealItem, NutritionTargets, TZRegion } from './types';
 
@@ -224,16 +229,7 @@ function buildMealFromBlueprint(
   resolved = repairIncompatibleEggMeals(resolved, conditions, zone, availableFoodIds);
   resolved = rebalanceMealPortions(resolved, blueprint.mealType, mealTargetCalories);
 
-  const items: MealItem[] = resolved.map(({ food, portion, prep }) => ({
-    foodId: food.id,
-    name_en: food.name_en,
-    name_sw: food.name_sw,
-    portionText: formatMealPortion(food, portion, lang),
-    preparation: prepToEval(prep),
-    prepMethod: prep,
-    portionMultiplier: portion,
-    macros: computeFoodMacros(food, portion),
-  }));
+  const items: MealItem[] = resolved.map(({ food, portion, prep }) => makeMealItem(food, portion, lang, prepToEval(prep)));
 
   const totalCalories = items.reduce((sum, item) => sum + item.macros.calories, 0);
 
@@ -266,24 +262,24 @@ export function buildCautions(
   const sodiumTarget = targets?.sodiumMg ?? (dx.some(d => /hf|heart failure|htn|hypertension/i.test(d)) ? 1500 : 2000);
 
   if (dx.some(d => /dm|diabetes/i.test(d))) cautions.push(L(
-    'Diabetes: avoid sugary drinks, limit starch to one fist per meal, choose low-GI foods.',
-    'Kisukari: epuka vinywaji vyenye sukari, punguza wanga hadi ngumi moja kwa mlo, chagua vyakula vya GI ya chini.',
+    'Diabetes: avoid sugary drinks; follow the planned carbohydrate portions and regular meal timing.',
+    'Kisukari: epuka vinywaji vyenye sukari; fuata vipimo vya wanga na muda wa milo uliopangwa.',
   ));
   if (dx.some(d => /htn|hypertension/i.test(d))) cautions.push(L(
-    `Hypertension: keep sodium under ${sodiumTarget}mg/day. Avoid salty processed foods and excess coconut milk.`,
-    `Presha: weka sodiamu chini ya ${sodiumTarget}mg kwa siku. Epuka vyakula vilivyosindikwa vyenye chumvi na maziwa mengi ya nazi.`,
+    `Hypertension: keep sodium under ${sodiumTarget}mg/day. Include cooking salt and processed foods in the daily sodium total.`,
+    `Presha: weka sodiamu chini ya ${sodiumTarget}mg kwa siku. Hesabu chumvi ya kupikia na vyakula vilivyosindikwa katika jumla ya sodiamu.`,
   ));
   if (dx.some(d => /ckd|kidney/i.test(d))) cautions.push(L(
-    'CKD: limit protein and potassium. Confirm fluid limits with your renal team.',
-    'Figozisugua: punguza protini na potasiamu. Thibitisha vipimo vya maji na daktari wa figo.',
+    'CKD: specialist assessment is required for protein, potassium and fluid targets. Routine DM/HTN estimates are not renal prescriptions.',
+    'Ugonjwa sugu wa figo: mtaalamu athibitishe malengo ya protini, potasiamu na maji.',
   ));
   if (dx.some(d => /hf|heart failure/i.test(d))) cautions.push(L(
-    'Heart failure: strict salt and fluid restriction. Check with your cardiologist.',
-    'Shindwa la moyo: zuia chumvi na maji kwa ukakamavu. Wasiliana na daktari wa moyo.',
+    'Heart failure: confirm individualized sodium and fluid advice with the treating clinician.',
+    'Moyo kushindwa kufanya kazi: thibitisha ushauri binafsi wa sodiamu na maji na daktari.',
   ));
   if (dx.some(d => /pud|ulcer/i.test(d))) cautions.push(L(
-    'Peptic ulcer: avoid spicy, fried, acidic, and gas-forming foods. No NSAIDs on empty stomach.',
-    'Kidonda cha tumbo: epuka vyakula vyenye pilipili, vya kukaanga, tindikali, au vinavyosababisha gesi.',
+    'Peptic ulcer: no universal special diet is recommended; identify individual symptom triggers and review ulcer treatment with your clinician.',
+    'Kidonda cha tumbo: hakuna lishe maalum kwa wote; tambua vyakula vinavyochochea dalili na hakiki tiba na daktari.',
   ));
 
   return cautions;
@@ -302,6 +298,7 @@ export function generateMealPlan(params: {
   bodyGoal?: 'lose_weight' | 'maintain' | 'gain_muscle';
   medicationIds: string[];
   availableFoodIds?: Set<string>;
+  assessment?: NutritionAssessment;
 }): GeneratedMealPlan {
   const {
     patientCode,
@@ -318,30 +315,50 @@ export function generateMealPlan(params: {
     availableFoodIds,
   } = params;
 
+  if (!isFoodsReady()) throw new Error('Validated food and rule datasets are required. Retry nutrition loading.');
+  const assessment: NutritionAssessment = { ...defaultNutritionAssessment(), ...params.assessment };
+  if (availableFoodIds) assessment.availableFoodIds = [...availableFoodIds];
+  if (!params.assessment) { assessment.activityLevel = activityLevel as NutritionAssessment['activityLevel']; assessment.bodyGoal = bodyGoal; }
+  const selectedFoodIds = assessment.availableFoodIds ? new Set(assessment.availableFoodIds.filter((id) => !assessment.excludedFoodIds.includes(id)))
+    : new Set(getFoodsForZone(zone).map((f) => f.id).filter((id) => !assessment.excludedFoodIds.includes(id)));
+  const inputs: NutritionInputs = { age, sex, weightKg, heightCm, conditions, medicationIds, zone, assessment };
   const targets = computeNutritionTargets({
     age,
     sex,
     weightKg,
     heightCm,
-    activityLevel,
+    activityLevel: assessment.activityLevel,
     diagnoses: conditions,
-    bodyGoal,
+    bodyGoal: assessment.bodyGoal,
   });
 
+  for (const [key, value] of Object.entries(assessment.adjustedTargets ?? {})) {
+    if (!Number.isFinite(value) || value <= 0) throw new Error('Adjusted nutrient targets must be positive numbers.');
+    if (['tdee','proteinG','carbsG','fatG','sodiumMg','fiberG'].includes(key)) (targets as unknown as Record<string, number>)[key] = value;
+  }
+  const foodConditions = [...conditions, ...medicationIds];
   const templates = getMealTemplates(zone);
   const meals: DailyMeal[] = templates.map(blueprint =>
-    buildMealFromBlueprint(blueprint, conditions, zone, targets, language, availableFoodIds),
+    buildMealFromBlueprint(blueprint, foodConditions, zone, targets, language, selectedFoodIds),
   );
 
   const normalizedConditions = normalizeConditionList(conditions);
   const bmi = calculateBMI(weightKg, heightCm);
   const nutritionRisk = getNutritionRiskLevel(normalizedConditions, bmi, targets.sodiumMg);
   const drugAlerts = getDrugFoodInteractions(medicationIds);
-  const avoidFoods = getAvoidFoods(conditions, zone);
-  const recommendedFoods = getRecommendedFoods(conditions, zone);
+  const avoidFoods = getAvoidFoods(foodConditions, zone);
+  const recommendedFoods = getRecommendedFoods(foodConditions, zone, selectedFoodIds, assessment.excludedFoodIds);
   const cautions = buildCautions(conditions, language, targets);
 
-  return {
+  for (const addition of assessment.cookingIngredients) {
+    const food = findFood(addition.foodId), meal = meals.find((m) => m.mealType === addition.mealType);
+    if (!food || !meal || !Number.isFinite(addition.grams) || addition.grams <= 0 || addition.grams > 1000) throw new Error('Invalid cooking ingredient or grams.');
+    meal.items.push(makeMealItem(food, 1, language, 'raw', Math.round(addition.grams * 10) / 10));
+  }
+  const plan: GeneratedMealPlan = {
+    datasetMetadata: NUTRITION_DATA_METADATA,
+    schemaVersion: 2, id: randomUUID(), datasetVersion: getClinicalDataState().version, policyVersion: NUTRITION_POLICY.version,
+    assessment, inputSnapshot: inputs, inputFingerprint: inputFingerprint(inputs),
     patientCode,
     date: new Date().toISOString().split('T')[0],
     diagnosis: normalizedConditions.filter(code => DIAGNOSIS_CODES.has(code)).join(', '),
@@ -358,4 +375,6 @@ export function generateMealPlan(params: {
     recommendedFoods,
     generatedAt: new Date().toISOString(),
   };
+  plan.meals = balanceDailyMeals(plan);
+  return validatePlan(plan);
 }

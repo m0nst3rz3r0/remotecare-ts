@@ -1,3 +1,7 @@
+import { refreshNutritionPlans } from '../services/nutritionRecords';
+import { archiveApproved, validatePlan } from '../lib/clinical/planValidation';
+import type { NutritionAssessment } from '../lib/clinical/types';
+import { resolveNutritionConflict } from '../services/nutritionSync';
 import { create } from 'zustand';
 import { getProgrammeOverview } from '../services/analytics';
 import { getPatientNextVisitDate, isDue } from '../services/clinical';
@@ -36,6 +40,8 @@ interface PatientState {
   selectedId: number | null;
   filter: PatientFilter;
   searchQuery: string;
+  setNutritionAssessment: (id: number, assessment: NutritionAssessment) => void;
+  resolveNutrition: (id: number, choice: 'local' | 'cloud') => void;
   loadFromStorage: () => void;
   registerPatient: (params: RegisterPatientParams) => { success: boolean; error?: string; patient?: Patient };
   recordVisit: (params: RecordVisitParams) => void;
@@ -61,6 +67,14 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   filter: 'all',
   searchQuery: '',
 
+  setNutritionAssessment: (id, assessment) => {
+    persistPatientsState(set, get().patients.map(p => p.id !== id ? p : { ...p,
+      nutritionProfile: { ...p.nutritionProfile, assessment },
+      nutritionSync: { ...p.nutritionSync, revision: p.nutritionSync?.revision ?? 0, dirty: true },
+      visits: p.visits.map(v => v.mealPlan ? { ...v, mealPlan: validatePlan({ ...v.mealPlan, history: archiveApproved(v.mealPlan), approval: undefined, stale: true }) } : v),
+    }));
+  },
+  resolveNutrition: (id, choice) => persistPatientsState(set, get().patients.map(p => p.id === id ? resolveNutritionConflict(p, choice) : p)),
   loadFromStorage: () => {
     set({ patients: loadPatients() });
   },
@@ -163,8 +177,9 @@ function persistPatientsState(
   patients: Patient[],
   extra: Partial<PatientState> = {},
 ) {
-  savePatients(patients);
-  set({ patients, ...extra });
+  const refreshed = patients.map(refreshNutritionPlans);
+  savePatients(refreshed);
+  set({ patients: refreshed, ...extra });
 }
 
 export const selectVisiblePatients = (patients: Patient[], user: SessionUser | null) =>

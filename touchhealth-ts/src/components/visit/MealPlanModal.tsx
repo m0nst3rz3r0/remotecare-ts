@@ -1,3 +1,4 @@
+import NutritionPlanReview from './NutritionPlanReview';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, ChevronDown, FileDown, Share2 } from 'lucide-react';
@@ -90,6 +91,7 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
 
         {/* Scrollable body */}
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+          <NutritionPlanReview plan={plan} language={lang} editable={false} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px', marginBottom: '12px' }}>
             {[
               { label: lang === 'sw' ? 'Kalori' : 'Calories', value: `${plan.targets.tdee} kcal` },
