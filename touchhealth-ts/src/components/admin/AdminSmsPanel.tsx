@@ -135,7 +135,7 @@ export default function AdminSmsPanel({ hospitals, patients, clinicSettings }: {
       <h3 className="font-bold text-slate-800 mb-2">SMS Reminders</h3>
       <p className="text-[12px] text-slate-500 mb-3">Internet is required for sending. Offline clinical work remains available. Duplicate checks are shared across devices.</p>
       <button type="button" className={input + ' mb-3 inline-flex gap-2 items-center'} disabled={refreshing || bulkBusy} onClick={() => void refreshShared()}><RefreshCw size={13} />{refreshing ? 'Refreshing...' : 'Refresh shared SMS history'}</button>
-      {error && <p role="alert" className="text-[12px] text-amber-700 mb-3">{error} If your session expired, use Sign in online next to Sync Now.</p>}
+      {error && <p role="alert" className="text-[12px] text-amber-700 mb-3">{error} If your session expired, select Sync now and confirm your password when prompted.</p>}
       <div className="flex gap-2 flex-wrap mb-4">
         <select className={input} disabled={bulkBusy} value={hospitalId} onChange={(e) => setHospitalId(e.target.value)}><option value="">Select facility...</option>{hospitals.map((h) => <option key={h.id} value={h.id}>{h.name} ({h.district})</option>)}</select>
         {(['reminder','overdue','ltfu','all'] as const).map((t) => <button type="button" disabled={bulkBusy} key={t} className={tab === t ? button : input} onClick={() => setTab(t)}>{t === 'ltfu' ? 'LTFU' : t.charAt(0).toUpperCase() + t.slice(1)}</button>)}

@@ -207,6 +207,8 @@ export type LoginResult =
   | { success: false; error: string };
 
 export interface LoginParams {
+  mode?: 'auto' | 'online' | 'offline';
+  expectedUserId?: string;
   username: string;
   password: string;
   role: UserRole;

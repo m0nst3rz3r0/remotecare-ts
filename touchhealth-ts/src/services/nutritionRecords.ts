@@ -21,6 +21,7 @@ export function refreshNutritionPlans(patient: Patient): Patient {
       weightKg:weight ?? plan.inputSnapshot.weightKg, heightCm:height ?? plan.inputSnapshot.heightCm,
       conditions:getPatientConditions(patient.cond,latest?.diagnoses?.map(d=>d.code) ?? []),
       medicationIds:meds ? toMedIds(meds.map(m=>m.name)) : plan.inputSnapshot.medicationIds,
+      medicationNames: meds ? meds.map(m=>m.name) : plan.inputSnapshot.medicationNames,
       zone:(patient.nutritionProfile?.zoneOverride as TZRegion | undefined) ?? getClinicZone() ?? regionToZone(patient.region),
       assessment:patient.nutritionProfile?.assessment ?? plan.assessment ?? plan.inputSnapshot.assessment };
     if (!isPlanStale(plan,input)) return visit;

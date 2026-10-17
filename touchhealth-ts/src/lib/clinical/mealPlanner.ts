@@ -4,7 +4,7 @@ import { getFoodsForZone, getZonePresets, getClinicalDataState, isFoodsReady } f
 import { calculateBMI } from './calculators';
 import { normalizeConditionList } from './conditions';
 import { getDrugFoodInteractions } from './drugInteractions';
-import { evalFoodForPatient, getAvoidFoods, getRecommendedFoods } from './foodSafety';
+import { evalFoodForPatient, getAvoidFoods, getRecommendedFoods, getFoodGuidance } from './foodSafety';
 import { getMealTemplates, STARCH_EGG_INCOMPATIBLE, type MealBlueprint } from './mealTemplates';
 import { computeFoodMacros, getPracticalPortionLimit } from './mealPortions';
 import { computeNutritionTargets, getNutritionRiskLevel } from './nutritionEngine';
@@ -297,6 +297,7 @@ export function generateMealPlan(params: {
   activityLevel?: string;
   bodyGoal?: 'lose_weight' | 'maintain' | 'gain_muscle';
   medicationIds: string[];
+  medicationNames?: string[];
   availableFoodIds?: Set<string>;
   assessment?: NutritionAssessment;
 }): GeneratedMealPlan {
@@ -321,7 +322,7 @@ export function generateMealPlan(params: {
   if (!params.assessment) { assessment.activityLevel = activityLevel as NutritionAssessment['activityLevel']; assessment.bodyGoal = bodyGoal; }
   const selectedFoodIds = assessment.availableFoodIds ? new Set(assessment.availableFoodIds.filter((id) => !assessment.excludedFoodIds.includes(id)))
     : new Set(getFoodsForZone(zone).map((f) => f.id).filter((id) => !assessment.excludedFoodIds.includes(id)));
-  const inputs: NutritionInputs = { age, sex, weightKg, heightCm, conditions, medicationIds, zone, assessment };
+  const inputs: NutritionInputs = { age, sex, weightKg, heightCm, conditions, medicationIds, medicationNames: params.medicationNames, zone, assessment };
   const targets = computeNutritionTargets({
     age,
     sex,
@@ -345,7 +346,7 @@ export function generateMealPlan(params: {
   const normalizedConditions = normalizeConditionList(conditions);
   const bmi = calculateBMI(weightKg, heightCm);
   const nutritionRisk = getNutritionRiskLevel(normalizedConditions, bmi, targets.sodiumMg);
-  const drugAlerts = getDrugFoodInteractions(medicationIds);
+  const drugAlerts = getDrugFoodInteractions(medicationIds, params.medicationNames);
   const avoidFoods = getAvoidFoods(foodConditions, zone);
   const recommendedFoods = getRecommendedFoods(foodConditions, zone, selectedFoodIds, assessment.excludedFoodIds);
   const cautions = buildCautions(conditions, language, targets);
@@ -372,6 +373,7 @@ export function generateMealPlan(params: {
     drugAlerts,
     cautions,
     avoidFoods,
+    foodGuidance: getFoodGuidance(foodConditions, zone, meals.flatMap(m=>m.items.map(i=>i.foodId))),
     recommendedFoods,
     generatedAt: new Date().toISOString(),
   };

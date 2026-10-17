@@ -23,6 +23,20 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl     = (import.meta as any).env.VITE_SUPABASE_URL     as string | undefined;
 const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
+async function boundedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try { return await fetch(input, { ...init, signal: init?.signal ?? controller.signal }); }
+  finally { clearTimeout(timer); }
+}
+
+// Credential exchange must not inherit a stale user's bearer token or wait
+// for their refresh lock. This client never persists an online identity.
+export const loginGateway = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'rc_login_gateway' },
+  global: { fetch: boundedFetch, headers: { 'x-application': 'remotecare-pwa' } },
+});
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error(
     '[RemoteCare] Missing Supabase environment variables. ' +
@@ -76,10 +90,25 @@ export async function checkSupabaseConnection(): Promise<boolean> {
 
 /** Cloud operations require a verified session matching the local account. */
 export async function requireOnlineSession(): Promise<void> {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) throw new Error('Connect to the internet to sync or send SMS. Local work is saved.');
-  const local = JSON.parse(localStorage.getItem('th_session') ?? 'null') as { id?: string } | null;
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user || !local?.id || data.user.app_metadata.app_user_id !== local.id) {
-    throw new Error('Sign in online again to sync or send SMS. Your offline work is saved.');
+  if (typeof navigator !== 'undefined' && !navigator.onLine) throw new OnlineAccessError('offline', 'Connect to the internet to sync or send SMS. Local work is saved.');
+  let local: { id?: string } | null = null;
+  try { local = JSON.parse(localStorage.getItem('th_session') ?? 'null'); } catch { /* Require sign-in below. */ }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const { data, error } = await Promise.race([
+    supabase.auth.getUser(),
+    new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new OnlineAccessError('unavailable', 'Cannot reach the server. Your local work is saved. Check your connection and try again.')), 12000); }),
+  ]).catch(error => {
+    if (error instanceof OnlineAccessError) throw error;
+    throw new OnlineAccessError('unavailable', 'Cannot reach the server. Your local work is saved. Check your connection and try again.');
+  }).finally(() => clearTimeout(timer));
+  if (error && (error.name === 'AuthRetryableFetchError' || error instanceof TypeError || ('status' in error && error.status === 0))) {
+    throw new OnlineAccessError('unavailable', 'Cannot reach the server. Your local work is saved. Check your connection and try again.');
   }
+  if (error || !data.user || !local?.id || data.user.app_metadata.app_user_id !== local.id) {
+    throw new OnlineAccessError('signin', 'Sign in online again to sync or send SMS. Your offline work is saved.');
+  }
+}
+
+export class OnlineAccessError extends Error {
+  constructor(readonly reason: 'offline' | 'unavailable' | 'signin', message: string) { super(message); this.name = 'OnlineAccessError'; }
 }

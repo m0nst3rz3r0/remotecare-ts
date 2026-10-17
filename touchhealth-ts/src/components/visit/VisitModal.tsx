@@ -390,7 +390,7 @@ export default function VisitModal() {
     if (!weight || !height) { setMealPlan(invalidatePlan(mealPlan)); return; }
     const input = { age: patient.age, sex: patient.sex === 'M' ? 'male' as const : 'female' as const,
       weightKg: weight, heightCm: height, conditions: getPatientConditions(patient.cond,currentDiagnosisCodes),
-      medicationIds: toMedIds(currentMedNames), zone: (patient.nutritionProfile?.zoneOverride as import('../../lib/clinical').TZRegion | undefined) ?? getClinicZone() ?? regionToZone(patient.region),
+      medicationIds: toMedIds(currentMedNames), medicationNames: currentMedNames, zone: (patient.nutritionProfile?.zoneOverride as import('../../lib/clinical').TZRegion | undefined) ?? getClinicZone() ?? regionToZone(patient.region),
       assessment: patient.nutritionProfile?.assessment ?? mealPlan.assessment ?? defaultNutritionAssessment() };
     if (isPlanStale(mealPlan,input)) setMealPlan(invalidatePlan(mealPlan));
   }, [mealPlan, patient, weightKg, heightCm, currentMedNames, currentDiagnosisCodes]);

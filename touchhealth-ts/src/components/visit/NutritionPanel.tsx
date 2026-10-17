@@ -1,10 +1,11 @@
+import MealExportActions from './MealExportActions';
 import NutritionAssessmentEditor from './NutritionAssessmentEditor';
 import NutritionPlanReview from './NutritionPlanReview';
 import { defaultNutritionAssessment } from '../../lib/clinical/nutritionPolicy';
 import { isPlanStale, validatePlan } from '../../lib/clinical/planValidation';
 import { usePatientStore } from '../../store/usePatientStore';
 import { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
-import { AlertTriangle, Info, Utensils, Printer, Share2, FileDown, Eye } from 'lucide-react';
+import { AlertTriangle, Info, Utensils, Eye } from 'lucide-react';
 import {
   computeNutritionTargets,
   toMedIds,
@@ -21,7 +22,6 @@ import { getClinicalDataState, subscribeClinicalData, preloadClinicalData, getCl
 import { calculateBMI } from '../../lib/clinical/calculators';
 import type { GeneratedMealPlan, TZRegion } from '../../lib/clinical';
 import type { Patient } from '../../types';
-import { printDietarySlip, saveDietarySlipPdf, shareDietarySlip } from './DietarySlip';
 
 const INK   = '#132b31';
 const TEAL  = '#10b981';
@@ -178,10 +178,10 @@ export default function NutritionPanel({
   useEffect(() => {
     if (!mealPlan || !effectiveWeight || !effectiveHeight || !dataReady || mealPlan.stale) return;
     const input = { age: patient.age, sex: patient.sex === 'M' ? 'male' as const : 'female' as const,
-      weightKg: effectiveWeight, heightCm: effectiveHeight, conditions, medicationIds: medIds, zone, assessment };
+      weightKg: effectiveWeight, heightCm: effectiveHeight, conditions, medicationIds: medIds, medicationNames: currentMeds, zone, assessment };
     if (isPlanStale(mealPlan, input)) onUpdateMealPlan?.(validatePlan({ ...mealPlan, stale: true }));
-  }, [mealPlan, effectiveWeight, effectiveHeight, dataReady, patient.age, patient.sex, conditions, medIds, zone, assessment, onUpdateMealPlan]);
-  const drugAlerts = useMemo(() => getDrugFoodInteractions(medIds), [medIds]);
+  }, [mealPlan, effectiveWeight, effectiveHeight, dataReady, patient.age, patient.sex, conditions, medIds, zone, assessment, currentMeds, onUpdateMealPlan]);
+  const drugAlerts = useMemo(() => getDrugFoodInteractions(medIds, currentMeds), [medIds, currentMeds]);
 
   const foodResults = useMemo(() => {
     if (!dataReady || foodQuery.length < 2) return [];
@@ -208,6 +208,7 @@ export default function NutritionPanel({
           activityLevel,
           bodyGoal,
           medicationIds: medIds,
+          medicationNames: currentMeds,
           availableFoodIds,
           assessment,
         });
@@ -400,18 +401,7 @@ export default function NutritionPanel({
                 <Eye size={14} /> {language === 'sw' ? 'Angalia' : 'View'}
               </button>
             )}
-            <button type="button" onClick={() => printDietarySlip(mealPlan, patient.code, language)}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: TEAL, color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
-              <Printer size={14} /> {language === 'sw' ? 'Chapisha' : 'Print'}
-            </button>
-            <button type="button" onClick={() => { void shareDietarySlip(mealPlan, patient.code, language); }}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#0d7377', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
-              <Share2 size={14} /> {language === 'sw' ? 'Shiriki' : 'Share'}
-            </button>
-            <button type="button" onClick={() => saveDietarySlipPdf(mealPlan, patient.code, language)}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#fff', color: INK, border: '1.5px solid rgba(191,200,205,.55)', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', system-ui" }}>
-              <FileDown size={14} /> {language === 'sw' ? 'Hifadhi PDF' : 'Save PDF'}
-            </button>
+            <MealExportActions plan={mealPlan} patient={patient.code} language={language} />
           </div>
         </div>
       )}

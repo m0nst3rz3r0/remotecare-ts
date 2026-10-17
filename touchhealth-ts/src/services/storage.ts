@@ -445,7 +445,7 @@ export async function syncPatientsWithCloud() {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Network or internal error';
     logger.error('[SYNC] Sync System Error', msg);
-    return { success: false, error: msg };
+    return { success: false, error: msg, needsSignIn: err instanceof Error && 'reason' in err && err.reason === 'signin' };
   }
 }
 

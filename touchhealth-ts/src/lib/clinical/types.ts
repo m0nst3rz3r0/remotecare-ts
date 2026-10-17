@@ -85,6 +85,7 @@ export interface MealItem {
   prepMethod?: string;
   macros: { calories: number; protein: number; carbs: number; fat: number };
   grams?: number;
+  gramsPerHouseholdUnit?: number;
   sodiumMg?: number | null;
   fiberG?: number | null;
   ingredient?: boolean;
@@ -102,6 +103,7 @@ export interface DailyMeal {
 }
 
 export interface DrugFoodInteraction {
+  matchedMedications?: string[];
   id: string;
   medicationId: string;
   severity: 'info' | 'warning';
@@ -112,6 +114,7 @@ export interface DrugFoodInteraction {
 }
 
 export interface GeneratedMealPlan {
+  foodGuidance?: FoodGuidance[];
   schemaVersion?: 2;
   id?: string;
   datasetMetadata?: typeof import('./nutritionPolicy').NUTRITION_DATA_METADATA;
@@ -165,9 +168,20 @@ export interface NutritionAssessment {
   cookingIngredients: Array<{ foodId: string; grams: number; mealType: 'Breakfast' | 'Lunch' | 'Dinner' }>;
 }
 export interface NutritionInputs {
+  medicationNames?: string[];
   age: number; sex: 'male' | 'female'; weightKg: number; heightCm: number;
   conditions: string[]; medicationIds: string[]; zone: TZRegion;
   assessment: NutritionAssessment;
+}
+
+export interface FoodGuidance {
+  foodId: string;
+  name_en: string;
+  name_sw: string;
+  preparation: string;
+  level: 'Warning' | 'Danger';
+  reasons: Array<{ message_en: string; message_sw: string }>;
+  alternative?: { preparation: string; message_en: string; message_sw: string };
 }
 export interface NutrientTotals {
   calories: number; protein: number; carbs: number; fat: number;

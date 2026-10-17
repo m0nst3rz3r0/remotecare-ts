@@ -26,7 +26,7 @@ export function getPracticalPortionLimit(food: FoodItem, mealType: MealType): nu
 
   const toMultiplier = (maxUnits: number) => Math.max(0.5, maxUnits / Math.max(defaultUnits, 0.5));
 
-  if (/porridge|uji/.test(name) || /tea cup|kikombe cha chai/.test(unit)) {
+  if ((!/ugali|stiff/.test(name) && /porridge|uji/.test(name)) || /tea cup|kikombe cha chai/.test(unit)) {
     return toMultiplier(mealType === 'Breakfast' ? 2 : 1.5);
   }
   if (/ugali|stiff porridge|fist/.test(name) || /fist|ngumi/.test(unit)) {
@@ -59,7 +59,12 @@ export function formatMealPortion(
     const rawUnits = food.serving.default_units * portionMultiplier;
     const units = Math.round(rawUnits * 2) / 2;
     const unit = lang === 'sw' ? food.serving.unit_sw : food.serving.unit_en;
-    return `${formatQuantity(units)} ${unit}`;
+    if (!/ugali|stiff/i.test(food.name_en) && /porridge|uji/i.test(food.name_en+' '+food.name_sw)) return lang === 'sw'
+      ? (units === 1 ? 'Kikombe 1 cha uji' : 'Vikombe '+formatQuantity(units)+' vya uji')
+      : formatQuantity(units)+' '+(units === 1 ? 'cup' : 'cups')+' of prepared porridge';
+    if (/fist/.test(food.serving.unit_en)) return formatQuantity(units)+' '+(lang === 'sw' ? 'ngumi' : units === 1 ? 'fist' : 'fists');
+    const plural = units === 1 ? unit : lang === 'en' ? (unit.endsWith('s') ? unit : unit+'s') : unit.replace(/^kikombe/,'vikombe').replace(/^kijiko/,'vijiko').replace(/^kipande/,'vipande').replace(/^tunda/,'matunda');
+    return formatQuantity(units)+' '+plural;
   }
 
   const grams = Math.max(5, Math.round(getServingGrams(food, portionMultiplier) / 5) * 5);

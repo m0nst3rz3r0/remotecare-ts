@@ -2,7 +2,7 @@
 
 import { getRulesSync, getFoodsForZone, getFoodsSync, isFoodsReady, supportedPreparations } from './dataLoader';
 import { conditionMatches } from './conditions';
-import type { EvaluationResult, TZRegion } from './types';
+import type { EvaluationResult, TZRegion, FoodGuidance } from './types';
 
 const AVOID_LIST_LIMIT = 5;
 const RECOMMEND_LIMIT = 20;
@@ -14,9 +14,24 @@ const SEVERITY_RANK: Record<EvaluationResult['severity'], number> = {
 };
 
 function shortenReason(message: string): string {
-  const main = message.split(/\s*TIP:/i)[0].trim();
-  if (main.length <= 100) return main;
-  return `${main.slice(0, 97)}…`;
+  return message.trim();
+}
+
+export function getFoodGuidance(conditions: string[], zone: TZRegion, priorityFoodIds: string[] = []): FoodGuidance[] {
+  const result: FoodGuidance[] = [];
+  for (const food of getFoodsForZone(zone).slice().sort((a,b)=>Number(priorityFoodIds.includes(b.id))-Number(priorityFoodIds.includes(a.id)))) {
+    const rules = getRulesSync().filter(r => r.target_food_id === food.id && r.safety_level !== 'Safe' && conditionMatches(r.condition, conditions));
+    for (const prep of new Set(rules.map(r => r.target_prep_method))) {
+      const matching = rules.filter(r => r.target_prep_method === prep);
+      const alternative = supportedPreparations(food).find(p => evalFoodForPatient(food.id,p,conditions).severity === 'Safe');
+      result.push({ foodId: food.id, name_en: food.name_en, name_sw: food.name_sw, preparation: prep,
+        level: matching.some(r=>r.safety_level === 'Danger') ? 'Danger' : 'Warning',
+        reasons: [...new Map(matching.map(r=>[r.alert_message_en+'|'+r.alert_message_sw,{message_en:r.alert_message_en,message_sw:r.alert_message_sw}])).values()],
+        alternative: alternative ? { preparation:alternative, message_en:'Assessed alternative preparation',message_sw:'Maandalizi mbadala yaliyotathminiwa' } : undefined });
+    }
+    if (result.length >= 8) break;
+  }
+  return result;
 }
 
 export function evalFoodForPatient(

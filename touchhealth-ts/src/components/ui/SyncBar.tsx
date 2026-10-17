@@ -1,135 +1,72 @@
-import { useEffect, useState } from 'react';
-import { getLastSync, syncPatientsWithCloud } from '../../services/storage';
+﻿import { useEffect,useRef,useState } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { getLastSync,syncPatientsWithCloud } from '../../services/storage';
+import { OnlineAccessError,requireOnlineSession } from '../../services/supabase';
 import { useAuthStore } from '../../store/useAuthStore';
-import { login } from '../../services/auth';
+import { usePatientStore } from '../../store/usePatientStore';
 import Button from './Button';
-import { AlertTriangle, RefreshCw, UserCircle2 } from 'lucide-react';
-
-type ConnState = 'online' | 'offline' | 'syncing';
-
-function formatLastSync(iso: string | null) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+function formatLastSync(iso:string|null){return iso?new Date(iso).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Not synced yet';}
+export default function SyncBar(){
+ const user=useAuthStore(s=>s.currentUser),signIn=useAuthStore(s=>s.signIn);
+ const [online,setOnline]=useState(()=>navigator.onLine),[cloud,setCloud]=useState(false),[phase,setPhase]=useState<'idle'|'checking'|'signing'|'syncing'>('idle');
+ const [showLogin,setShowLogin]=useState(false),[password,setPassword]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[lastSync,setLastSync]=useState(getLastSync);
+ const active=useRef(false),busy=phase!=='idle';
+ useEffect(()=>{
+  const connected=()=>setOnline(true),disconnected=()=>{setOnline(false);setCloud(false);};
+  window.addEventListener('online',connected);window.addEventListener('offline',disconnected);
+  return()=>{window.removeEventListener('online',connected);window.removeEventListener('offline',disconnected);};
+ },[]);
+ useEffect(()=>{
+  let live=true;
+  if(!online||!user)return;
+  // Session refresh is allowed; patient synchronization always needs a click.
+  void requireOnlineSession().then(()=>{if(live)setCloud(true);}).catch(()=>{if(live)setCloud(false);});
+  return()=>{live=false;};
+ },[online,user]);
+ const sync=async()=>{
+  setPhase('syncing');const result=await syncPatientsWithCloud();
+  if(!result.success){
+   if('needsSignIn'in result&&result.needsSignIn){setCloud(false);setShowLogin(true);setNotice('Please confirm your password to sync.');}
+   else setError(result.error??'Sync did not finish. Your local work is saved. Please retry.');
+   return;
+  }
+  usePatientStore.getState().loadFromStorage();setLastSync(getLastSync());setCloud(true);setNotice('Sync complete.');
+ };
+ const run=async(passwordEntry=false)=>{
+  if(active.current||!user)return;active.current=true;setError('');setNotice('');
+  try{
+   if(!navigator.onLine)throw new OnlineAccessError('offline','You are offline. Keep working; sync when connected.');
+   if(passwordEntry){
+    setPhase('signing');const result=await signIn({username:user.username,password,role:'auto',mode:'online',expectedUserId:user.id});
+    if(!result.success){setError(result.error);return;}
+    if(result.offline){setError('Online sign-in could not finish. Local work remains available.');return;}
+    setShowLogin(false);setCloud(true);
+   }
+   setPhase('checking');await requireOnlineSession();
+   if(useAuthStore.getState().currentUser?.id!==user.id)return;
+   await sync();
+  }catch(e){
+   if(e instanceof OnlineAccessError&&e.reason==='signin'){setCloud(false);setShowLogin(true);setNotice('Please confirm your password to sync.');}
+   else setError(e instanceof Error?e.message:'Could not connect. Your local work is saved. Please retry.');
+  }finally{active.current=false;setPassword('');setPhase('idle');}
+ };
+ return <section aria-label="Synchronization" className="border border-slate-200 rounded-lg bg-white px-4 py-3 mb-4">
+  <div className="flex flex-wrap items-center justify-between gap-3">
+   <div className="flex gap-2 items-center"><span aria-hidden="true" className={'w-2.5 h-2.5 rounded-full '+(cloud&&online?'bg-emerald-600':'bg-amber-500')}/><div>
+    <p className="text-sm font-semibold text-slate-800">{busy?(phase==='signing'?'Signing in...':phase==='checking'?'Connecting...':'Syncing...'):!online?'Working offline':cloud?'Cloud connected':'Working on this device'}</p>
+    <p className="text-xs text-slate-500">Last sync: {formatLastSync(lastSync)}</p>
+   </div></div>
+   {!showLogin&&<Button size="sm" variant="ghost" icon={<RefreshCw size={14}/>} label={busy?'Please wait...':'Sync now'} disabled={busy||!online} onClick={()=>void run()}/>}
+  </div>
+  {showLogin&&user&&<form className="mt-3 flex flex-wrap items-end gap-3" onSubmit={event=>{event.preventDefault();if(password)void run(true);}}>
+   <div><p className="text-xs text-slate-500 mb-1">{user.displayName} ({user.username})</p><input className="sr-only" readOnly tabIndex={-1} aria-label="Account username" name="username" autoComplete="username" value={user.username}/>
+    <label className="block text-xs font-semibold" htmlFor="sync-password">Password<input id="sync-password" name="password" type="password" autoComplete="current-password" autoFocus required disabled={busy} value={password} onChange={e=>{setPassword(e.target.value);setError('');}} className="block border border-slate-300 rounded px-3 py-2 mt-1"/></label>
+   </div>
+   <Button type="submit" size="sm" label={busy?'Please wait...':'Sign in & sync'} disabled={busy||!password||!online}/>
+   <button type="button" disabled={busy} className="text-sm text-slate-600 py-2" onClick={()=>{setShowLogin(false);setPassword('');setError('');setNotice('');}}>Keep working locally</button>
+  </form>}
+  {!online&&<p className="text-xs text-slate-600 mt-2">Your records stay on this device. Reconnecting will not start a sync or send SMS.</p>}
+  {notice&&!error&&<p role="status" className="text-xs text-teal-800 mt-2">{notice}</p>}
+  {error&&<p role="alert" className="text-xs text-red-700 mt-2">{error}</p>}
+ </section>;
 }
-
-export default function SyncBar() {
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const [conn, setConn] = useState<ConnState>(() =>
-    typeof navigator !== 'undefined' && navigator.onLine ? 'online' : 'offline',
-  );
-  const [syncError, setSyncError] = useState<string | null>(null);
-  const [showLogin, setShowLogin] = useState(false);
-  const [password, setPassword] = useState('');
-  const [signingIn, setSigningIn] = useState(false);
-  const lastSyncAt = getLastSync();
-
-  const handleSync = async () => {
-    if (conn === 'offline') return;
-    setConn('syncing');
-    setSyncError(null);
-    try {
-      const result = await syncPatientsWithCloud();
-      if (result.success) {
-        window.location.reload();
-      } else {
-        setSyncError(result.error ?? 'Sync failed');
-      }
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Unknown error');
-    } finally {
-      setConn('online');
-    }
-  };
-
-  useEffect(() => {
-    const onOnline  = () => setConn('online');
-    const onOffline = () => setConn('offline');
-    window.addEventListener('online',  onOnline);
-    window.addEventListener('offline', onOffline);
-    return () => {
-      window.removeEventListener('online',  onOnline);
-      window.removeEventListener('offline', onOffline);
-    };
-  }, []);
-
-  return (
-    <div className="px-3 py-2 border border-slate-200 rounded-lg bg-white shadow-sm mb-4">
-      <div className="flex items-center gap-3">
-
-        {/* Status dot */}
-        <div className="relative flex h-3 w-3 shrink-0">
-          {conn === 'online' && (
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-          )}
-          <span className={`relative inline-flex rounded-full h-3 w-3 ${
-            conn === 'online'  ? 'bg-emerald-600' :
-            conn === 'offline' ? 'bg-amber-500'   :
-            'bg-blue-500 animate-spin border-2 border-t-transparent'
-          }`} />
-        </div>
-
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="text-[13px] font-bold text-slate-800">
-            {conn === 'syncing' ? 'Synchronizing…' : `Last Sync: ${formatLastSync(lastSyncAt)}`}
-          </div>
-          <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
-            <span className="text-emerald-600 inline-flex items-center gap-1">
-              <UserCircle2 size={12} />
-              {currentUser?.displayName || 'Unknown User'}
-            </span>
-            <span className="opacity-50">|</span>
-            <span>
-              {currentUser?.isSuperAdmin
-                ? 'Platform Superadmin'
-                : `${currentUser?.role} · ${currentUser?.adminRegion || 'National'}`}
-            </span>
-          </div>
-        </div>
-
-        {conn === 'online' && <button type="button" className="text-[11px] font-bold text-teal-700" onClick={() => setShowLogin((v) => !v)}>Sign in online</button>}
-        {/* Sync button */}
-        {conn !== 'offline' && (
-          <Button
-            size="xs"
-            variant="ghost"
-            icon={<RefreshCw size={12} />}
-            label={conn === 'syncing' ? 'Syncing…' : 'Sync Now'}
-            onClick={handleSync}
-            disabled={conn === 'syncing'}
-          />
-        )}
-      </div>
-
-      {showLogin && currentUser && <form className="flex flex-wrap items-center gap-2 mt-2" onSubmit={async (event) => {
-        event.preventDefault();
-        setSigningIn(true); setSyncError(null);
-        try {
-          const result = await login({ username: currentUser.username, password, role: currentUser.role });
-          if (!result.success) setSyncError(result.error);
-          else if (result.offline) setSyncError('Still offline. Local access is available; connect before syncing.');
-          else { setShowLogin(false); setSyncError('Connected. Select Sync Now when you are ready.'); }
-        } catch { setSyncError('Sign in failed. Local work is saved.'); }
-        finally { setPassword(''); setSigningIn(false); }
-      }}>
-        <label className="text-[11px]">Password for {currentUser.username}
-          <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className="ml-2 border rounded px-2 py-1" />
-        </label>
-        <button type="submit" disabled={signingIn} className="text-[11px] font-bold text-teal-700">{signingIn ? 'Signing in...' : 'Reconnect account'}</button>
-        <span className="text-[10px] text-slate-500">Your local records and device letter stay saved. This does not start a sync.</span>
-      </form>}
-      {syncError && (
-        <div className="mt-1 text-[11px] text-red-600 font-medium" title={syncError}>
-          <span className="inline-flex items-center gap-1"><AlertTriangle size={12} /> {syncError}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-

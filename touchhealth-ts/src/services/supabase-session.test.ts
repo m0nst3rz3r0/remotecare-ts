@@ -14,7 +14,7 @@ afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('online operations independent of local clinical access', () => {
   it('persists and refreshes each device session', () => {
-    expect(vi.mocked(createClient).mock.calls[0][2]).toMatchObject({ auth: { persistSession: true, autoRefreshToken: true } });
+    expect(vi.mocked(createClient).mock.calls.find(call=>call[2]?.auth?.persistSession)?.[2]).toMatchObject({ auth: { persistSession: true, autoRefreshToken: true } });
   });
   it('blocks offline or expired sessions without clearing patient records', async () => {
     vi.stubGlobal('navigator', { onLine: false });
@@ -32,4 +32,20 @@ describe('online operations independent of local clinical access', () => {
     mocks.getUser.mockResolvedValue({ data: { user: { app_metadata: { app_user_id: 'clinic-account' } } }, error: null });
     await expect(requireOnlineSession()).resolves.toBeUndefined();
   });
+});
+
+describe('reconnection without losing local work',()=>{
+ it('uses an anonymous, non-persisting credential transport',()=>{
+  const config=vi.mocked(createClient).mock.calls.find(call=>call[2]?.auth?.storageKey==='rc_login_gateway')?.[2];
+  expect(config?.auth).toMatchObject({persistSession:false,autoRefreshToken:false});expect(config?.global?.fetch).toBeTypeOf('function');
+ });
+ it('distinguishes server reachability problems from missing credentials',async()=>{
+  mocks.getUser.mockResolvedValue({data:{user:null},error:{name:'AuthRetryableFetchError',status:0}});
+  await expect(requireOnlineSession()).rejects.toMatchObject({reason:'unavailable'});expect(localStorage.getItem('th_session')).toContain('clinic-account');
+ });
+ it('bounds session checks and keeps the local session after a timeout',async()=>{
+  vi.useFakeTimers();mocks.getUser.mockImplementation(()=>new Promise(()=>{}));
+  const pending=expect(requireOnlineSession()).rejects.toMatchObject({reason:'unavailable'});await vi.advanceTimersByTimeAsync(12001);await pending;
+  expect(localStorage.getItem('th_session')).toContain('clinic-account');vi.useRealTimers();
+ });
 });

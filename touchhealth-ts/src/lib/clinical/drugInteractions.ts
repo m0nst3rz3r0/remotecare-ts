@@ -1,8 +1,9 @@
+import { toMedIds } from './drugMapper';
 // RCRO NutritionTool — drug-food interaction alerts
 
 import type { DrugFoodInteraction } from './types';
 
-export function getDrugFoodInteractions(medicationIds: string[]): DrugFoodInteraction[] {
+export function getDrugFoodInteractions(medicationIds: string[], medicationNames: string[] = []): DrugFoodInteraction[] {
   const ids = new Set(medicationIds.map(x => String(x)));
   const out: DrugFoodInteraction[] = [];
 
@@ -72,5 +73,13 @@ export function getDrugFoodInteractions(medicationIds: string[]): DrugFoodIntera
     body_sw: 'Metformin husababisha kichefuchefu kidogo ukimeza na chakula. Hakuna vikwazo maalum vya chakula.',
   });
 
-  return out;
+  return out.map(alert => {
+    const matchedMedications = medicationNames.filter(name => toMedIds([name]).includes(alert.medicationId));
+    if (alert.id === 'ccb-grapefruit') return { ...alert, matchedMedications,
+      title_en: matchedMedications.length ? matchedMedications.join(', ')+': grapefruit precaution' : 'Confirm the calcium-channel blocker and grapefruit advice with a pharmacist',
+      title_sw: matchedMedications.length ? matchedMedications.join(', ')+': tahadhari ya grapefruit' : 'Thibitisha jina la dawa na ushauri wa grapefruit na mfamasia',
+      body_en: matchedMedications.length ? alert.body_en : 'Only a medication class was recorded. Confirm the exact medicine; this warning does not apply to every blood-pressure medicine.',
+      body_sw: matchedMedications.length ? alert.body_sw : 'Kundi la dawa pekee limerekodiwa. Thibitisha dawa husika; tahadhari hii si ya kila dawa ya presha.' };
+    return { ...alert, matchedMedications };
+  });
 }

@@ -6,7 +6,7 @@ import { computeFoodMacros, formatMealPortion, getPracticalPortionLimit, getServ
 import type { FoodItem, GeneratedMealPlan, MealItem, NutritionInputs, NutrientTotals, PlanIssue, NutritionApproval } from './types';
 
 export function inputFingerprint(input: NutritionInputs): string {
-  return dataFingerprint({ ...input, conditions: [...normalizeConditionList(input.conditions)].sort(), medicationIds: [...input.medicationIds].sort(),
+  return dataFingerprint({ ...input, medicationNames: input.medicationNames?.map(n=>n.trim().toLowerCase()).sort(), conditions: [...normalizeConditionList(input.conditions)].sort(), medicationIds: [...input.medicationIds].sort(),
     assessment: { ...input.assessment, availableFoodIds: input.assessment.availableFoodIds?.slice().sort(), excludedFoodIds: input.assessment.excludedFoodIds.slice().sort() } });
 }
 export function makeMealItem(food: FoodItem, multiplier: number, language: 'en' | 'sw', prep: string, ingredientGrams?: number): MealItem {
@@ -19,7 +19,7 @@ export function makeMealItem(food: FoodItem, multiplier: number, language: 'en' 
     portionText: ingredientGrams == null ? formatMealPortion(food, portion, language) : `${grams}g`,
     portionText_en: ingredientGrams == null ? formatMealPortion(food, portion, 'en') : `${grams}g`,
     portionText_sw: ingredientGrams == null ? formatMealPortion(food, portion, 'sw') : `${grams}g`,
-    preparation: prep, prepMethod: prep.toLowerCase(), grams, ingredient: ingredientGrams != null,
+    preparation: prep, prepMethod: prep.toLowerCase(), grams, gramsPerHouseholdUnit: ingredientGrams == null ? food.serving?.grams_per_unit : undefined, ingredient: ingredientGrams != null,
     macros: ingredientGrams == null ? computed : { calories: Math.round(m.calories * factor), protein: m.protein_g * factor, carbs: m.carbs_g * factor, fat: m.fat_g * factor },
     sodiumMg: ingredientGrams == null ? computed.sodiumMg : Number.isFinite(m.sodium_mg) ? m.sodium_mg * factor : null,
     fiberG: ingredientGrams == null ? computed.fiberG : Number.isFinite(m.fiber_g) ? m.fiber_g! * factor : null };
@@ -64,6 +64,13 @@ export function validatePlan(plan: GeneratedMealPlan): GeneratedMealPlan {
     if (screens.some((v) => v !== 'no')) add('screening_review', 'Incomplete or positive screening requires clinician review; allergy safety is not established.', 'Uchunguzi haujakamilika au una tahadhari; uhakiki wa mtaalamu unahitajika.', true);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(assessment.measurementDate) || !Number.isFinite(Date.parse(assessment.measurementDate)) || new Date(assessment.measurementDate).toISOString().slice(0,10) !== assessment.measurementDate || assessment.measurementDate > new Date().toISOString().slice(0,10)) add('measurement_date', 'Record a valid measurement date.', 'Rekodi tarehe sahihi ya vipimo.', true);
     if (assessment.adjustedTargets && Object.keys(assessment.adjustedTargets).length && !assessment.targetAdjustmentReason?.trim()) add('adjustment_reason', 'Document the reason for adjusted targets.', 'Rekodi sababu ya kubadili malengo.', true);
+  }
+  if (plan.targets.tdee <= 1200) add('low_energy_review','Energy target is 1,200 kcal/day or lower. Individual clinical review and nutritional supervision are required.','Lengo ni kcal 1,200 au chini kwa siku. Uhakiki binafsi na usimamizi wa lishe unahitajika.',true);
+  const bmi = input ? input.weightKg / Math.pow(input.heightCm / 100, 2) : plan.bmi;
+  if (bmi != null && bmi >= 40) add('measurement_review','BMI is 40 or above. Confirm weight/height and arrange individualized review; the nutrition-risk label is not a full clinical risk assessment.','BMI ni 40 au zaidi. Thibitisha uzito/urefu na tathmini binafsi; lebo ya hatari ya lishe si tathmini kamili.',true);
+  if (assessment?.adjustedTargets && Object.keys(assessment.adjustedTargets).length) {
+    const energy = plan.targets.proteinG*4 + plan.targets.carbsG*4 + plan.targets.fatG*9;
+    if (Math.abs(energy-plan.targets.tdee) > Math.max(50,plan.targets.tdee*.05)) add('macro_target_mismatch','Adjusted macronutrient energy does not agree with the calorie target. Review the targets.','Nishati ya malengo ya protini, wanga na mafuta hailingani na kalori. Hakiki malengo.');
   }
   const dx = normalizeConditionList(plan.conditions ?? []);
   if (!dx.some(c => ['DM','HTN'].includes(c)) || dx.some(c => !['DM','HTN','Obesity','Dyslipid'].includes(canonicalizeCondition(c)))) add('specialist_review', 'Conditions outside routine adult DM/HTN planning require specialist review.', 'Hali nje ya mpango wa kawaida wa kisukari/presha zinahitaji uhakiki wa mtaalamu.', true);
@@ -123,14 +130,14 @@ export function planNutritionText(plan: GeneratedMealPlan, language: 'en' | 'sw'
     (sw?'Mafuta':'Fat')+': '+n.fat+' / '+t.fatG+' g',
     (sw?'Sodiamu (kikomo)':'Sodium (limit)')+': '+(n.sodiumMg ?? unknown)+' / '+t.sodiumMg+' mg',
     (sw?'Nyuzinyuzi':'Fibre')+': '+(n.fiberG ?? unknown)+' / '+t.fiberG+' g',
-  ].join(' ? ');
+  ].join(' | ');
 }
 
 export function planAssumptions(plan: GeneratedMealPlan, language: 'en' | 'sw'): string[] {
   const sw=language==='sw', a=plan.assessment;
   return [
-    sw ? 'Makadirio ya watu wazima: BMR ya Mifflin?St Jeor ? kiwango cha shughuli + nyongeza ya kazi 100 kcal; mabadiliko ya hali/lengo hutumika.' : 'Provisional adult estimate: Mifflin?St Jeor BMR ? activity multiplier + 100 kcal work allowance, then condition/body-goal adjustments.',
-    (sw ? 'BMR ya makadirio: ' : 'Estimated BMR: ')+plan.targets.bmr+' kcal; '+(sw ? 'shughuli: ' : 'activity: ')+(a?.activityLevel ?? '?')+'; '+(sw ? 'lengo: ' : 'goal: ')+(a?.bodyGoal ?? '?'),
+    sw ? 'Makadirio ya watu wazima: BMR ya Mifflin-St Jeor mara kiwango cha shughuli + nyongeza ya kazi 100 kcal; mabadiliko ya hali/lengo hutumika.' : 'Provisional adult estimate: Mifflin-St Jeor BMR multiplied by activity multiplier + 100 kcal work allowance, then condition/body-goal adjustments.',
+    (sw ? 'BMR ya makadirio: ' : 'Estimated BMR: ')+plan.targets.bmr+' kcal; '+(sw ? 'shughuli: ' : 'activity: ')+(sw ? ({Sedentary:'Kukaa zaidi',Light:'Nyepesi',Moderate:'Wastani',Active:'Hai','Very Active':'Hai sana'}[a?.activityLevel ?? 'Moderate']) : a?.activityLevel ?? '?')+'; '+(sw ? 'lengo: ' : 'goal: ')+(sw ? ({maintain:'Dumisha uzito',lose_weight:'Punguza uzito',gain_muscle:'Ongeza misuli'}[a?.bodyGoal ?? 'maintain']) : a?.bodyGoal ?? '?'),
     sw ? 'Ukamilifu wa hesabu hauchukui nafasi ya idhini ya kitabibu.' : 'Software completeness is separate from clinical approval.',
     sw ? 'Sera na vyanzo vya data vinasubiri uhakiki wa mtaalamu wa eneo.' : 'Clinical policy and original food-composition sources await local review.',
     sw ? 'Viungo vilivyorekodiwa pekee vimehesabiwa.' : 'Recorded ingredients only; unrecorded cooking additions are not included.',

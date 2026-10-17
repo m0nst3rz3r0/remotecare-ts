@@ -1,10 +1,12 @@
+import { getDrugFoodInteractions } from './drugInteractions';
+import { formatMealItemDetail } from './mealLocalization';
 import { refreshNutritionPlans } from '../../services/nutritionRecords';
 import type { Patient } from '../../types';
 import { beforeAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { loadZonePresets, setClinicalDataForTests, validateClinicalData, getClinicalDataState, getFoodsSync, supportedPreparations, preloadClinicalData } from './dataLoader';
 import { generateMealPlan } from './mealPlanner';
-import { evalFoodForPatient } from './foodSafety';
+import { getFoodGuidance, evalFoodForPatient } from './foodSafety';
 import { defaultNutritionAssessment } from './nutritionPolicy';
 import { approvePlan, editPlanItem, isPlanStale, makeMealItem, planStatusText, sumNutrients, validatePlan } from './planValidation';
 import { getPracticalPortionLimit } from './mealPortions';
@@ -139,4 +141,39 @@ describe('daily completeness and safe review',()=>{
     expect(buildDietarySlipHtml(legacy,'Patient','en')).toContain('Assessment unavailable');
     expect(getFoodsSync()).toHaveLength(foods.length);
   });
+});
+
+describe('meal handout safety checks',()=>{
+ it('requires review at 1200 kcal and confirms BMI >=40 without altering targets',()=>{
+  const plan=generateMealPlan({...base,assessment:{...screened(),adjustedTargets:{tdee:1200},targetAdjustmentReason:'Provisional clinical estimate'}});
+  expect(plan.targets.tdee).toBe(1200);expect(plan.validation?.issues.map(i=>i.code)).toContain('low_energy_review');expect(plan.validation?.status).toBe('needs_review');
+  const high=generateMealPlan({...base,weightKg:140,assessment:screened()});expect(high.validation?.issues.map(i=>i.code)).toContain('measurement_review');
+ });
+ it('detects inconsistent adjusted macro targets and accepts consistent targets',()=>{
+  const plan=generateMealPlan({...base,assessment:screened()});
+  const bad=validatePlan({...plan,assessment:{...screened(),adjustedTargets:{proteinG:200},targetAdjustmentReason:'Review'},targets:{...plan.targets,proteinG:200}});
+  expect(bad.validation?.issues.map(i=>i.code)).toContain('macro_target_mismatch');
+  const good=validatePlan({...plan,assessment:{...screened(),adjustedTargets:{tdee:2000},targetAdjustmentReason:'Review'},targets:{...plan.targets,tdee:2000,proteinG:75,carbsG:275,fatG:200/3}});
+  expect(good.validation?.issues.map(i=>i.code)).not.toContain('macro_target_mismatch');
+ });
+ it('distinguishes one/two cups of uji from ugali, keeping grams and calories aligned',()=>{
+  const food=foods.find(f=>f.id==='food_006_uji')!,ugali=foods.find(f=>f.id==='food_014')!;
+  const one=makeMealItem(food,.5,'sw','boiled'),two=makeMealItem(food,1,'sw','boiled');
+  expect(one.grams).toBe(250);expect(two.grams).toBe(500);expect(two.macros.calories).toBe(190);
+  expect(formatMealItemDetail(one,'sw')).toContain('Kikombe 1 cha uji');expect(formatMealItemDetail(two,'sw')).toContain('Vikombe 2 vya uji');
+  expect(formatMealItemDetail(two,'sw')).toContain('jumla 500 g');expect(makeMealItem(ugali,1,'sw','boiled').portionText).not.toContain('uji');
+ });
+ it('does not use another ugali/rice meal as an optional snack',()=>{
+  const plan=generateMealPlan({...base,assessment:screened()});
+  expect(plan.meals.filter(m=>m.mealType==='Snack').flatMap(m=>m.items).some(i=>/ugali|rice/i.test(i.name_en))).toBe(false);
+ });
+ it('retains preparations and all distinct reasons in food guidance',()=>{
+  const custom:ClinicalRule[]=[...rules,{id:'prep-a',target_food_id:'food_014',target_prep_method:'Fried',condition:'HTN',safety_level:'Danger',alert_message_en:'Fried restriction',alert_message_sw:'Kizuizi cha kukaanga'},{id:'prep-b',target_food_id:'food_014',target_prep_method:'Fried',condition:'HTN',safety_level:'Warning',alert_message_en:'Second full reason',alert_message_sw:'Sababu ya pili'}];
+  setClinicalDataForTests(foods,custom);const guidance=getFoodGuidance(['HTN'],'Lake Zone',['food_014']).find(g=>g.foodId==='food_014'&&g.preparation==='Fried');
+  expect(guidance?.reasons).toHaveLength(2);expect(guidance?.alternative?.preparation).toBe('boiled');
+ });
+ it('names the medication and handles class-only legacy alerts conservatively',()=>{
+  const named=getDrugFoodInteractions(['MED_CCB'],['Amlodipine 5 mg'])[0];expect(named.title_en).toContain('Amlodipine');expect(named.matchedMedications).toEqual(['Amlodipine 5 mg']);
+  const legacy=getDrugFoodInteractions(['MED_CCB'])[0];expect(legacy.body_en).toContain('does not apply to every');expect(legacy.title_en).toContain('pharmacist');
+ });
 });

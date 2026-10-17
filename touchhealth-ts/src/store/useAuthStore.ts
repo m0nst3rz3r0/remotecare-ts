@@ -18,12 +18,15 @@ import {
 interface AuthState {
   currentUser:  SessionUser | null;
   isLoading:    boolean;
+  isSigningIn: boolean;
   loginError:   string | null;
 
   // Actions
   init:    () => void;
   // CHANGED: signIn is now async because login() is async
   signIn:  (params: {
+    mode?: 'auto' | 'online' | 'offline';
+    expectedUserId?: string;
     username: string;
     password: string;
     role:     UserRole;
@@ -37,9 +40,10 @@ interface AuthState {
 
 // ── STORE ─────────────────────────────────────────────────────
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   currentUser: null,
   isLoading:   true,
+  isSigningIn: false,
   loginError:  null,
 
   /** Called once on app mount — seeds defaults and restores session */
@@ -51,13 +55,17 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   // CHANGED: signIn is now async — awaits the async login() function
   signIn: async (params) => {
-    const result = await login(params);
-    if (result.success) {
-      set({ currentUser: result.user, loginError: null });
-    } else {
-      set({ loginError: result.error });
-    }
-    return result;
+    if(get().isSigningIn)return {success:false,error:'Sign-in is already in progress.'};
+    set({isSigningIn:true,loginError:null});
+    try {
+      const result=await login(params);
+      if(result.success)set({currentUser:result.user,loginError:null});
+      else set({loginError:result.error});
+      return result;
+    } catch {
+      const error='Sign-in could not finish. Please retry. Your local work is saved.';
+      set({loginError:error});return {success:false,error};
+    } finally {set({isSigningIn:false});}
   },
 
   signOut: () => {

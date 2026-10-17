@@ -30,6 +30,11 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
   // Keep a balanced candidate shortlist rather than favoring catalogue order.
   const shortlist = [...new Map(['carb','protein','fruit','vegetable'].flatMap((cat) => candidates.filter((f) =>
     (Array.isArray(f.category) ? f.category : [f.category]).includes(cat)).slice(0, 8)).map((f) => [f.id, f])).values()];
+  const snackEligible = (food: typeof candidates[number]) => {
+    const cats=Array.isArray(food.category)?food.category:[food.category];
+    return cats.includes('fruit') || /egg|milk|yogurt|yoghurt|groundnut|peanut/i.test(food.name_en);
+  };
+  const snackFoods=shortlist.filter(snackEligible);
   const prepFor = (id: string) => supportedPreparations(candidates.find((f) => f.id === id)!).find((p) => evalFoodForPatient(id, p, foodConditions).severity === 'Safe')!;
   let meals = plan.meals.map((m) => ({ ...m, items: [...m.items] }));
   for (let step = 0; step < 120; step++) {
@@ -53,9 +58,9 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
         }
       }
       if (meal.items.filter((i) => !i.ingredient).length < (meal.mealType === 'Snack' ? 3 : 5)) for (const food of shortlist) {
-        if (meal.items.some((i) => i.foodId === food.id)) continue;
+        if (meal.items.some((i) => i.foodId === food.id) || (meal.mealType === 'Snack' && !snackEligible(food))) continue;
         const cats = Array.isArray(food.category) ? food.category : [food.category];
-        if (meal.mealType === 'Dinner' && (foodConditions).includes('DM') && cats.includes('fruit')) continue;
+        if (meal.mealType === 'Dinner' && cats.includes('fruit')) continue;
         if (cats.includes('carb') && meal.items.some((i) => {
           const f = candidates.find((c) => c.id === i.foodId); return f && (Array.isArray(f.category) ? f.category : [f.category]).includes('carb');
         })) continue;
@@ -64,8 +69,8 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
       }
     }
     if (!meals.some((m) => m.mealType === 'Snack') && sumNutrients(meals.flatMap((m) => m.items)).calories < plan.targets.tdee * 0.9) {
-      for (let a = 0; a < shortlist.length; a++) for (let b = a + 1; b < shortlist.length; b++) {
-        const items = [shortlist[a], shortlist[b]].map((food) => makeMealItem(food, Math.min(0.5, getPracticalPortionLimit(food, 'Snack')), plan.language, prepFor(food.id)));
+      for (let a = 0; a < snackFoods.length; a++) for (let b = a + 1; b < snackFoods.length; b++) {
+        const items = [snackFoods[a], snackFoods[b]].map((food) => makeMealItem(food, Math.min(0.5, getPracticalPortionLimit(food, 'Snack')), plan.language, prepFor(food.id)));
         consider([...meals, { mealType: 'Snack', name_en: 'Optional snacks', name_sw: 'Vitafunwa vya ziada', items, totalCalories: 0 }]);
       }
     }

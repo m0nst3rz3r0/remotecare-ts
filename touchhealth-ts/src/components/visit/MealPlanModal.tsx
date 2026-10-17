@@ -1,11 +1,11 @@
+import MealExportActions from './MealExportActions';
 import NutritionPlanReview from './NutritionPlanReview';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer, ChevronDown, FileDown, Share2 } from 'lucide-react';
+import { X, ChevronDown } from 'lucide-react';
 import type { GeneratedMealPlan } from '../../lib/clinical';
 import { buildCautions } from '../../lib/clinical/mealPlanner';
 import { formatMealItemDetail, mealFoodName } from '../../lib/clinical/mealLocalization';
-import { printDietarySlip, saveDietarySlipPdf, shareDietarySlip } from './DietarySlip';
 
 const INK  = '#132b31';
 const TEAL = '#10b981';
@@ -17,23 +17,6 @@ interface MealPlanModalProps {
   onClose: () => void;
 }
 
-const actionBtn: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '8px',
-  flex: '1 1 120px',
-  minHeight: '44px',
-  border: 'none',
-  borderRadius: '8px',
-  padding: '10px 14px',
-  fontSize: '12px',
-  fontWeight: 700,
-  cursor: 'pointer',
-  fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-  textTransform: 'uppercase',
-  letterSpacing: '0.4px',
-};
 
 export default function MealPlanModal({ plan, patientName, onClose }: MealPlanModalProps) {
   const [lang, setLang] = useState<'en' | 'sw'>(plan.language);
@@ -97,7 +80,7 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
               { label: lang === 'sw' ? 'Kalori' : 'Calories', value: `${plan.targets.tdee} kcal` },
               { label: lang === 'sw' ? 'Protini' : 'Protein', value: `${plan.targets.proteinG}g` },
               { label: lang === 'sw' ? 'Wanga' : 'Carbs', value: `${plan.targets.carbsG}g` },
-              { label: lang === 'sw' ? 'Chumvi' : 'Sodium', value: `${plan.targets.sodiumMg}mg` },
+              { label: lang === 'sw' ? 'Sodiamu' : 'Sodium', value: `${plan.targets.sodiumMg}mg` },
             ].map(t => (
               <div key={t.label} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
                 <div style={{ fontSize: '18px', fontWeight: 800, color: TEAL, fontFamily: "'Inter', system-ui" }}>{t.value}</div>
@@ -116,7 +99,7 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
                 border: `1.5px solid ${plan.nutritionRisk === 'High' ? '#dc262640' : plan.nutritionRisk === 'Moderate' ? '#d9770640' : '#10b98140'}`,
                 fontFamily: "'Inter', system-ui",
               }}>
-                {plan.nutritionRisk} {lang === 'sw' ? 'Hatari ya Lishe' : 'Nutrition Risk'}
+                {lang === 'sw' ? ({High:'Juu',Moderate:'Wastani',Low:'Ndogo'}[plan.nutritionRisk]) : plan.nutritionRisk} {lang === 'sw' ? 'Hatari ya Lishe' : 'Nutrition Risk'}
               </span>
             )}
             {plan.bmi != null && (
@@ -233,18 +216,6 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
             </div>
           ))}
 
-          {plan.avoidFoods.length > 0 && (
-            <div style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: '8px', padding: '12px', marginBottom: '14px' }}>
-              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#991b1b', letterSpacing: '0.5px', marginBottom: '6px', fontFamily: "'Inter', system-ui" }}>
-                {lang === 'sw' ? 'Vyakula vya Kuepuka' : 'Foods to Avoid'}
-              </div>
-              {plan.avoidFoods.map((f, i) => (
-                <div key={i} style={{ fontSize: '11px', color: '#991b1b', fontFamily: "'Inter', system-ui", marginBottom: '3px' }}>
-                  • <strong>{lang === 'sw' ? f.name_sw : f.name_en}</strong> — {lang === 'sw' ? f.reason_sw : f.reason_en}
-                </div>
-              ))}
-            </div>
-          )}
 
           <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#166534', fontFamily: "'Inter', system-ui", marginBottom: '4px' }}>
@@ -270,37 +241,7 @@ export default function MealPlanModal({ plan, patientName, onClose }: MealPlanMo
           <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: SLATE, letterSpacing: '0.5px', marginBottom: '8px', fontFamily: "'Inter', system-ui" }}>
             {lang === 'sw' ? 'Chapisha au Shiriki na Mgonjwa' : 'Print or Share with Patient'}
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={() => printDietarySlip(plan, patientName, lang)}
-              style={{ ...actionBtn, background: TEAL, color: '#fff' }}
-            >
-              <Printer size={16} />
-              {lang === 'sw' ? 'Chapisha' : 'Print'}
-            </button>
-            <button
-              type="button"
-              onClick={() => { void shareDietarySlip(plan, patientName, lang); }}
-              style={{ ...actionBtn, background: '#0d7377', color: '#fff' }}
-            >
-              <Share2 size={16} />
-              {lang === 'sw' ? 'Shiriki' : 'Share'}
-            </button>
-            <button
-              type="button"
-              onClick={() => saveDietarySlipPdf(plan, patientName, lang)}
-              style={{ ...actionBtn, background: '#fff', color: INK, border: '1.5px solid rgba(191,200,205,.55)' }}
-            >
-              <FileDown size={16} />
-              {lang === 'sw' ? 'Hifadhi PDF' : 'Save PDF'}
-            </button>
-          </div>
-          <div style={{ fontSize: '10px', color: '#64748b', marginTop: '8px', fontFamily: "'Inter', system-ui" }}>
-            {lang === 'sw'
-              ? 'Hifadhi PDF: chagua "Save as PDF" kwenye kidirisha cha kuchapisha.'
-              : 'Save PDF: choose "Save as PDF" in the print dialog.'}
-          </div>
+          <MealExportActions plan={plan} patient={patientName} language={lang} />
         </div>
       </div>
     </div>

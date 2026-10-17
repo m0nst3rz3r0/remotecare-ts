@@ -1,7 +1,7 @@
 // Hand-written service worker to satisfy `/sw.js` registration now.
 // Once SW build tooling is added, `src/sw.ts` should be the source of truth.
 
-const CACHE_NAME = 'touchhealth-v5';
+const CACHE_NAME = 'touchhealth-v6';
 
 const PRECACHE_URLS = ['/', '/index.html', '/foods.json', '/rules.json'];
 
@@ -28,6 +28,18 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then(async (cache) => {
       try {
         await cache.addAll(PRECACHE_URLS);
+        // Provision the initial JS/CSS graph too: those requests can finish
+        // before a newly installed worker starts controlling the first tab.
+        // The embedded PDF font lives in these locally bundled scripts.
+        const shell = await cache.match('/index.html');
+        if (shell) {
+          const html = await shell.text();
+          const assets = [...html.matchAll(/\s(?:src|href)=["']([^"']+)["']/g)]
+            .map((match) => new URL(match[1], self.location.origin))
+            .filter((url) => url.origin === self.location.origin && /\/assets\/.*\.(js|css)$/.test(url.pathname))
+            .map((url) => url.href);
+          await cache.addAll([...new Set(assets)]);
+        }
       } catch {
         // Ignore precache failures.
       }

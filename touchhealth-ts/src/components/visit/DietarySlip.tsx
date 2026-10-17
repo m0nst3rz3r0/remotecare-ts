@@ -1,373 +1,50 @@
-import { planStatusText, planNutritionText } from '../../lib/clinical/planValidation';
-import type { GeneratedMealPlan } from '../../lib/clinical';
-import { buildCautions } from '../../lib/clinical/mealPlanner';
-import { formatMealItemDetail, mealFoodName } from '../../lib/clinical/mealLocalization';
+﻿import type { GeneratedMealPlan } from '../../lib/clinical';
 import { escapeHtml } from '../../utils/html';
+import { buildMealDocument, documentPlainText, type ExportOptions } from './mealDocument';
+import { renderMealDocumentPdf } from './mealPdf';
 
-function L(lang: 'en' | 'sw', en: string, sw: string): string {
-  return lang === 'en' ? en : sw;
+export function buildDietarySlipHtml(plan:GeneratedMealPlan,patient:string,lang:'en'|'sw',options:ExportOptions={}):string {
+  const doc=buildMealDocument(plan,patient,lang,options),e=escapeHtml;
+  const header=`<header><h1>RemoteCare - ${e(doc.title)}</h1><p>${e(doc.patient)} | ${e(doc.date)}</p><p class="status">${e(doc.status)}</p></header>`;
+  return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8"><title>${e(doc.title)} - ${e(patient)}</title><style>
+    @page {size:A4 portrait;margin:16mm 14mm;} *{box-sizing:border-box;} body{font:11.5pt/1.5 Arial,sans-serif;color:#132b31;margin:0;} h1{font-size:17pt;color:#0d6367;margin:0 0 5pt;} h2{font-size:15pt;color:#0d6367;} h3{font-size:12.5pt;margin:0 0 7pt;color:#0d6367;break-after:avoid;} p{margin:0 0 7pt;overflow-wrap:anywhere;} header{border-bottom:2pt solid #0d6367;padding-bottom:8pt;} .status{font-weight:bold;color:#784500;} article{margin:12pt 0;padding:10pt 0;border-bottom:1pt solid #dce5e6;} .warning{border-left:3pt solid #b47719;padding-left:10pt;} section+section{break-before:page;} footer{font-size:9pt;border-top:1pt solid #dce5e6;padding:6pt 0;} thead{display:table-header-group;} table{width:100%;border-collapse:collapse;} td{padding:0;} @media screen{body{max-width:780px;margin:24px auto;padding:16px;}} @media print{h2,h3{break-after:avoid;}p{orphans:3;widows:3;}}
+  </style></head><body>${doc.sections.map(section=>`<section><table><thead><tr><td>${header}</td></tr></thead><tbody><tr><td><h2>${e(section.title)}</h2>${section.blocks.map(block=>`<article class="${block.tone==='warning'?'warning':''}">${block.heading?`<h3>${e(block.heading)}</h3>`:''}${block.lines.map(line=>`<p>${e(line)}</p>`).join('')}</article>`).join('')}</td></tr></tbody></table><footer>${e(doc.version)}</footer></section>`).join('')}</body></html>`;
 }
-
-export function buildDietarySlipHtml(
-  plan: GeneratedMealPlan,
-  patientName: string,
-  lang: 'en' | 'sw',
-): string {
-  const cautions = buildCautions(plan.conditions ?? [], lang, plan.targets);
-  const dayTotal = plan.meals.reduce((sum, meal) => sum + meal.totalCalories, 0);
-  const rec = plan.recommendedFoods;
-
-  const headerHTML = `
-    <div class="header">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div class="org-name">RemoteCare</div>
-          <div class="slip-title">${L(lang, 'Dietary Advice Slip', 'Karatasi ya Ushauri wa Lishe')}</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="meta-bold">${escapeHtml(patientName)}</div>
-          <div class="meta">${escapeHtml(plan.diagnosis || '-')} · ${escapeHtml(plan.region)}</div>
-          <div class="meta">${escapeHtml(plan.date)}</div>
-        </div>
-      </div>
-    </div>`;
-
-  const targetsHTML = `
-    <div class="targets">
-      <div class="target-pill">
-        <div class="target-value">${plan.targets.tdee}</div>
-        <div class="target-label">${L(lang, 'Calories', 'Kalori')}</div>
-      </div>
-      <div class="target-pill">
-        <div class="target-value">${plan.targets.proteinG}g</div>
-        <div class="target-label">${L(lang, 'Protein', 'Protini')}</div>
-      </div>
-      <div class="target-pill">
-        <div class="target-value">${plan.targets.carbsG}g</div>
-        <div class="target-label">${L(lang, 'Carbs', 'Wanga')}</div>
-      </div>
-      <div class="target-pill">
-        <div class="target-value">${Math.round(plan.targets.sodiumMg / 100) * 100}mg</div>
-        <div class="target-label">${L(lang, 'Sodium', 'Chumvi')}</div>
-      </div>
-    </div>`;
-
-  const summaryHTML = `
-    <div class="summary-strip">
-      ${plan.nutritionRisk ? `<div class="summary-chip">${escapeHtml(`${plan.nutritionRisk} ${L(lang, 'Nutrition Risk', 'Hatari ya Lishe')}`)}</div>` : ''}
-      ${plan.bmi != null ? `<div class="summary-meta">BMI: <strong>${plan.bmi.toFixed(1)}</strong></div>` : ''}
-      <div class="summary-meta">${L(lang, 'Zone', 'Zone')}: <strong>${escapeHtml(plan.region)}</strong></div>
-      <div class="summary-meta">${L(lang, 'Plan kcal', 'Kalori za mpango')}: <strong>${dayTotal}</strong></div>
-    </div>`;
-
-  const drugHTMLPageOne = plan.drugAlerts.length > 0 ? `
-    <div class="section warn-section">
-      <div class="section-title">${L(lang, 'Drug-Food Alerts', 'Tahadhari za Dawa na Chakula')}</div>
-      ${plan.drugAlerts.map(alert => `
-        <div class="drug-row"><strong>${escapeHtml(lang === 'sw' ? alert.title_sw : alert.title_en)}</strong> - ${escapeHtml(lang === 'sw' ? alert.body_sw : alert.body_en)}</div>
-      `).join('')}
-    </div>
-  ` : '';
-
-  const mealHTML = `
-    <div class="section-title-major">${L(lang, 'Sample Meal Combinations for Today', 'Mfano wa Mchanganyiko wa Chakula Leo')}</div>
-    ${plan.meals.map(meal => `
-      <div class="meal-card">
-        <div class="meal-header">
-          <div class="meal-title">${escapeHtml(lang === 'sw' ? meal.name_sw : meal.name_en)}</div>
-          <div class="meal-kcal">${meal.totalCalories} kcal</div>
-        </div>
-        ${(lang === 'sw' ? meal.culturalNote_sw : meal.culturalNote_en) ? `<div class="meal-note">${escapeHtml(lang === 'sw' ? meal.culturalNote_sw : meal.culturalNote_en)}</div>` : ''}
-        ${meal.items.map(item => `
-          <div class="food-row">
-            <span class="food-name">${escapeHtml(mealFoodName(item, lang))}</span>
-            <span class="food-detail">${escapeHtml(formatMealItemDetail(item, lang))}</span>
-          </div>
-        `).join('')}
-      </div>
-    `).join('')}`;
-
-  type RecGroup = {
-    title: string;
-    benefit: string;
-    items: { id: string; name_en: string; name_sw: string }[];
-    accent: string;
-    border: string;
-  };
-
-  const recGroups: RecGroup[] = rec ? [
-    {
-      title: L(lang, 'Starches / Energy Foods', 'Wanga / Vyakula vya Nishati'),
-      benefit: L(lang, 'Good source of energy', 'Chanzo kizuri cha nishati'),
-      items: rec.starch,
-      accent: '#92400e',
-      border: '#fcd34d',
-    },
-    {
-      title: L(lang, 'Proteins / Body-building Foods', 'Protini / Vyakula vya Kujenga Mwili'),
-      benefit: L(lang, 'Builds and repairs tissue', 'Hujenga na kurekebisha tishu'),
-      items: rec.protein,
-      accent: '#3730a3',
-      border: '#a5b4fc',
-    },
-    {
-      title: L(lang, 'Vegetables', 'Mboga za Majani'),
-      benefit: L(lang, 'Rich in vitamins and fibre', 'Tajiri wa vitamini na nyuzi'),
-      items: rec.vegetable,
-      accent: '#166534',
-      border: '#86efac',
-    },
-    {
-      title: L(lang, 'Fruits', 'Matunda'),
-      benefit: L(lang, 'Rich in vitamins and antioxidants', 'Tajiri wa vitamini na antioxidants'),
-      items: rec.fruit,
-      accent: '#9a3412',
-      border: '#fdba74',
-    },
-  ].filter(group => group.items.length > 0) : [];
-
-  const safeHTML = recGroups.length > 0 ? `
-    <div class="section safe-section" style="margin-bottom:8px;">
-      <div class="section-title">${L(lang, 'Safe Foods for This Patient', 'Vyakula Salama kwa Mgonjwa Huyu')}</div>
-      ${recGroups.map(group => `
-        <div style="margin-bottom:7px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
-            <div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:0.3px;color:${group.accent};">${group.title}</div>
-            <div style="font-size:7.5px;color:#64748b;font-style:italic;">${group.benefit}</div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;">
-            ${group.items.map(food => `
-              <div style="font-size:8.5px;color:${group.accent};padding:2px 0;border-bottom:1px solid ${group.border}40;">
-                - <strong>${escapeHtml(lang === 'sw' ? food.name_sw : food.name_en)}</strong>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  ` : '';
-
-  const avoidHTML = plan.avoidFoods.length > 0 ? `
-    <div class="section danger-section">
-      <div class="section-title">${L(lang, 'Foods to Avoid', 'Vyakula vya Kuepuka')}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;">
-        ${plan.avoidFoods.map(food => `
-          <div class="avoid-row">- <strong>${escapeHtml(lang === 'sw' ? food.name_sw : food.name_en)}</strong> - ${escapeHtml(lang === 'sw' ? food.reason_sw : food.reason_en)}</div>
-        `).join('')}
-      </div>
-    </div>
-  ` : '';
-
-  const drugHTML = plan.drugAlerts.length > 0 ? `
-    <div class="section warn-section">
-      <div class="section-title">${L(lang, 'Drug-Food Alerts', 'Tahadhari za Dawa na Chakula')}</div>
-      ${plan.drugAlerts.map(alert => `
-        <div class="drug-row"><strong>${escapeHtml(lang === 'sw' ? alert.title_sw : alert.title_en)}</strong> - ${escapeHtml(lang === 'sw' ? alert.body_sw : alert.body_en)}</div>
-      `).join('')}
-    </div>
-  ` : '';
-
-  const cautionHTML = cautions.length > 0 ? `
-    <div class="section caution-section">
-      <div class="section-title">${L(lang, 'Key Dietary Rules', 'Kanuni Muhimu za Lishe')}</div>
-      ${cautions.map(caution => `<div class="caution-row">- ${escapeHtml(caution)}</div>`).join('')}
-    </div>
-  ` : '';
-
-  const footerHTML = `
-    <div class="footer">
-      RemoteCare - ${L(lang, 'Your health, our priority', 'Afya yako, kipaumbele chetu')} · ${L(lang, 'Ask your doctor for more dietary guidance.', 'Muulize daktari wako kwa ushauri zaidi wa lishe.')}
-    </div>`;
-
-  return `<!DOCTYPE html>
-<html lang="${lang}">
-<head>
-  <meta charset="UTF-8">
-  <title>${L(lang, 'Dietary Advice', 'Ushauri wa Lishe')} - ${escapeHtml(patientName)}</title>
-  <style>
-    @page { size: A4 portrait; margin: 12mm 14mm; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', -apple-system, Roboto, sans-serif; font-size: 9.5px; color: #132b31; line-height: 1.4; }
-    .header { border-bottom: 2.5px solid #10b981; padding-bottom: 10px; margin-bottom: 10px; }
-    .org-name { font-size: 14px; font-weight: 900; color: #0d7377; text-transform: uppercase; letter-spacing: 0.5px; }
-    .slip-title { font-size: 11px; font-weight: 700; color: #132b31; margin-top: 2px; }
-    .meta { font-size: 8.5px; color: #64748b; margin-top: 1px; }
-    .meta-bold { font-size: 10px; font-weight: 700; color: #132b31; }
-    .targets { display: flex; gap: 5px; margin: 8px 0 12px; }
-    .target-pill { background: #f0fdf4; border: 1px solid #86efac; border-radius: 5px; padding: 5px 6px; text-align: center; flex: 1; }
-    .target-value { font-size: 12px; font-weight: 800; color: #10b981; }
-    .target-label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.2px; margin-top: 1px; }
-    .summary-strip { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
-    .summary-chip { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; border-radius: 9999px; padding: 3px 8px; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; }
-    .summary-meta { font-size: 8.5px; color: #475569; }
-    .section-title-major { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #0d7377; margin: 10px 0 5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
-    .meal-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 9px; margin-bottom: 6px; page-break-inside: avoid; }
-    .meal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-    .meal-title { font-size: 10px; font-weight: 800; color: #0d7377; text-transform: uppercase; letter-spacing: 0.3px; }
-    .meal-kcal { font-size: 10px; font-weight: 700; color: #10b981; background: #f0fdf4; border-radius: 3px; padding: 1px 7px; }
-    .meal-note { font-size: 8.5px; color: #475569; font-style: italic; margin-bottom: 4px; }
-    .food-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #f1f5f9; font-size: 9px; gap: 12px; }
-    .food-name { font-weight: 600; color: #132b31; }
-    .food-detail { color: #64748b; text-align: right; }
-    .page-break { page-break-before: always; }
-    .page2-header { border-bottom: 2.5px solid #10b981; padding-bottom: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end; }
-    .page2-title { font-size: 12px; font-weight: 900; color: #0d7377; text-transform: uppercase; }
-    .section { border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; page-break-inside: avoid; }
-    .section-title { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
-    .safe-section { background: #f0fdf4; border: 1px solid #86efac; }
-    .safe-section .section-title { color: #166534; }
-    .danger-section { background: #fef2f2; border: 1px solid #fca5a5; }
-    .danger-section .section-title { color: #991b1b; }
-    .avoid-row { font-size: 8.5px; color: #7f1d1d; margin-bottom: 3px; }
-    .warn-section { background: #fffbeb; border: 1px solid #fcd34d; }
-    .warn-section .section-title { color: #92400e; }
-    .drug-row { font-size: 8.5px; color: #78350f; margin-bottom: 3px; }
-    .caution-section { background: #eff6ff; border: 1px solid #93c5fd; }
-    .caution-section .section-title { color: #1e40af; }
-    .caution-row { font-size: 8.5px; color: #1e3a8a; margin-bottom: 2px; }
-    .footer { border-top: 1px solid #e2e8f0; margin-top: 10px; padding-top: 6px; font-size: 8px; color: #94a3b8; text-align: center; }
-    .print-hint { display: none; }
-    @media screen {
-      .print-hint { display: block; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 6px; padding: 10px; margin-bottom: 10px; font-size: 11px; color: #1e40af; }
-    }
-  </style>
-</head>
-<body>
-  <div style="border:2px solid #92400e;padding:12px;font-weight:bold">${escapeHtml(planStatusText(plan, lang))}
-  ${(plan.validation?.issues ?? []).map(i => `<p>${escapeHtml(lang === 'sw' ? i.message_sw : i.message_en)}</p>`).join('')}
-  <p>${escapeHtml(planNutritionText(plan, lang))}</p></div>
-  <div class="print-hint">${L(lang, 'To save as PDF: File -> Print -> "Save as PDF". Two pages will be generated.', 'Kuhifadhi kama PDF: Faili -> Chapisha -> "Hifadhi kama PDF". Kurasa mbili zitatengenezwa.')}</div>
-
-  ${headerHTML}
-  ${targetsHTML}
-  ${summaryHTML}
-  ${drugHTMLPageOne}
-  ${mealHTML}
-  ${footerHTML}
-
-  <div class="page-break">
-    <div class="page2-header">
-      <div>
-        <div class="page2-title">${L(lang, 'Food Guide', 'Mwongozo wa Chakula')}</div>
-        <div class="meta">${escapeHtml(patientName)} · ${escapeHtml(plan.diagnosis || '-')} · ${escapeHtml(plan.date)}</div>
-      </div>
-      <div class="meta">${L(lang, 'Page 2 of 2', 'Ukurasa 2 kati ya 2')}</div>
-    </div>
-    ${safeHTML}
-    ${avoidHTML}
-    ${drugHTML}
-    ${cautionHTML}
-    ${footerHTML}
-  </div>
-</body>
-</html>`;
+export function slipFilename(patient:string,date:string):string {
+  return `meal-plan-${patient.replace(/[^\w-]+/g,'_').slice(0,60)}-${date.replace(/[^\d-]/g,'')}`;
 }
-
-function slipFilename(patientName: string): string {
-  const safe = patientName.replace(/[^\w-]+/g, '_').slice(0, 40);
-  return `meal-plan-${safe}-${new Date().toISOString().split('T')[0]}`;
+function download(blob:Blob,name:string):void {
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
-
-function openSlipWindow(html: string): Window | null {
-  const w = window.open('', '_blank', 'width=600,height=800');
-  if (!w) return null;
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  return w;
+export async function printDietarySlip(plan:GeneratedMealPlan,patient:string,lang:'en'|'sw',options:ExportOptions={}):Promise<void> {
+  // Open before any asynchronous work to retain the browser's user gesture.
+  const w=window.open('','_blank','width=850,height=1000');
+  if(!w)throw new Error(lang==='sw'?'Ruhusu dirisha ibukizi ili kuchapisha.':'Allow popups for this app to print. Save PDF can download without popups.');
+  const html=buildDietarySlipHtml(plan,patient,lang,options);
+  await new Promise<void>((resolve,reject)=>{
+    w.onload=()=>resolve();w.onerror=()=>reject(new Error('Print document could not load.'));
+    w.document.open();w.document.write(html);w.document.close();
+  });
+  await w.document.fonts?.ready;
+  if(w.closed)throw new Error(lang==='sw'?'Dirisha la kuchapisha limefungwa.':'The print window was closed.');
+  w.focus();w.print();
 }
-
-export function printDietarySlip(
-  plan: GeneratedMealPlan,
-  patientName: string,
-  lang: 'en' | 'sw',
-): void {
-  const html = buildDietarySlipHtml(plan, patientName, lang);
-  const w = openSlipWindow(html);
-  if (!w) {
-    alert(L(lang, 'Please allow popups to print the meal plan.', 'Ruhusu popups ili kuchapisha mpango wa chakula.'));
-    return;
-  }
-  setTimeout(() => { w.print(); }, 300);
+const activeDownloads=new Set<string>();
+export async function saveDietarySlipPdf(plan:GeneratedMealPlan,patient:string,lang:'en'|'sw',options:ExportOptions={}):Promise<void> {
+  const key=patient+'|'+plan.date+'|'+(options.audience??'full');if(activeDownloads.has(key))return;
+  activeDownloads.add(key);
+  try {
+    const bytes=await renderMealDocumentPdf(buildMealDocument(plan,patient,lang,options));
+    download(new Blob([new Uint8Array(bytes)],{type:'application/pdf'}),slipFilename(patient,plan.date)+'.pdf');
+  } catch(error){throw new Error((lang==='sw'?'PDF haijahifadhiwa. Jaribu tena. ':'PDF was not saved. Retry the download. ')+(error instanceof Error?error.message:''));}
+  finally{activeDownloads.delete(key);}
 }
-
-export function saveDietarySlipPdf(
-  plan: GeneratedMealPlan,
-  patientName: string,
-  lang: 'en' | 'sw',
-): void {
-  const html = buildDietarySlipHtml(plan, patientName, lang);
-  const w = openSlipWindow(html);
-  if (!w) {
-    alert(L(lang, 'Please allow popups to save the meal plan as PDF.', 'Ruhusu popups ili kuhifadhi mpango wa chakula kama PDF.'));
-    return;
-  }
-  setTimeout(() => { w.print(); }, 400);
+export function downloadDietarySlipHtml(plan:GeneratedMealPlan,patient:string,lang:'en'|'sw',options:ExportOptions={}):void {
+  download(new Blob([buildDietarySlipHtml(plan,patient,lang,options)],{type:'text/html;charset=utf-8'}),slipFilename(patient,plan.date)+'.html');
 }
-
-export function downloadDietarySlipHtml(
-  plan: GeneratedMealPlan,
-  patientName: string,
-  lang: 'en' | 'sw',
-): void {
-  const html = buildDietarySlipHtml(plan, patientName, lang);
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${slipFilename(patientName)}.html`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function buildPlainTextSummary(
-  plan: GeneratedMealPlan,
-  patientName: string,
-  lang: 'en' | 'sw',
-): string {
-  const dayTotal = plan.meals.reduce((sum, meal) => sum + meal.totalCalories, 0);
-  const lines = [
-    planStatusText(plan, lang),
-    ...(plan.validation?.issues ?? []).map(i => lang === 'sw' ? i.message_sw : i.message_en),
-    planNutritionText(plan, lang),
-    L(lang, `Meal plan for ${patientName}`, `Mpango wa chakula kwa ${patientName}`),
-    `${plan.region} · ${plan.diagnosis || '-'} · ${dayTotal} kcal/day`,
-    `${plan.targets.tdee} kcal · ${plan.targets.proteinG}g protein · ${plan.targets.carbsG}g carbs · ${plan.targets.sodiumMg}mg sodium`,
-    ...(plan.nutritionRisk ? [`${plan.nutritionRisk} ${L(lang, 'Nutrition Risk', 'Hatari ya Lishe')}`] : []),
-    '',
-    ...plan.meals.map(meal => {
-      const title = lang === 'sw' ? meal.name_sw : meal.name_en;
-      const items = meal.items.map(item =>
-        `  - ${mealFoodName(item, lang)} (${formatMealItemDetail(item, lang)})`,
-      ).join('\n');
-      return `${title} (${meal.totalCalories} kcal)\n${items}`;
-    }),
-  ];
-  return lines.join('\n');
-}
-
-export async function shareDietarySlip(
-  plan: GeneratedMealPlan,
-  patientName: string,
-  lang: 'en' | 'sw',
-): Promise<void> {
-  const html = buildDietarySlipHtml(plan, patientName, lang);
-  const text = buildPlainTextSummary(plan, patientName, lang);
-  const title = L(lang, `Meal plan - ${patientName}`, `Mpango wa chakula - ${patientName}`);
-
-  if (typeof navigator !== 'undefined' && navigator.share) {
-    try {
-      const file = new File([html], `${slipFilename(patientName)}.html`, { type: 'text/html' });
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title, text, files: [file] });
-        return;
-      }
-      await navigator.share({ title, text });
-      return;
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-    }
-  }
-
-  downloadDietarySlipHtml(plan, patientName, lang);
+export async function shareDietarySlip(plan:GeneratedMealPlan,patient:string,lang:'en'|'sw',options:ExportOptions={}):Promise<void> {
+  const doc=buildMealDocument(plan,patient,lang,options),text=documentPlainText(doc);
+  if(navigator.share){try{await navigator.share({title:doc.title,text});return;}catch(error){if(error instanceof DOMException && error.name==='AbortError')return;}}
+  downloadDietarySlipHtml(plan,patient,lang,options);
 }

@@ -131,3 +131,22 @@ deno test --node-modules-dir=none --allow-env supabase/functions/tests/sms_test.
 
 The Edge Function tests mock all Supabase/SMS8 network requests and use fake
 credentials. No live SMS is sent by the automated tests.
+
+## Simplified sign-in and reconnect
+
+Doctors now enter only Username and Password. The server determines the role and facility; a stale local user directory cannot select a wrong role. The sign-in form prevents duplicate submissions, supports password managers, and retains offline access on previously provisioned devices.
+
+The status strip has one Sync now action. It first checks/refreshes the saved cloud session. If credentials are required, it asks for the password and offers Sign in & sync or Keep working locally. A successful explicitly requested sync refreshes the patient store without reloading the page or discarding an open visit form. Simply reconnecting does not synchronize patients or send SMS.
+
+Cloud-only reconnect never falls back to a cached offline login. Credential exchange uses an isolated anonymous transport, so an expired bearer token/refresh lock from the main client cannot prevent signing in again. Login requests and cloud-session checks have bounded waits. Device provisioning continues separately without changing existing letters or delaying entry to clinical work.
+
+### Deployed login function must exist
+
+A read-only check of `https://remotecare-ncd.vercel.app` found that its configured project `twxmqcxirsvemokqqazq` returns HTTP 404 with `Requested function was not found` for `/functions/v1/login`. This is a deployment issue; SQL migration 006 does not create Edge Functions. To restore online sign-in, an authorized Supabase administrator must deploy from this repository root:
+
+```powershell
+npx supabase login
+npx supabase functions deploy login --project-ref twxmqcxirsvemokqqazq --no-verify-jwt
+```
+
+The login endpoint verifies credentials itself; `verify_jwt = false` is necessary because a person signing in has no valid session yet. Keep the credential validation and facility claims in the repository implementation. Then deploy the updated frontend and verify a real facility account, refresh, two-device use, offline restart, wrong-password handling, and a manual sync. Do not clear browser storage to repair sign-in: that would remove unsynced local clinical records.

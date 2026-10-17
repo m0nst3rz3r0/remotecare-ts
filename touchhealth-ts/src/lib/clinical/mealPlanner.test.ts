@@ -131,7 +131,7 @@ describe('meal planner', () => {
       serving: { unit_en: 'fist', unit_sw: 'ngumi', grams_per_unit: 150, default_units: 1 },
     };
 
-    expect(formatPortion(testFood, 4, 'en')).toBe('4 fist');
+    expect(formatPortion(testFood, 4, 'en')).toBe('4 fists');
     expect(formatPortion(testFood, 3.5, 'sw')).toBe('3.5 ngumi');
   });
 
