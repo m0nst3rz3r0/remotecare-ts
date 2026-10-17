@@ -25,9 +25,8 @@
 
 import type { User, SessionUser, UserRole, Hospital } from '../types';
 import { randomUUID } from '../utils/id';
-import { hashPassword, verifyPassword } from './crypto';
+import { hashPassword } from './crypto';
 import { supabase } from './supabase';
-import { registerDevice } from './deviceManager';
 import {
   loadUsers,    saveUsers,
   loadHospitals, saveHospitals,
@@ -194,35 +193,17 @@ export function validateSession(): SessionUser | null {
   const session = getSession();
   if (!session) return null;
 
-  // Primary check — local user list (populated after sync)
-  const localUsers = loadUsers();
-  if (localUsers.length > 0) {
-    const stillExists = localUsers.find(
-      (u) => u.id === session.id && u.role === session.role
-    );
-    if (!stillExists) {
-      // User was deleted — invalidate
-      clearSession();
-      return null;
-    }
-    return session;
-  }
-
-  // Fallback — cached users (pre-sync cold start)
-  const inCache = findCachedUser(session.username);
-  if (!inCache) {
+  const cached = findCachedUser(session.username);
+  if (!cached || cached.id !== session.id || cached.role !== session.role) {
     clearSession();
     return null;
   }
+  // An expired cloud token must not invalidate the provisioned local session.
   return session;
 }
 
-// ════════════════════════════════════════════════════════════
-// LOGIN
-// ════════════════════════════════════════════════════════════
-
 export type LoginResult =
-  | { success: true;  user: SessionUser; offline?: boolean }
+  | { success: true; user: SessionUser; offline?: boolean }
   | { success: false; error: string };
 
 export interface LoginParams {
@@ -232,105 +213,14 @@ export interface LoginParams {
   hospital?: string;
 }
 
-// ── Server-auth feature flag ─────────────────────────────────
-// When VITE_USE_SERVER_AUTH=true AND the login Edge Function +
-// RLS migrations are deployed, login() routes to the server-side
-// flow (authV2). Until then it uses the legacy client-side flow.
-// Dynamic import avoids a circular dependency with authV2.
-const USE_SERVER_AUTH =
-  (import.meta as { env?: { VITE_USE_SERVER_AUTH?: string } }).env?.VITE_USE_SERVER_AUTH === 'true';
-
 export async function login(params: LoginParams): Promise<LoginResult> {
-  if (USE_SERVER_AUTH) {
-    const { loginV2 } = await import('./authV2');
-    return loginV2(params);
-  }
-  return loginLegacy(params);
-}
-
-async function loginLegacy(params: {
-  username: string;
-  password: string;
-  role: UserRole;
-  hospital?: string;
-}): Promise<LoginResult> {
-  const { username, password, role, hospital = '' } = params;
-
-  if (!username || !password) {
-    return { success: false, error: 'Please enter your username and password.' };
-  }
-
-  let foundUser: Record<string, unknown> | null = null;
-  let isOffline = false;
-
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username.toLowerCase())
-      .single();
-
-    if (!error && data) {
-      foundUser = data as Record<string, unknown>;
-      cacheUserForOffline(foundUser);
-    } else {
-      isOffline = true;
-    }
-  } catch {
-    isOffline = true;
-  }
-
-  if (!foundUser) {
-    foundUser = findCachedUser(username);
-    isOffline = true;
-  }
-
-  if (!foundUser) {
-    return { success: false, error: 'Incorrect username or password. Please try again.' };
-  }
-
-  const storedHash = String(foundUser['password'] ?? '');
-  const passwordOk = await verifyPassword(password, storedHash);
-  if (!passwordOk) {
-    return { success: false, error: 'Incorrect username or password. Please try again.' };
-  }
-
-  const userRole = String(foundUser['role'] ?? '');
-  if (role !== 'auto' && userRole !== role) {
-    const correctTab = userRole === 'admin' ? 'Admin' : 'Doctor';
-    return { success: false, error: `Wrong tab selected. Please use the ${correctTab} tab.` };
-  }
-
-  const resolvedRole = userRole as 'admin' | 'doctor';
-  const isSuperAdmin = foundUser['is_super_admin'] === true || foundUser['isSuperAdmin'] === true;
-
-  const sessionUser: SessionUser = {
-    id:              String(foundUser['id'] ?? ''),
-    username:        String(foundUser['username'] ?? ''),
-    displayName:     String(foundUser['display_name'] ?? foundUser['displayName'] ?? ''),
-    role:            resolvedRole,
-    hospital:        String(foundUser['hospital'] ?? ''),
-    sessionHospital: hospital || String(foundUser['hospital'] ?? ''),
-    sessionRegion:   String(foundUser['region'] ?? ''),
-    sessionDistrict: String(foundUser['district'] ?? ''),
-    isSuperAdmin,
-    adminRegion:     String(foundUser['region'] ?? ''),
-    adminDistrict:   String(foundUser['district'] ?? ''),
-  };
-
-  saveSession(sessionUser);
-
-  registerDevice(
-    sessionUser.sessionRegion,
-    sessionUser.sessionDistrict,
-    sessionUser.sessionHospital,
-  ).catch((err) => console.warn('Device registration failed:', err));
-
-  return { success: true, user: sessionUser, offline: isOffline };
+  const { loginV2 } = await import('./authV2');
+  return loginV2(params);
 }
 
 export function logout(): void {
   clearSession();
+  void supabase.auth.signOut({ scope: 'local' });
 }
 
 // ════════════════════════════════════════════════════════════

@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════
 -- REMOTECARE · Migration 001 — baseline schema
--- Run once against a fresh project, OR read-only reference if tables
--- already exist.
+-- Creates a fresh schema and adds sync metadata to existing app tables.
+-- Existing business columns/types must still match the definitions below.
 -- ═══════════════════════════════════════════════════════════════
 
 -- ── EXTENSIONS ──────────────────────────────────────────────────
@@ -22,6 +22,12 @@ create table if not exists public.users (
   updated_at    timestamptz not null default now(),
   deleted_at    timestamptz           -- soft-delete (NULL = active)
 );
+
+-- CREATE TABLE IF NOT EXISTS does not add columns to existing tables.
+alter table public.users
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now(),
+  add column if not exists deleted_at timestamptz;
 
 -- ── HOSPITALS ───────────────────────────────────────────────────
 create table if not exists public.hospitals (
@@ -51,6 +57,11 @@ create table if not exists public.patients (
 );
 
 -- index for facility scoping
+alter table public.patients
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now(),
+  add column if not exists deleted_at timestamptz;
+
 create index if not exists patients_hospital_idx on public.patients (hospital) where deleted_at is null;
 create index if not exists patients_region_idx   on public.patients (region)   where deleted_at is null;
 
@@ -78,6 +89,10 @@ create table if not exists public.visits (
   created_at           timestamptz not null default now(),
   updated_at           timestamptz not null default now()
 );
+
+alter table public.visits
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
 
 create index if not exists visits_patient_idx on public.visits (patient_id);
 

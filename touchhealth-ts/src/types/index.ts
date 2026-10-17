@@ -22,7 +22,7 @@ export type HbA1cQuarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
 
 export type StockoutStatus = 'out' | 'low' | 'adequate';
 
-export type SMSStatus = 'queued' | 'sent' | 'failed' | 'demo';
+export type SMSStatus = 'queued' | 'sent' | 'delivered' | 'failed' | 'unknown' | 'demo';
 
 // ── FIX: open provider type — supports any bulk-SMS gateway ──
 // Values map to Edge Function provider routing.
@@ -34,6 +34,7 @@ export type SMSStatus = 'queued' | 'sent' | 'failed' | 'demo';
 // 'infobip'   = Infobip
 // 'custom'    = any REST endpoint via SMSConfig.customEndpoint
 export type SMSProvider =
+  | 'sms8'
   | 'at'
   | 'bongolive'
   | 'nexah'
@@ -311,7 +312,7 @@ export interface SMSLogEntry {
   id: string;
   ptId: number;
   ptCode: string;
-  phone: string;        // raw at send-time, masked on export
+  phone: string;        // masked before persistence
   message: string;
   provider: SMSProvider;
   reason: SMSReason;
@@ -323,6 +324,9 @@ export interface SMSLogEntry {
   messageId?: string;   // gateway message ID for delivery tracking
   cost?: string;        // gateway cost string (e.g. "TZS 25.0000")
   retryCount?: number;
+  deviceId?: string;
+  deviceLetter?: string;
+  duplicate?: boolean;
   sentBy?: string;        // display name of doctor/admin who triggered send
 }
 

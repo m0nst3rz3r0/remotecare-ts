@@ -38,16 +38,13 @@ supabase functions deploy login --no-verify-jwt
 
 ## Client integration
 
-Once deployed, swap the login() in `src/services/auth.ts`:
+Online login now always uses the login Edge Function. Every provisioned device
+keeps its own refresh session and offline credential verifier. Manual sync and
+SMS require a valid online session; offline clinical work remains available.
 
-```ts
-// auth.ts  — change this one line
-export { loginV2 as login } from './authV2';
-```
-
-`authV2.ts` calls the Edge Function for online auth and falls back to
-cached credentials when offline, exactly like the current flow — but
-the browser never touches the `users` table or password hashes.
+Apply migrations 004 and 005 as well as the baseline migrations. Follow
+[SMS8 setup and verification](SMS8_SETUP.md) for device provisioning, gateway
+secrets, function deployment, and the two-device acceptance checklist.
 
 ## Environment variables required (Vercel)
 

@@ -1,0 +1,10 @@
+[functions.login]
+verify_jwt = false
+
+# These functions verify the bearer session with Auth and check live app-user
+# permissions themselves, supporting current Supabase signing keys.
+[functions.send-sms]
+verify_jwt = false
+
+[functions.sms-status]
+verify_jwt = false

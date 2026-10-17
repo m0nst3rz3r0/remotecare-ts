@@ -44,9 +44,6 @@ export async function syncToCloud(
   const lastCount   = getSyncCount();
   const pendingCount = Math.max(0, patients.length - lastCount);
 
-  if (!patients.length) {
-    return { success: true, lastSyncAt, pendingCount: 0 };
-  }
 
   const result = await syncPatientsWithCloud();
 

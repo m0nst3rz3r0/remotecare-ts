@@ -113,6 +113,7 @@ export default function RegisterForm() {
   const onRegister = async () => {
     setError(null);
     setSuccess(null);
+    if (!getDevicePrefix()) { setError('Connect and sign in to provision a unique device letter before registering patients.'); return; }
     if (!currentUser)                      { setError('Please sign in again.');          return; }
     if (!region || !district || !hospital) { setError('Facility information missing.');  return; }
     if (!sex)                              { setError('Please select sex.');              return; }

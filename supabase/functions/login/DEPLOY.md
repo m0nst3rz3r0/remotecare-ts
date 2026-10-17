@@ -10,6 +10,7 @@ so it runs before any JWT exists. The function validates credentials itself.
 ## Required environment variables (set in Supabase Dashboard → Settings → Edge Functions)
 ```
 SUPABASE_URL             (auto-injected by Supabase)
+SUPABASE_ANON_KEY        (auto-injected by Supabase)
 SUPABASE_SERVICE_ROLE_KEY (auto-injected by Supabase)
 ```
 
@@ -19,6 +20,11 @@ SUPABASE_SERVICE_ROLE_KEY (auto-injected by Supabase)
 3. Dashboard → Project Settings → API → confirm anon key is still in VITE_SUPABASE_ANON_KEY
 
 ## Client integration
-See `src/services/authV2.ts` for the updated login() that calls this function.
-The old login() in auth.ts reads the users table directly — replace it once
-this function is deployed and tested.
+
+The client now always uses the server login endpoint for online authentication.
+Deploy all migrations and functions before deploying the frontend. The endpoint
+exchanges the generated token hash for actual access/refresh tokens and sets
+server-controlled app metadata. Each device has its own session and offline
+credential cache; keep single-session-per-user enforcement disabled.
+
+See [SMS8 setup and verification](../../SMS8_SETUP.md) for the complete workflow.

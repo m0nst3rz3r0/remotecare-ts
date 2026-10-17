@@ -1,7 +1,7 @@
 // Hand-written service worker to satisfy `/sw.js` registration now.
 // Once SW build tooling is added, `src/sw.ts` should be the source of truth.
 
-const CACHE_NAME = 'touchhealth-v3';
+const CACHE_NAME = 'touchhealth-v4';
 
 const PRECACHE_URLS = ['/', '/index.html', '/foods.json', '/rules.json'];
 
@@ -54,23 +54,9 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
 
-  if (isApiRequest(request)) {
-    event.respondWith(
-      (async () => {
-        const cache = await caches.open(CACHE_NAME);
-        try {
-          const fresh = await fetch(request);
-          cache.put(request, fresh.clone()).catch(() => {});
-          return fresh;
-        } catch {
-          const cached = await cache.match(request);
-          if (cached) return cached;
-          throw new Error('Network unavailable');
-        }
-      })(),
-    );
-    return;
-  }
+  // Clinical offline data lives in local storage. Never replay authenticated
+  // API responses from a URL-only cache across accounts or during a sync.
+  if (isApiRequest(request)) return;
 
   if (!isAppShellRequest(request)) return;
 

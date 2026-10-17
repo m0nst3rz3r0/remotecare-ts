@@ -29,3 +29,9 @@ export function randomUUID(): string {
     '-' + hex.slice(10, 16).join('')
   );
 }
+
+/** Offline-safe bigint key, kept within JavaScript's exact integer range. */
+export function randomPatientId(): number {
+  const words = crypto.getRandomValues(new Uint32Array(2));
+  return (words[0] & 0x1fffff) * 0x100000000 + words[1] || 1;
+}

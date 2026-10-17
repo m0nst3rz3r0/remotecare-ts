@@ -11,7 +11,7 @@ A clinical dashboard for managing Diabetes and Hypertension patients in Tanzania
 - **HbA1c Tracker** — Quarterly monitoring for DM/DM+HTN patients (WHO NCD STG 2017)
 - **Clinic Schedule** — 30-day max interval with clinic-day snapping
 - **LTFU Tracing** — Lost-to-follow-up detection and contact management
-- **SMS Reminders** — Africa's Talking / Twilio integration for Tanzania networks
+- **SMS Reminders** — SMS8 Android phone gateway with shared delivery history
 - **Drug Supply** — Stockout flagging per facility, admin supply overview
 - **DHIS2 Export** — De-identified aggregate CSV/JSON for Tanzania national HMIS
 - **Admin Dashboard** — Programme-wide analytics, doctor performance, user management
@@ -147,14 +147,23 @@ Sequence is unique per location + gender combination. Collision-safe.
 
 ---
 
-## Production Roadmap
+## Backend and SMS setup
 
-- [ ] Replace `localStorage` with Supabase / Firebase for multi-device sync
-- [ ] Hash passwords with bcrypt (currently plain text)
-- [ ] Add SMS backend proxy for Africa's Talking CORS compliance
-- [ ] Connect DHIS2 export to `https://dhis2.moh.go.tz/api/dataValueSets`
-- [ ] Add CHW (Community Health Worker) role
-- [ ] USSD integration for feature phone patients
+Online authentication uses the Supabase login Edge Function, while a locally
+hashed credential verifier supports offline access on provisioned devices.
+One facility account supports several devices with permanent, distinct letters.
+Connecting does not automatically sync patients or send SMS.
+
+SMS8 sends manual individual/bulk messages through one paired Android SIM.
+Recipients see the SIM number; the facility name appears in the message.
+Credentials stay in Supabase secrets. Shared history records queued, sent,
+delivered, failed, and uncertain outcomes and prevents duplicate submissions.
+Existing provider configurations remain available, but other sending adapters
+are not implemented in this repository.
+
+See [SMS8 setup and verification](../supabase/SMS8_SETUP.md) before deployment.
+Follow-up work includes stronger offline phone key management, sync conflict
+resolution/duplicate cleanup, and direct DHIS2 connectivity.
 
 ---
 

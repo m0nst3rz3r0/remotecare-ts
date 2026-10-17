@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { checkAutoBackup, startAutoBackupScheduler } from '../services/backup';
 import { migratePasswords } from '../services/crypto';
+import { loadSMSLog } from '../services/storage';
 import { autoAssignPrefix } from '../services/deviceManager';
 import { getSafePageForUser } from '../services/navigation';
 import type { ClinicSettings, PageId, SessionUser } from '../types';
@@ -10,6 +11,7 @@ const IS_SHARED_DEVICE = (import.meta as any).env.VITE_SHARED_DEVICE === 'true';
 
 export function useAppBootstrap(init: () => void, loadFromStorage: () => void) {
   useEffect(() => {
+    loadSMSLog(); // Scrub legacy plaintext phone logs even before the SMS page opens.
     migratePasswords().then(() => {
       init();
       loadFromStorage();

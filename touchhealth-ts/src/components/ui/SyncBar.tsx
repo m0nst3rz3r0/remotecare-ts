@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getLastSync, syncPatientsWithCloud } from '../../services/storage';
 import { useAuthStore } from '../../store/useAuthStore';
+import { login } from '../../services/auth';
 import Button from './Button';
 import { AlertTriangle, RefreshCw, UserCircle2 } from 'lucide-react';
 
@@ -23,6 +24,9 @@ export default function SyncBar() {
     typeof navigator !== 'undefined' && navigator.onLine ? 'online' : 'offline',
   );
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [password, setPassword] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
   const lastSyncAt = getLastSync();
 
   const handleSync = async () => {
@@ -89,6 +93,7 @@ export default function SyncBar() {
           </div>
         </div>
 
+        {conn === 'online' && <button type="button" className="text-[11px] font-bold text-teal-700" onClick={() => setShowLogin((v) => !v)}>Sign in online</button>}
         {/* Sync button */}
         {conn !== 'offline' && (
           <Button
@@ -102,6 +107,23 @@ export default function SyncBar() {
         )}
       </div>
 
+      {showLogin && currentUser && <form className="flex flex-wrap items-center gap-2 mt-2" onSubmit={async (event) => {
+        event.preventDefault();
+        setSigningIn(true); setSyncError(null);
+        try {
+          const result = await login({ username: currentUser.username, password, role: currentUser.role });
+          if (!result.success) setSyncError(result.error);
+          else if (result.offline) setSyncError('Still offline. Local access is available; connect before syncing.');
+          else { setShowLogin(false); setSyncError('Connected. Select Sync Now when you are ready.'); }
+        } catch { setSyncError('Sign in failed. Local work is saved.'); }
+        finally { setPassword(''); setSigningIn(false); }
+      }}>
+        <label className="text-[11px]">Password for {currentUser.username}
+          <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className="ml-2 border rounded px-2 py-1" />
+        </label>
+        <button type="submit" disabled={signingIn} className="text-[11px] font-bold text-teal-700">{signingIn ? 'Signing in...' : 'Reconnect account'}</button>
+        <span className="text-[10px] text-slate-500">Your local records and device letter stay saved. This does not start a sync.</span>
+      </form>}
       {syncError && (
         <div className="mt-1 text-[11px] text-red-600 font-medium" title={syncError}>
           <span className="inline-flex items-center gap-1"><AlertTriangle size={12} /> {syncError}</span>

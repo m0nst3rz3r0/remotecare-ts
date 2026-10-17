@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import type { User } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
-import { getDevicePrefix, setDevicePrefix } from '../../services/devicePrefix';
+import { getDevicePrefix } from '../../services/devicePrefix';
 import {
   getFacilityDevicesWithDoctors,
-  assignDevicePrefix,
-  unassignDevicePrefix,
+  registerDevice,
   assignDoctorToDevice,
   formatDeviceInfo,
   timeSinceLastSeen,
@@ -22,9 +21,10 @@ export default function AdminDevicePanel({ users }: { users: User[] }) {
   const savedPrefix = getDevicePrefix();
 
   const [devices, setDevices] = useState<DeviceRecord[]>([]);
+  const [availablePrefixes, setAvailablePrefixes] = useState<string[]>([]);
   const [deviceLoading, setDeviceLoading] = useState(false);
   const [deviceErr, setDeviceErr] = useState<string | null>(null);
-  const [availablePrefixes, setAvailablePrefixes] = useState<string[]>([]);
+
 
   const loadDevices = async () => {
     if (!currentUser?.sessionRegion || !currentUser?.sessionDistrict || !currentUser?.sessionHospital) return;
@@ -84,10 +84,13 @@ export default function AdminDevicePanel({ users }: { users: User[] }) {
           />
           <button
             className="px-4 py-1.5 rounded bg-teal-700 text-white text-[12px] font-bold hover:bg-teal-800"
-            onClick={() => {
+            onClick={async () => {
               try {
-                setDevicePrefix(dpValue);
-                setDpOk(`Device prefix set to "${dpValue.toUpperCase()}" - new patients will use this prefix.`);
+                if (!currentUser) throw new Error('Sign in online first.');
+                const record = await registerDevice(currentUser.sessionRegion, currentUser.sessionDistrict, currentUser.sessionHospital, true, dpValue.toUpperCase());
+                if (!record) throw new Error('Connect and sign in online to reserve this device letter.');
+                setDpValue(record.prefix ?? '');
+                setDpOk(`Device ${record.prefix} is provisioned for offline registration.`);
                 setDpErr(null);
               } catch (e: unknown) {
                 setDpErr(e instanceof Error ? e.message : 'Invalid prefix');
@@ -98,7 +101,7 @@ export default function AdminDevicePanel({ users }: { users: User[] }) {
           </button>
           {savedPrefix && (
             <span className="text-[10px] text-slate-400 italic">
-              Changing prefix does not rename existing patients.
+              This device letter is permanent.
             </span>
           )}
         </div>
@@ -109,8 +112,8 @@ export default function AdminDevicePanel({ users }: { users: User[] }) {
           <span>Remote Device Management</span>
         </div>
         <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
-          Manage all devices at this facility remotely. Assign prefixes (A-Z) to each device from any admin dashboard.
-          Devices automatically receive their prefix on next sync.
+          Manage all devices at this facility remotely. Each device reserves a unique letter during online setup.
+          Existing letters and patient codes stay unchanged.
         </p>
 
         <div className="flex items-center gap-3 mb-4">
@@ -174,33 +177,7 @@ export default function AdminDevicePanel({ users }: { users: User[] }) {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
-                          <select
-                            className="border border-slate-300 rounded px-2 py-1 text-[12px] bg-white"
-                            value={device.prefix || ''}
-                            onChange={async (e) => {
-                              const prefix = e.target.value;
-                              if (prefix) {
-                                await assignDevicePrefix(device.id, prefix);
-                                loadDevices();
-                              }
-                            }}
-                          >
-                            <option value="">Assign...</option>
-                            {availablePrefixes.map((letter) => (
-                              <option key={letter} value={letter}>{letter}</option>
-                            ))}
-                          </select>
-                          {device.prefix && (
-                            <button
-                              className="text-[10px] text-red-600 hover:text-red-800 font-semibold"
-                              onClick={async () => {
-                                await unassignDevicePrefix(device.id);
-                                loadDevices();
-                              }}
-                            >
-                              Remove
-                            </button>
-                          )}
+                          <span className="text-[11px] text-slate-500">{device.prefix ? 'Permanent letter' : 'Sign in online on this device to provision it'}</span>
                         </div>
                       </td>
                       <td className="px-3 py-2">

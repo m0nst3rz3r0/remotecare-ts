@@ -7,6 +7,7 @@ import {
   isSeenToday,
   normalizeLegacyPatientStatus,
   recordVisit,
+  registerPatient,
 } from './patients';
 import type { Patient, Visit } from '../types';
 
@@ -45,6 +46,17 @@ const mkVisit = (overrides: Partial<Visit>): Visit => ({
 });
 
 describe('patient status semantics', () => {
+  it('registers offline devices with separate code namespaces and numeric IDs', () => {
+    const params = { region: 'Kagera', district: 'Bukoba', hospital: 'Clinic', age: 50, sex: 'M' as const, cond: 'HTN' as const, enrol: '2026-07-01', currentUser: null };
+    const a = registerPatient([], { ...params, devicePrefix: 'A' });
+    const b = registerPatient([], { ...params, devicePrefix: 'B' });
+    expect(a.success).toBe(true); expect(b.success).toBe(true);
+    if (!a.success || !b.success) throw new Error('Registration failed');
+    expect(a.patient.code).toContain('-A-M0001');
+    expect(b.patient.code).toContain('-B-M0001');
+    expect(a.patient.id).not.toBe(b.patient.id);
+    expect(Number.isSafeInteger(a.patient.id)).toBe(true);
+  });
   it('treats only active as enrolled in routine follow-up', () => {
     expect(isActivePatientStatus('active')).toBe(true);
     expect(isActivePatientStatus('completed')).toBe(false);

@@ -58,11 +58,16 @@ export function setDevicePrefix(letter: string): void {
       `Device prefix must be a single letter A–Z, got: "${letter}"`
     );
   }
+  const existing = getDevicePrefix();
+  if (existing && existing !== clean) throw new Error('This device letter is permanent. Existing patient codes must not be changed.');
   localStorage.setItem(DEVICE_PREFIX_KEY, clean);
 }
 
 /** Clear the device prefix (admin-only; use with extreme caution). */
 export function clearDevicePrefix(): void {
+  if (localStorage.getItem('zmz2_pts') && JSON.parse(localStorage.getItem('zmz2_pts') ?? '[]').length) {
+    throw new Error('Cannot clear the device letter while patient records exist.');
+  }
   localStorage.removeItem(DEVICE_PREFIX_KEY);
 }
 

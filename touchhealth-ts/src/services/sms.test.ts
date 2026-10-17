@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildSMSMessage, buildSMSPreview, filterPatientsForSmsTab, getBulkSendCandidates, getPatientSMSReason, resolvePatientSMSReason } from './sms';
 import type { ClinicSettings, Patient, SMSConfig, Visit } from '../types';
 
@@ -59,6 +59,8 @@ const mkPatient = (overrides: Partial<Patient>): Patient => ({
 });
 
 describe('sms logic', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-07-01T09:00:00+03:00')); });
+  afterEach(() => { vi.useRealTimers(); });
   it('uses welcome for first upcoming appointment instead of generic reminder', () => {
     const patient = mkPatient({
       scheduledNext: {

@@ -97,6 +97,7 @@ export async function registerDevice(
   district: string,
   hospital: string,
   force = false,
+  requestedPrefix?: string,
 ): Promise<DeviceRecord | null> {
   const now = Date.now();
   if (!force && now - lastHeartbeat < HEARTBEAT_INTERVAL_MS) {
@@ -105,32 +106,22 @@ export async function registerDevice(
   lastHeartbeat = now;
 
   const deviceId   = getDeviceHardwareId();
-  const facilityId = buildFacilityId(region, district, hospital);
   const deviceInfo = {
     userAgent: navigator.userAgent.slice(0, 200),
     platform:  navigator.platform,
     screen:    `${window.screen.width}x${window.screen.height}`,
   };
 
-  const { data, error } = await supabase
-    .from(DEVICE_REGISTRY_TABLE)
-    .upsert(
-      { id: deviceId, facility_id: facilityId, last_seen: new Date().toISOString(), device_info: deviceInfo },
-      { onConflict: 'id' }
-    )
-    .select()
-    .single();
-
-  if (error) {
-    console.warn('Device registration failed:', error.message);
+  const { data: letter, error } = await supabase.rpc('provision_device', {
+    device_id: deviceId, r: region, d: district, h: hospital, info: deviceInfo,
+    existing_prefix: getDevicePrefix() ?? requestedPrefix ?? null,
+  });
+  if (error || !letter) {
+    console.warn('Device provisioning failed:', error?.message);
     return null;
   }
-
-  // Sync prefix from cloud if admin assigned one remotely
-  if (data?.prefix && data.prefix !== getDevicePrefix()) {
-    setDevicePrefix(data.prefix);
-    console.info(`[RemoteCare] Device prefix synced from cloud: ${data.prefix}`);
-  }
+  setDevicePrefix(String(letter));
+  const { data } = await supabase.from(DEVICE_REGISTRY_TABLE).select('*').eq('id', deviceId).single();
 
   return data as DeviceRecord;
 }
@@ -212,7 +203,7 @@ export async function syncDevicePrefixFromCloud(
 
   if (error || !data) return null;
 
-  if (data.prefix && data.prefix !== getDevicePrefix()) {
+  if (data.prefix && !getDevicePrefix()) {
     setDevicePrefix(data.prefix);
   }
   return data.prefix ?? getDevicePrefix();
@@ -267,18 +258,9 @@ export async function autoAssignPrefix(
   district: string,
   hospital: string,
 ): Promise<string | null> {
-  if (getDevicePrefix()) return getDevicePrefix(); // already set
-
-  const available = await getAvailablePrefixes(region, district, hospital);
-  if (!available.length) return null;
-
-  const letter   = available[0];
-  const deviceId = getDeviceHardwareId();
-  const ok       = await assignDevicePrefix(deviceId, letter);
-  if (!ok) return null;
-
-  setDevicePrefix(letter);
-  return letter;
+  if (getDevicePrefix()) return getDevicePrefix();
+  const record = await registerDevice(region, district, hospital, true);
+  return record?.prefix ?? getDevicePrefix();
 }
 
 /**

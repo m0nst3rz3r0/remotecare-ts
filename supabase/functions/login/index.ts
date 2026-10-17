@@ -12,7 +12,7 @@
 // REQUEST  POST /functions/v1/login
 // BODY     { username: string, password: string }
 //
-// RESPONSE 200  { token, user: { id, displayName, role, hospital,
+// RESPONSE 200  { session: { access_token, refresh_token }, user: { id, displayName, role, hospital,
 //                               region, district, isSuperAdmin } }
 //          401  { error: "Invalid credentials" }
 //          400  { error: "Missing username or password" }
@@ -23,11 +23,12 @@
 //   SUPABASE_SERVICE_ROLE_KEY — service role key (auto-injected)
 // ═══════════════════════════════════════════════════════════════
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { PBKDF2Hash } from './hash.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
@@ -98,7 +99,7 @@ Deno.serve(async (req: Request) => {
 
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      status: 405, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
     });
   }
 
@@ -144,7 +145,7 @@ Deno.serve(async (req: Request) => {
   if (fetchError || !user) {
     recordFailure(clientIp);
     // Constant-time-ish — always try verify even on miss to prevent timing attacks
-    await verifyPassword(password, 'pbkdf2:fake:fake');
+    await verifyPassword(password, 'pbkdf2:AAAAAAAAAAAAAAAAAAAAAA==:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=');
     return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
       status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
@@ -172,7 +173,8 @@ Deno.serve(async (req: Request) => {
   if (!user.password.startsWith('pbkdf2:')) {
     const { PBKDF2Hash } = await import('./hash.ts');
     const hashed = await PBKDF2Hash(password);
-    supabase.from('users').update({ password: hashed }).eq('id', user.id).then();
+    const { error: upgradeError } = await supabase.from('users').update({ password: hashed }).eq('id', user.id);
+    if (upgradeError) return new Response(JSON.stringify({ error: 'Credential migration failed' }), { status: 500, headers: CORS_HEADERS });
   }
 
   // ── Issue a Supabase Auth JWT carrying facility claims ───────────
@@ -180,30 +182,25 @@ Deno.serve(async (req: Request) => {
   // The Auth user email is `<app_user_id>@remotecare.internal` (stable, not real).
   const authEmail = `${user.id}@remotecare.internal`;
 
-  // Try to sign in the shadow auth user first
-  const { data: signInData, error: signInError } = await supabase.auth.admin.generateLink({
-    type: 'magiclink',
-    email: authEmail,
-    options: {
-      data: {
-        // These land in app_metadata — read by RLS policies
-        role:          user.role,
-        hospital:      user.hospital,
-        region:        user.region,
-        district:      user.district,
-        is_super_admin: user.is_super_admin,
-        display_name:  user.display_name,
-        app_user_id:   user.id,
-      },
+  // generateLink provisions a missing shadow user without sending email.
+  const { data: signInData, error: signInError } = await supabase.auth.admin.generateLink({ type: 'magiclink', email: authEmail });
+  if (signInError || !signInData?.user || !signInData.properties?.hashed_token) {
+    return new Response(JSON.stringify({ error: 'Could not issue session' }), { status: 500, headers: CORS_HEADERS });
+  }
+  const { error: claimsError } = await supabase.auth.admin.updateUserById(signInData.user.id, {
+    app_metadata: {
+      role: user.role, hospital: user.hospital, region: user.region, district: user.district,
+      is_super_admin: user.is_super_admin, app_user_id: user.id,
     },
   });
-
-  if (signInError || !signInData) {
-    console.error('[login] generateLink error:', signInError);
-    return new Response(JSON.stringify({ error: 'Could not issue session token' }), {
-      status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    });
-  }
+  if (claimsError) return new Response(JSON.stringify({ error: 'Could not configure session' }), { status: 500, headers: CORS_HEADERS });
+  // Use a separate public client so the service client's Authorization is never
+  // replaced by a user's session. This exchange returns real, distinct tokens.
+  const auth = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: verified, error: verifyError } = await auth.auth.verifyOtp({ token_hash: signInData.properties.hashed_token, type: 'email' });
+  if (verifyError || !verified.session) return new Response(JSON.stringify({ error: 'Could not establish session' }), { status: 500, headers: CORS_HEADERS });
 
   // Write audit log
   await supabase.from('audit_log').insert({
@@ -214,9 +211,7 @@ Deno.serve(async (req: Request) => {
   });
 
   const responsePayload = {
-    // The client stores this token and passes it as Authorization: Bearer <token>
-    // on every Supabase call. RLS policies enforce facility scope from its claims.
-    token: signInData.properties?.hashed_token ?? signInData.action_link,
+    session: { access_token: verified.session.access_token, refresh_token: verified.session.refresh_token },
     user: {
       id:          user.id,
       displayName: user.display_name,

@@ -35,12 +35,11 @@ export const supabase = createClient(
   supabaseAnonKey ?? '',
   {
     auth: {
-      // We manage our own session in localStorage (th_session).
-      // Disable Supabase Auth auto-refresh so it does not
-      // overwrite our session key or generate unexpected network
-      // calls on every tab focus.
-      persistSession: false,
-      autoRefreshToken: false,
+      // Each browser/device owns its own refresh session. Local clinical access
+      // is restored separately from th_session, including when cloud auth expires.
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
     },
     global: {
       headers: {
@@ -72,5 +71,15 @@ export async function checkSupabaseConnection(): Promise<boolean> {
     return false;
   } catch {
     return false;
+  }
+}
+
+/** Cloud operations require a verified session matching the local account. */
+export async function requireOnlineSession(): Promise<void> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) throw new Error('Connect to the internet to sync or send SMS. Local work is saved.');
+  const local = JSON.parse(localStorage.getItem('th_session') ?? 'null') as { id?: string } | null;
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user || !local?.id || data.user.app_metadata.app_user_id !== local.id) {
+    throw new Error('Sign in online again to sync or send SMS. Your offline work is saved.');
   }
 }

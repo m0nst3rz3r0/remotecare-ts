@@ -40,7 +40,7 @@ create or replace trigger patients_upsert_newer_trigger
 -- Pass '1970-01-01'::timestamptz on first sync to pull everything.
 -- RLS policies still apply — a doctor only sees their hospital.
 create or replace function public.sync_patients(since_ts timestamptz default '1970-01-01')
-returns jsonb language sql stable security definer as $$
+returns jsonb language sql stable security invoker as $$
   select jsonb_build_object(
     'patients', (
       select jsonb_agg(row_to_json(p))
@@ -65,19 +65,21 @@ returns jsonb language sql stable security definer as $$
 $$;
 
 -- Expose to authenticated clients only
-revoke all on function public.sync_patients from anon;
-grant execute on function public.sync_patients to authenticated;
+revoke all on function public.sync_patients(timestamptz) from public, anon;
+grant execute on function public.sync_patients(timestamptz) to authenticated;
 
 -- ── SOFT-DELETE HELPER ───────────────────────────────────────────
 -- Client calls this instead of DELETE.
 -- Returns the updated patient row (for local state reconciliation).
 create or replace function public.soft_delete_patient(patient_id bigint)
-returns public.patients language sql security definer as $$
+returns public.patients language sql security invoker as $$
   update public.patients
   set    deleted_at = now(), updated_at = now()
-  where  id = patient_id
+  -- Older installations store numeric patient IDs in a text column.
+  -- Compare representations instead of converting existing stored IDs.
+  where  id::text = patient_id::text
   returning *
 $$;
 
-revoke all on function public.soft_delete_patient from anon;
-grant execute on function public.soft_delete_patient to authenticated;
+revoke all on function public.soft_delete_patient(bigint) from public, anon;
+grant execute on function public.soft_delete_patient(bigint) to authenticated;

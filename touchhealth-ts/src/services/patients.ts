@@ -9,6 +9,8 @@
 //      copies operated against the same localStorage key.
 // ════════════════════════════════════════════════════════════
 
+import { randomPatientId, randomUUID } from '../utils/id';
+import { canAccessLocalFacility } from './facilityAccess';
 import type {
   Patient,
   Visit,
@@ -66,9 +68,7 @@ export function getVisiblePatients(
   patients: Patient[],
   user: SessionUser | null
 ): Patient[] {
-  if (!user || user.role === 'admin') return patients;
-  const scope = user.sessionHospital || user.hospital;
-  return scope ? patients.filter((p) => p.hospital === scope) : patients;
+  return patients.filter((p) => canAccessLocalFacility(user, p));
 }
 
 // ── AUTO-CODE GENERATION ──────────────────────────────────────
@@ -260,8 +260,10 @@ export function registerPatient(
   const { code: rawCode } = generatePatientCode(patients, region, district, hospital, sex, devicePrefix);
   const code = ensureUniqueCode(patients, rawCode);
 
+  let patientId = randomPatientId();
+  while (patients.some((p) => p.id === patientId)) patientId = randomPatientId();
   const newPatient: Patient = {
-    id:          Date.now(),
+    id:          patientId,
     code,
     age,
     sex,
@@ -389,7 +391,7 @@ export function recordVisit(
     } = params;
 
     const visit: Visit = {
-      id:        'v' + Date.now(),
+      id:        'v' + randomUUID(),
       month,
       year:      new Date(date).getFullYear(),
       date,

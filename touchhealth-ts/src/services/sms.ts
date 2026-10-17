@@ -12,15 +12,9 @@
 // proxy and holds the secret API keys.  The frontend only
 // ever holds the Supabase anon key.
 //
-// PROVIDERS SUPPORTED
-// ─────────────────────────────────────────────────────────
-// 'at'         Africa's Talking   (recommended for Tanzania)
-// 'bongolive'  Bongolive          (TCRA-registered, local)
-// 'nexah'      Nexah              (TCRA-registered, local)
-// 'twilio'     Twilio             (international)
-// 'vonage'     Vonage / Nexmo     (international)
-// 'infobip'    Infobip            (international)
-// 'custom'     any REST endpoint via SMSConfig.customEndpoint
+// SMS8 is implemented in this repository. Other provider configurations are
+// retained for compatibility and require separately deployed server adapters.
+// SMS8 credentials and Android device selection are server-side only.
 //
 // STATE-BASED TEMPLATES
 // ─────────────────────────────────────────────────────────
@@ -37,8 +31,12 @@ import { getPatientNextVisitDate, isDueWithSettings } from './clinical';
 import { isActivePatientStatus } from './patients';
 import { loadSMSConfig, loadSMSLog, saveSMSLog } from './storage';
 import { today } from './clinical';
-import { decryptPhone } from './phoneEncryption';
-import { supabase } from './supabase';
+import { randomUUID } from '../utils/id';
+import { getDeviceHardwareId } from './deviceManager';
+import { getDevicePrefix } from './devicePrefix';
+import { maskPhone } from '../utils/phone';
+import { FunctionsHttpError } from '@supabase/supabase-js';
+import { supabase, requireOnlineSession } from './supabase';
 
 export type SmsPatientTab = 'ltfu' | 'overdue' | 'reminder' | 'all';
 
@@ -80,10 +78,12 @@ export function buildSMSMessage(
     day: '2-digit', month: 'short', year: 'numeric',
   });
 
-  return tpl
+  const message = tpl
     .replace(/{name}/g,     patient.code)
     .replace(/{hospital}/g, patient.hospital ?? 'your clinic')
     .replace(/{date}/g,     dateStr);
+  return cfg.provider === 'sms8' && patient.hospital && !message.includes(patient.hospital)
+    ? `${patient.hospital}: ${message}` : message;
 }
 
 export function getPatientNextDate(patient: Patient, cfg: ClinicSettings): Date {
@@ -206,7 +206,7 @@ export function getLastSmsForPatient(
   patientId: number,
 ): SMSLogEntry | null {
   return log
-    .filter((e) => e.ptId === patientId && (e.status === 'sent' || e.status === 'demo'))
+    .filter((e) => e.ptId === patientId)
     .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())[0] ?? null;
 }
 
@@ -215,19 +215,8 @@ export function formatSmsSentLabel(entry: SMSLogEntry | null): string | null {
   const days = Math.floor((Date.now() - new Date(entry.sentAt).getTime()) / 86_400_000);
   const when = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days}d ago`;
   const by = entry.sentBy ? ` · ${entry.sentBy}` : '';
-  return `Sent ${when}${by}`;
-}
-
-function buildLastSentIndex(log: SMSLogEntry[]): Map<number, number> {
-  const idx = new Map<number, number>();
-  for (const entry of log) {
-    if (entry.status === 'sent' && entry.sentAt) {
-      const ts = new Date(entry.sentAt).getTime();
-      const prev = idx.get(entry.ptId);
-      if (!prev || ts > prev) idx.set(entry.ptId, ts);
-    }
-  }
-  return idx;
+  const label = entry.status === 'unknown' ? 'Uncertain' : entry.status.charAt(0).toUpperCase() + entry.status.slice(1);
+  return `${label} ${when}${by}`;
 }
 
 export function smsAlreadySentRecently(
@@ -246,157 +235,146 @@ export function smsAlreadySentRecently(
   return log.some(
     (l) =>
       l.ptId === patientId &&
-      l.status === 'sent' &&
-      l.sentAt != null &&
-      (Date.now() - new Date(l.sentAt).getTime()) / 864e5 < withinDays
+      (['queued', 'unknown'].includes(l.status) ||
+        (['sent', 'delivered'].includes(l.status) && l.sentAt != null &&
+          (Date.now() - new Date(l.sentAt).getTime()) / 864e5 < withinDays))
   );
 }
 
 // ── Core send function ────────────────────────────────────────
 
-const MAX_RETRIES = 2;
-const BULK_RATE_MS = 200; // ~5 messages/second — safe for all providers
+export interface SmsBatchResult { sent: number; queued: number; unknown: number; failed: number; skipped: number }
+export interface SmsSendOptions { resendOverride?: boolean; requestId?: string }
+
+export function smsOutcomeLabel(entry: SMSLogEntry): string {
+  const label = entry.status === 'unknown' ? 'Uncertain ? check shared history before resending' : entry.status.charAt(0).toUpperCase() + entry.status.slice(1);
+  return (entry.duplicate ? 'Already requested: ' : '') + label + (entry.note ? ': ' + entry.note : '');
+}
 
 export async function sendSMS(
-  patient: Patient,
-  lang: 'en' | 'sw',
-  cfg: SMSConfig,
-  clinicCfg: ClinicSettings,
-  reason?: SMSReason,
-  sentBy?: string,
+  patient: Patient, lang: 'en' | 'sw', cfg: SMSConfig, clinicCfg: ClinicSettings,
+  reason?: SMSReason, sentBy?: string, options: SmsSendOptions = {},
 ): Promise<SMSLogEntry> {
+  await requireOnlineSession();
   const resolvedReason = reason ?? getPatientSMSReason(patient, clinicCfg) ?? 'reminder';
-  const preview = buildSMSPreview(patient, cfg, clinicCfg, lang, resolvedReason);
-  const nextDate = preview?.nextDate ?? getPatientNextDate(patient, clinicCfg);
-  const message  = preview?.message ?? buildSMSMessage(patient, cfg, lang, nextDate, resolvedReason);
-
-  // Decrypt phone number — only here, only for this send operation
-  const rawPhone = await decryptPhone(
-    patient.phone,
-    patient.region,
-    patient.district,
-    patient.hospital,
-  );
-
+  const message = buildSMSMessage(patient, cfg, lang, getPatientNextDate(patient, clinicCfg), resolvedReason);
+  // Reuse an uncertain request's ID. Repeating the HTTP request cannot submit
+  // a second SMS once the server has reserved that ID.
+  const pending = loadSMSLog().find((e) => e.ptId === patient.id && e.status === 'unknown' && e.message === message && e.provider === cfg.provider);
   const entry: SMSLogEntry = {
-    id:          `sms${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    ptId:        patient.id,
-    ptCode:      patient.code,
-    phone:       rawPhone ?? '',
-    message,
-    provider:    cfg.provider,
-    reason:      resolvedReason,
-    lang,
-    sentAt:      new Date().toISOString(),
-    status:      'queued',
-    hospital:    patient.hospital,
-    retryCount:  0,
-    sentBy:      sentBy?.trim() || undefined,
+    id: options.requestId ?? pending?.id ?? randomUUID(), ptId: patient.id, ptCode: patient.code,
+    phone: patient.phone ? maskPhone(patient.phone) : '', message, provider: cfg.provider,
+    reason: resolvedReason, lang, sentAt: pending?.sentAt ?? new Date().toISOString(),
+    status: 'unknown', hospital: patient.hospital, sentBy,
+    deviceId: getDeviceHardwareId(), deviceLetter: getDevicePrefix() ?? undefined,
   };
-
-  if (!rawPhone) {
-    entry.status = 'failed';
-    entry.note   = 'Phone number could not be decrypted';
-    appendToLog(entry);
-    return entry;
-  }
-
-  // Send via Edge Function (handles CORS + keeps secrets server-side)
-  let lastError = '';
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    if (attempt > 0) {
-      // Exponential back-off: 1s, 2s
-      await new Promise((r) => setTimeout(r, 1000 * attempt));
+  appendToLog(entry);
+  try {
+    const { data, error } = await supabase.functions.invoke('send-sms', { body: {
+      provider: cfg.provider, patientId: patient.id, patientCode: patient.code, message,
+      reason: resolvedReason, lang, requestId: entry.id, deviceId: entry.deviceId,
+      resendOverride: options.resendOverride === true,
+    } });
+    if (error) {
+      if (error instanceof FunctionsHttpError) {
+        const payload = await error.context.json().catch(() => ({}));
+        const status = error.context.status;
+        entry.status = [400,401,403,404,409,429].includes(status) ? 'failed' : 'unknown';
+        entry.note = payload.error ?? 'Send interrupted. Check shared history.';
+      } else {
+        entry.note = 'Connection interrupted; acceptance is uncertain. Refresh shared history before resending.';
+      }
+    } else if (data?.entry) {
+      Object.assign(entry, data.entry, { duplicate: data.duplicate === true });
+    } else {
+      entry.note = 'Missing server response. Refresh shared history before resending.';
     }
-    try {
-      const facilityId = [patient.region, patient.district, patient.hospital]
-        .join('_').toLowerCase().replace(/\s+/g, '_');
-
-      const { data, error } = await supabase.functions.invoke('send-sms', {
-        body: {
-          provider:       cfg.provider,
-          phone:          rawPhone,
-          message,
-          senderId:       cfg.senderId,
-          facilityId,
-          // Provider-specific extras
-          atUsername:     cfg.atUsername,
-          customEndpoint: cfg.customEndpoint,
-          customHeaders:  cfg.customHeaders,
-        },
-      });
-
-      if (error) throw new Error(error.message);
-
-      entry.status    = data?.status === 'sent' ? 'sent' : 'failed';
-      entry.messageId = data?.messageId;
-      entry.cost      = data?.cost;
-      entry.note      = data?.note;
-      entry.retryCount = attempt;
-
-      if (entry.status === 'sent') break;
-      lastError = data?.note ?? 'Provider returned failure';
-    } catch (err) {
-      lastError = err instanceof Error ? err.message : 'Network error';
-      entry.status = 'failed';
-    }
+  } catch {
+    entry.note = 'Connection interrupted; acceptance is uncertain. Refresh shared history before resending.';
   }
-
-  if (entry.status === 'failed') {
-    entry.note = lastError || 'Send failed after retries';
-  }
-
-  entry.sentAt = new Date().toISOString();
   appendToLog(entry);
   return entry;
 }
 
-export async function sendBulkSMS(
-  patients: Patient[],
-  lang: 'en' | 'sw',
-  clinicCfg: ClinicSettings,
-  withinDays = 7,
-  sentBy?: string,
-): Promise<{ sent: number; skipped: number; failed: number }> {
-  const cfg = loadSMSConfig();
-  const log  = loadSMSLog();
-  const lastSentIndex = buildLastSentIndex(log);
-
-  let sent = 0, skipped = 0, failed = 0;
-
-  for (const p of patients) {
-    if (!p.phone) { skipped++; continue; }
-
-    const reason = getPatientSMSReason(p, clinicCfg, withinDays);
-    if (!reason) { skipped++; continue; }
-
-    // Skip if already sent recently (use pre-built index — O(1))
-    if (smsAlreadySentRecently(p.id, 3, lastSentIndex)) { skipped++; continue; }
-
-    const result = await sendSMS(p, lang, cfg, clinicCfg, reason, sentBy);
-
-    if (result.status === 'sent' || result.status === 'demo') {
-      sent++;
-      // Update the in-memory index so subsequent patients in the same
-      // bulk run don't get duplicates if we re-check mid-loop
-      lastSentIndex.set(p.id, Date.now());
-    } else {
-      failed++;
-    }
-
-    // Rate limiting — respect gateway quotas
-    await new Promise((r) => setTimeout(r, BULK_RATE_MS));
+export async function sendSMSBatch(
+  candidates: Array<{ patient: Patient; reason: SMSReason }>, lang: 'en' | 'sw', cfg: SMSConfig,
+  clinicCfg: ClinicSettings, sentBy?: string,
+  controls: { isCancelled?: () => boolean; onProgress?: (current: number, total: number) => void; onEntry?: (entry: SMSLogEntry) => void } = {},
+): Promise<SmsBatchResult> {
+  await requireOnlineSession();
+  const result: SmsBatchResult = { sent: 0, queued: 0, unknown: 0, failed: 0, skipped: 0 };
+  for (let i = 0; i < candidates.length; i++) {
+    if (controls.isCancelled?.()) { result.skipped += candidates.length - i; break; }
+    controls.onProgress?.(i + 1, candidates.length);
+    const { patient, reason } = candidates[i];
+    if (!patient.phone || smsAlreadySentRecently(patient.id, 3)) { result.skipped++; continue; }
+    try {
+      const entry = await sendSMS(patient, lang, cfg, clinicCfg, reason, sentBy);
+      if (entry.duplicate) result.skipped++;
+      else if (entry.status === 'sent' || entry.status === 'delivered' || entry.status === 'demo') result.sent++;
+      else result[entry.status]++;
+      controls.onEntry?.(entry);
+    } catch { result.failed++; }
+    if (i < candidates.length - 1) await new Promise((resolve) => setTimeout(resolve, 1100));
   }
+  return result;
+}
 
-  return { sent, skipped, failed };
+export async function sendBulkSMS(patients: Patient[], lang: 'en' | 'sw', clinicCfg: ClinicSettings, withinDays = 7, sentBy?: string): Promise<SmsBatchResult> {
+  const candidates = patients.flatMap((patient) => {
+    const reason = getPatientSMSReason(patient, clinicCfg, withinDays);
+    return patient.phone && reason ? [{ patient, reason }] : [];
+  });
+  const result = await sendSMSBatch(candidates, lang, loadSMSConfig(), clinicCfg, sentBy);
+  result.skipped += patients.length - candidates.length;
+  return result;
 }
 
 function appendToLog(entry: SMSLogEntry): void {
-  const log = loadSMSLog();
-  saveSMSLog([entry, ...log].slice(0, 500)); // keep last 500
+  saveSMSLog([entry, ...loadSMSLog().filter((e) => e.id !== entry.id)].slice(0, 500));
 }
 
-// ── CSV export ────────────────────────────────────────────────
+export async function getSyncedPatientIds(): Promise<Set<number>> {
+  await requireOnlineSession();
+  const ids = new Set<number>();
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase.from('patients').select('id').is('deleted_at', null).order('id').range(offset, offset + 999);
+    if (error) throw new Error(error.message);
+    for (const patient of data ?? []) ids.add(Number(patient.id));
+    if (!data || data.length < 1000) return ids;
+  }
+}
+
+export async function refreshSMSHistory(): Promise<SMSLogEntry[]> {
+  await requireOnlineSession();
+  const { data, error } = await supabase.from('sms_requests').select('*').order('created_at', { ascending: false }).limit(500);
+  if (error) throw new Error(error.message);
+  const entries: SMSLogEntry[] = (data ?? []).map((r) => ({
+    id: r.id, ptId: Number(r.patient_id), ptCode: r.patient_code, phone: r.phone_masked,
+    message: r.message, provider: r.provider, reason: r.reason, lang: r.lang,
+    sentAt: r.created_at, status: r.status, hospital: r.hospital, messageId: r.message_id,
+    note: r.note, sentBy: r.actor_name, deviceId: r.device_id, deviceLetter: r.device_letter,
+  }));
+  const ids = new Set(entries.map((e) => e.id));
+  saveSMSLog([...entries, ...loadSMSLog().filter((e) => !ids.has(e.id))].slice(0, 500));
+  return loadSMSLog();
+}
+
+export async function refreshSMSStatus(requestId: string): Promise<SMSLogEntry> {
+  await requireOnlineSession();
+  const { data, error } = await supabase.functions.invoke('sms-status', { body: { requestId } });
+  if (error || !data?.entry) throw new Error(data?.error ?? error?.message ?? 'Status refresh failed');
+  const entry = { ...data.entry, note: data.warning ?? data.entry.note } as SMSLogEntry;
+  appendToLog(entry);
+  return entry;
+}
+
+export async function getSMS8Sender(): Promise<{ senderNumber: string; configured: boolean }> {
+  await requireOnlineSession();
+  const { data, error } = await supabase.functions.invoke('sms-status', { body: {} });
+  if (error) throw new Error(error.message);
+  return data;
+}
 
 export function exportSMSLogCSV(log: SMSLogEntry[]): string {
   const header = [

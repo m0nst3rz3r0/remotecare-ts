@@ -1,649 +1,173 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Smartphone, X, Send } from 'lucide-react';
-import type { Hospital, Patient, SMSConfig } from '../../types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Smartphone, Send, RefreshCw } from 'lucide-react';
+import type { Hospital, Patient, SMSConfig, SMSReason, ClinicSettings } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
-import {
-  buildSMSPreview,
-  sendSMS as sendSMSService,
-  daysUntilAppointment,
-  buildSMSMessage,
-  getPatientNextDate,
-  getPatientSMSReason,
-  filterPatientsForSmsTab,
-  getLastSmsForPatient,
-  formatSmsSentLabel,
-  smsAlreadySentRecently,
-} from '../../services/sms';
-import { loadSMSConfig, saveSMSConfig, loadSMSLog } from '../../services/storage';
+import { usePatientStore } from '../../store/usePatientStore';
+import { loadSMSConfig, saveSMSConfig, loadSMSLog, syncPatientsWithCloud } from '../../services/storage';
 import { maskPhone } from '../../utils/phone';
-import { AdminBulkConfirmModal } from './AdminOverview';
+import {
+  buildSMSPreview, filterPatientsForSmsTab, getLastSmsForPatient, formatSmsSentLabel,
+  smsAlreadySentRecently, sendSMS, sendSMSBatch, smsOutcomeLabel,
+  refreshSMSHistory, refreshSMSStatus, getSyncedPatientIds, getSMS8Sender,
+  type SmsPatientTab, type SmsBatchResult,
+} from '../../services/sms';
 
-type SmsReason = 'reminder' | 'missed_appointment' | 'ltfu_warning' | 'welcome';
-type SmsBulkPhase = 'idle' | 'confirm' | 'sending' | 'done';
+const providers: Array<[SMSConfig['provider'], string]> = [
+  ['sms8', 'SMS8 ? Android phone / SIM'], ['at', "Africa's Talking"], ['bongolive', 'Bongolive'],
+  ['nexah', 'Nexah'], ['twilio', 'Twilio'], ['vonage', 'Vonage'], ['infobip', 'Infobip'], ['custom', 'Custom'],
+];
+const templates = [
+  { label: 'Reminder', en: 'template', sw: 'templateSw' },
+  { label: 'Missed visit', en: 'templateMissed', sw: 'templateMissedSw' },
+  { label: 'LTFU warning', en: 'templateLtfu', sw: 'templateLtfuSw' },
+  { label: 'Welcome', en: 'templateWelcome', sw: 'templateWelcomeSw' },
+] as const;
+const button = 'px-3 py-1.5 rounded bg-teal-700 text-white text-[12px] font-bold hover:bg-teal-800 disabled:opacity-50';
+const input = 'border border-slate-300 rounded px-3 py-1.5 text-[12px] bg-white';
 
-export default function AdminSmsPanel({
-  hospitals,
-  patients,
-  clinicSettings,
-}: {
-  hospitals: Hospital[];
-  patients: Patient[];
-  clinicSettings: any;
-}) {
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const smsSenderName = currentUser?.displayName ?? currentUser?.username ?? 'Admin';
+export default function AdminSmsPanel({ hospitals, patients, clinicSettings }: { hospitals: Hospital[]; patients: Patient[]; clinicSettings: ClinicSettings }) {
+  const user = useAuthStore((s) => s.currentUser);
+  const reloadPatients = usePatientStore((s) => s.loadFromStorage);
+  const [config, setConfig] = useState(loadSMSConfig);
+  const [log, setLog] = useState(loadSMSLog);
+  const [lang, setLang] = useState<'en' | 'sw'>('en');
+  const [tab, setTab] = useState<SmsPatientTab>('reminder');
+  const [hospitalId, setHospitalId] = useState('');
+  const [templateTab, setTemplateTab] = useState(0);
+  const [saved, setSaved] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [reasons, setReasons] = useState<Record<number, SMSReason>>({});
+  const [feedback, setFeedback] = useState<Record<number, string>>({});
+  const [sending, setSending] = useState<Record<number, boolean>>({});
+  const [syncedIds, setSyncedIds] = useState<Set<number>>(new Set());
+  const [gateway, setGateway] = useState({ senderNumber: '', configured: false });
+  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [bulkResult, setBulkResult] = useState<SmsBatchResult | null>(null);
+  const cancelBulk = useRef(false);
+  const hospital = hospitals.find((h) => h.id === hospitalId);
+  const filtered = useMemo(() => hospital ? filterPatientsForSmsTab(patients, tab, clinicSettings, hospital.name)
+    .filter((p) => p.region === hospital.region && p.district === hospital.district) : [], [patients, tab, clinicSettings, hospital]);
+  const selectable = filtered.filter((p) => syncedIds.has(p.id) && p.phone);
+  const chosen = filtered.filter((p) => selected.has(p.id));
 
-  const [smsConfig, setSmsConfig] = useState<SMSConfig>(() => loadSMSConfig());
-  const [smsLog, setSmsLog] = useState(() => loadSMSLog());
-  const [smsSending, setSmsSending] = useState<Record<string, boolean>>({});
-  const [smsReason, setSmsReason] = useState<Record<string, SmsReason>>({});
-  const [smsFeedback, setSmsFeedback] = useState<Record<string, string>>({});
-  const [smsLang, setSmsLang] = useState<'en' | 'sw'>('en');
-  const [smsTab, setSmsTab] = useState<'ltfu' | 'overdue' | 'reminder' | 'all'>('reminder');
-  const [smsHospital, setSmsHospital] = useState('');
-  const [smsConfigSaved, setSmsConfigSaved] = useState(false);
-  const [smsTemplateTab, setSmsTemplateTab] = useState<'reminder' | 'missed' | 'ltfu' | 'welcome'>('reminder');
-  const [smsSelected, setSmsSelected] = useState<Set<number>>(new Set());
-  const [smsBulkPhase, setSmsBulkPhase] = useState<SmsBulkPhase>('idle');
-  const [smsBulkProgress, setSmsBulkProgress] = useState({ current: 0, total: 0 });
-  const [smsBulkResult, setSmsBulkResult] = useState<{ sent: number; failed: number; skipped: number } | null>(null);
-  const smsBulkAbortRef = useRef(false);
-  const bulkRateMs = 220;
-
-  const smsFilteredPatients = useMemo(() => {
-    if (!smsHospital) return [];
-    return filterPatientsForSmsTab(patients, smsTab, clinicSettings, smsHospital);
-  }, [patients, smsTab, clinicSettings, smsHospital]);
-
-  const smsSelectedPatients = useMemo(
-    () => smsFilteredPatients.filter((patient) => smsSelected.has(patient.id)),
-    [smsFilteredPatients, smsSelected],
-  );
-
-  const smsSelectableIds = useMemo(
-    () => smsFilteredPatients.filter((patient) => patient.phone).map((patient) => patient.id),
-    [smsFilteredPatients],
-  );
-
-  useEffect(() => {
-    setSmsSelected(new Set());
-    setSmsBulkPhase('idle');
-    setSmsBulkResult(null);
-  }, [smsHospital, smsTab]);
-
-  const toggleSmsSelect = useCallback((id: number) => {
-    setSmsSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const refreshShared = useCallback(async () => {
+    setRefreshing(true); setError('');
+    try {
+      const [history, ids, sender] = await Promise.all([refreshSMSHistory(), getSyncedPatientIds(), getSMS8Sender()]);
+      setLog(history); setSyncedIds(ids); setGateway(sender);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Connect and sign in online to send SMS.'); }
+    finally { setRefreshing(false); }
   }, []);
+  useEffect(() => { void refreshShared(); }, [refreshShared]);
+  useEffect(() => { setSelected(new Set()); setBulkResult(null); }, [hospitalId, tab]);
 
-  const selectAllSms = useCallback(() => {
-    setSmsSelected(new Set(smsSelectableIds));
-  }, [smsSelectableIds]);
+  async function syncFirst() {
+    setRefreshing(true); setError('');
+    try {
+      const result = await syncPatientsWithCloud();
+      if (!result.success) throw new Error(result.error ?? 'Sync failed.');
+      reloadPatients();
+      await refreshShared();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Sync failed; local work is saved.'); }
+    finally { setRefreshing(false); }
+  }
 
-  const clearSmsSelection = useCallback(() => {
-    setSmsSelected(new Set());
-    setSmsBulkPhase('idle');
-    setSmsBulkResult(null);
-  }, []);
-
-  const handleSmsBulkConfirm = useCallback(async () => {
-    const candidates = smsSelectedPatients.filter((patient) => patient.phone);
-    const toSend = candidates.filter((patient) => !smsAlreadySentRecently(patient.id, 3));
-    const skippedRecent = candidates.length - toSend.length;
-    const skippedNoPhone = smsSelectedPatients.length - candidates.length;
-
-    setSmsBulkPhase('sending');
-    setSmsBulkProgress({ current: 0, total: toSend.length });
-    smsBulkAbortRef.current = false;
-
-    let sent = 0;
-    let failed = 0;
-    const entries: Awaited<ReturnType<typeof sendSMSService>>[] = [];
-
-    for (let i = 0; i < toSend.length; i++) {
-      if (smsBulkAbortRef.current) break;
-      const patient = toSend[i];
-      setSmsBulkProgress({ current: i + 1, total: toSend.length });
-      const reason = smsReason[patient.id] ?? getPatientSMSReason(patient, clinicSettings) ?? 'reminder';
-      try {
-        const entry = await sendSMSService(
-          patient,
-          smsLang,
-          smsConfig,
-          clinicSettings,
-          reason,
-          smsSenderName,
-        );
-        entries.push(entry);
-        if (entry.status === 'sent' || entry.status === 'demo') sent++;
-        else failed++;
-      } catch {
-        failed++;
-      }
-      if (i < toSend.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, bulkRateMs));
-      }
+  async function sendOne(patient: Patient) {
+    const preview = buildSMSPreview(patient, config, clinicSettings, lang, reasons[patient.id])
+      ?? buildSMSPreview(patient, config, clinicSettings, lang, 'reminder');
+    if (!preview) return;
+    const recent = smsAlreadySentRecently(patient.id, 3);
+    const last = getLastSmsForPatient(log, patient.id);
+    // Queued/uncertain submissions cannot be overridden; refresh status instead.
+    if (last && ['queued','unknown'].includes(last.status)) {
+      setFeedback((f) => ({ ...f, [patient.id]: 'A request is queued or uncertain. Refresh its status before resending.' })); return;
     }
+    if (!window.confirm((recent ? 'A message was already sent recently. Send another anyway?\n\n' : 'Send this SMS?\n\n') + preview.message)) return;
+    setSending((s) => ({ ...s, [patient.id]: true }));
+    try {
+      const entry = await sendSMS(patient, lang, config, clinicSettings, reasons[patient.id] ?? preview.reason, user?.displayName, { resendOverride: recent });
+      setLog(loadSMSLog()); setFeedback((f) => ({ ...f, [patient.id]: smsOutcomeLabel(entry) }));
+    } catch (e) { setFeedback((f) => ({ ...f, [patient.id]: e instanceof Error ? e.message : 'Send failed.' })); }
+    finally { setSending((s) => ({ ...s, [patient.id]: false })); }
+  }
 
-    if (entries.length) {
-      setSmsLog(loadSMSLog());
-    }
+  async function sendSelected() {
+    const candidates = chosen.map((patient) => ({ patient, reason: reasons[patient.id] ?? buildSMSPreview(patient, config, clinicSettings, lang)?.reason ?? 'reminder' as SMSReason }));
+    const previews = candidates.map(({ patient, reason }) => patient.code + ': ' + buildSMSPreview(patient, config, clinicSettings, lang, reason)?.message).join('\n\n');
+    if (!window.confirm('Submit ' + candidates.length + ' SMS requests? Recent requests will be skipped.\n\n' + previews)) return;
+    cancelBulk.current = false; setBulkBusy(true); setBulkResult(null);
+    try {
+      const result = await sendSMSBatch(candidates, lang, config, clinicSettings, user?.displayName, {
+        isCancelled: () => cancelBulk.current,
+        onProgress: (current, total) => setProgress({ current, total }),
+        onEntry: (entry) => { setLog(loadSMSLog()); setFeedback((f) => ({ ...f, [entry.ptId]: smsOutcomeLabel(entry) })); },
+      });
+      setBulkResult(result); setSelected(new Set());
+    } catch (e) { setError(e instanceof Error ? e.message : 'Bulk sending interrupted.'); }
+    finally { setBulkBusy(false); }
+  }
 
-    setSmsBulkResult({ sent, failed, skipped: skippedRecent + skippedNoPhone });
-    setSmsBulkPhase('done');
-    setSmsSelected(new Set());
-  }, [
-    smsSelectedPatients,
-    smsReason,
-    clinicSettings,
-    smsLang,
-    smsConfig,
-    smsSenderName,
-  ]);
-
-  const smsBulkPct = smsBulkProgress.total
-    ? Math.round((smsBulkProgress.current / smsBulkProgress.total) * 100)
-    : 0;
-
-  const handleSaveSMSConfig = () => {
-    saveSMSConfig(smsConfig);
-    setSmsConfigSaved(true);
-    setTimeout(() => setSmsConfigSaved(false), 2000);
-  };
-
-  return (
-    <>
-      <div className="rounded-xl border border-slate-200 bg-white p-5 mb-4">
-        <div className="font-sans font-bold text-slate-800 text-[13px] mb-1 flex items-center gap-2">
-          <Smartphone size={16} />
-          <span>SMS Configuration</span>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 text-[10px] font-bold border border-sky-200">
-            Server-managed secrets
-          </span>
-        </div>
-        <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
-          Configure messaging behavior and templates. Provider secrets are managed server-side in the SMS edge function.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-          <div>
-            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Sender ID</label>
-            <input
-              type="text"
-              className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px]"
-              value={smsConfig.senderId}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSmsConfig((prev) => ({ ...prev, senderId: e.target.value }))}
-              placeholder="e.g. RemoteCare"
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              className="px-4 py-1.5 rounded bg-teal-700 text-white text-[12px] font-bold hover:bg-teal-800 disabled:opacity-50"
-              onClick={handleSaveSMSConfig}
-            >
-              {smsConfigSaved ? 'Saved!' : 'Save Config'}
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="sm:col-span-2">
-            <div className="flex gap-2 flex-wrap mb-3">
-              {([
-                { id: 'reminder', label: 'Reminder' },
-                { id: 'missed', label: 'Missed visit' },
-                { id: 'ltfu', label: 'LTFU warning' },
-                { id: 'welcome', label: 'Welcome' },
-              ] as const).map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  className={`px-3 py-1 rounded text-[11px] font-bold transition-colors ${
-                    smsTemplateTab === tab.id
-                      ? 'bg-teal-700 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                  onClick={() => setSmsTemplateTab(tab.id)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {smsTemplateTab === 'reminder' && (
-            <>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">English · Reminder</label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
-                  value={smsConfig.template}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev) => ({ ...prev, template: e.target.value }))}
-                  placeholder="Dear {name}, your appointment at {hospital} is on {date}."
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Swahili · Reminder</label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
-                  value={smsConfig.templateSw}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev) => ({ ...prev, templateSw: e.target.value }))}
-                  placeholder="Habari {name}, ziara yako {hospital} ni tarehe {date}."
-                />
-              </div>
-            </>
-          )}
-
-          {smsTemplateTab === 'missed' && (
-            <>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">English · Missed visit</label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
-                  value={smsConfig.templateMissed ?? ''}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev) => ({ ...prev, templateMissed: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Swahili · Missed visit</label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
-                  value={smsConfig.templateMissedSw ?? ''}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev) => ({ ...prev, templateMissedSw: e.target.value }))}
-                />
-              </div>
-            </>
-          )}
-
-          {smsTemplateTab === 'ltfu' && (
-            <>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">English · LTFU warning</label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
-                  value={smsConfig.templateLtfu ?? ''}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev) => ({ ...prev, templateLtfu: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Swahili · LTFU warning</label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
-                  value={smsConfig.templateLtfuSw ?? ''}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev) => ({ ...prev, templateLtfuSw: e.target.value }))}
-                />
-              </div>
-            </>
-          )}
-
-          {smsTemplateTab === 'welcome' && (
-            <>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">English · Welcome</label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
-                  value={smsConfig.templateWelcome ?? ''}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev) => ({ ...prev, templateWelcome: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1">Swahili · Welcome</label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] resize-vertical"
-                  value={smsConfig.templateWelcomeSw ?? ''}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSmsConfig((prev) => ({ ...prev, templateWelcomeSw: e.target.value }))}
-                />
-              </div>
-            </>
-          )}
-
-          <div className="sm:col-span-2">
-            <p className="text-[10px] text-slate-400">Variables: {'{name}'}, {'{hospital}'}, {'{date}'}</p>
-          </div>
-        </div>
+  async function refreshDelivery(id: string, patientId: number) {
+    setSending((s) => ({ ...s, [patientId]: true }));
+    try { const entry = await refreshSMSStatus(id); setLog(loadSMSLog()); setFeedback((f) => ({ ...f, [patientId]: smsOutcomeLabel(entry) })); }
+    catch (e) { setFeedback((f) => ({ ...f, [patientId]: e instanceof Error ? e.message : 'Refresh failed.' })); }
+    finally { setSending((s) => ({ ...s, [patientId]: false })); }
+  }
+  const template = templates[templateTab];
+  const disabled = bulkBusy || refreshing || (config.provider === 'sms8' && !gateway.configured);
+  return <>
+    <section className="rounded-xl border border-slate-200 bg-white p-5 mb-4">
+      <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3"><Smartphone size={16} /> SMS Configuration</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <label className="text-[12px]">SMS provider<select className={input + ' block w-full mt-1'} value={config.provider} onChange={(e) => setConfig((c) => ({ ...c, provider: e.target.value as SMSConfig['provider'] }))}>{providers.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+        {config.provider === 'sms8' ? <div className="text-[12px] text-slate-600">Sender phone number: <strong>{gateway.senderNumber || 'Not configured yet'}</strong><p className="mt-1">Patients see the SIM number. Each message includes the facility name.</p>{!gateway.configured && <p className="text-amber-700">Pair and configure the SMS8 Android phone before sending.</p>}</div>
+          : <label className="text-[12px]">Sender ID<input className={input + ' block w-full mt-1'} value={config.senderId} onChange={(e) => setConfig((c) => ({ ...c, senderId: e.target.value }))} /><span className="text-amber-700">This provider requires its own deployed server adapter.</span></label>}
       </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white p-5 mb-4">
-        <div className="font-sans font-bold text-slate-800 text-[13px] mb-1 flex items-center gap-2">
-          <Smartphone size={16} />
-          <span>SMS Reminders</span>
-        </div>
-        <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
-          Send appointment reminders to patients at your facility. Messages already sent by a doctor in the last 3 days are flagged to avoid duplicates.
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <select
-            className="border border-slate-300 rounded px-3 py-1.5 text-[12px] bg-white flex-shrink-0"
-            value={smsHospital}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSmsHospital(e.target.value)}
-          >
-            <option value="">Select Hospital...</option>
-            {hospitals.map((hospital) => (
-              <option key={hospital.id} value={hospital.name}>
-                {hospital.name} ({hospital.district})
-              </option>
-            ))}
-          </select>
-
-          <div className="flex gap-2 flex-wrap">
-            {[
-              { k: 'ltfu', l: 'LTFU' },
-              { k: 'overdue', l: 'Overdue' },
-              { k: 'reminder', l: 'Reminders' },
-              { k: 'all', l: 'All' },
-            ].map((tab) => (
-              <button
-                key={tab.k}
-                className={`px-3 py-1 rounded text-[11px] font-bold transition-colors ${
-                  smsTab === tab.k
-                    ? 'bg-teal-700 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-                onClick={() => setSmsTab(tab.k as typeof smsTab)}
-              >
-                {tab.l}
-              </button>
-            ))}
-          </div>
-
-          <select
-            className="sm:ml-auto border border-slate-300 rounded px-2 py-1 text-[11px] bg-white"
-            value={smsLang}
-            onChange={(e) => setSmsLang(e.target.value as 'en' | 'sw')}
-          >
-            <option value="en">English</option>
-            <option value="sw">Swahili</option>
-          </select>
-        </div>
-
-        {smsHospital && (
-          <div className="mb-3 px-3 py-2 bg-slate-50 rounded border border-slate-200">
-            <span className="text-[11px] text-slate-600">Selected Facility: </span>
-            <span className="text-[11px] font-bold text-slate-800">{smsHospital}</span>
-          </div>
-        )}
-
-        {!smsHospital ? (
-          <div className="text-center py-6 text-slate-500 text-[12px]">
-            Please select a hospital from the dropdown above to view patients.
-          </div>
-        ) : smsFilteredPatients.length === 0 ? (
-          <div className="text-center py-6 text-slate-500 text-[12px]">
-            No patients match the selected filter at {smsHospital}.
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <button
-                type="button"
-                onClick={() =>
-                  smsSelected.size === smsSelectableIds.length ? clearSmsSelection() : selectAllSms()
-                }
-                className="text-[11px] font-bold text-teal-700 hover:text-teal-900"
-              >
-                {smsSelected.size > 0
-                  ? `${smsSelected.size} selected · Clear`
-                  : `Select all (${smsSelectableIds.length})`}
-              </button>
-              <span className="text-[10px] text-slate-500">
-                {smsFilteredPatients.length} patient{smsFilteredPatients.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            <div className="border border-slate-200 rounded-lg overflow-hidden max-h-[420px] overflow-y-auto">
-              <table className="w-full text-[12px]">
-                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
-                  <tr>
-                    <th className="px-3 py-2 w-8" />
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Patient</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Phone</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Status</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Last SMS</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {smsFilteredPatients.map((patient) => {
-                    const smsPreview = buildSMSPreview(patient, smsConfig, clinicSettings, smsLang, smsReason[patient.id]);
-                    const days = smsPreview?.daysUntil ?? daysUntilAppointment(patient, clinicSettings);
-                    const resolvedReason = smsPreview?.reason ?? getPatientSMSReason(patient, clinicSettings) ?? 'reminder';
-                    const preview = smsPreview?.message ?? buildSMSMessage(
-                      patient,
-                      smsConfig,
-                      smsLang,
-                      getPatientNextDate(patient, clinicSettings),
-                      resolvedReason,
-                    );
-                    const lastSms = getLastSmsForPatient(smsLog, patient.id);
-                    const sentLabel = formatSmsSentLabel(lastSms);
-                    const recentlySent = smsAlreadySentRecently(patient.id, 3);
-                    let statusLabel = '';
-                    let statusColor = '';
-                    if (patient.status === 'ltfu') {
-                      statusLabel = 'LTFU';
-                      statusColor = 'text-red-600';
-                    } else if (days < 0) {
-                      statusLabel = `${Math.abs(days)}d overdue`;
-                      statusColor = 'text-red-600';
-                    } else if (days <= 7) {
-                      statusLabel = `Due in ${days}d`;
-                      statusColor = 'text-amber-600';
-                    } else {
-                      statusLabel = `Due in ${days}d`;
-                      statusColor = 'text-emerald-600';
-                    }
-
-                    return (
-                      <tr key={patient.id} className="border-b border-slate-100 last:border-0">
-                        <td className="px-3 py-2">
-                          <input
-                            type="checkbox"
-                            checked={smsSelected.has(patient.id)}
-                            disabled={!patient.phone}
-                            onChange={() => toggleSmsSelect(patient.id)}
-                            className="accent-teal-700"
-                            aria-label={`Select ${patient.code}`}
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="font-medium text-slate-800">{patient.code}</div>
-                          <div className="text-[10px] text-slate-500">{patient.region} · {patient.district}</div>
-                        </td>
-                        <td className="px-3 py-2 text-slate-600">{maskPhone(patient.phone || '')}</td>
-                        <td className={`px-3 py-2 font-medium ${statusColor}`}>{statusLabel}</td>
-                        <td className="px-3 py-2">
-                          {sentLabel ? (
-                            <div className={`text-[10px] font-semibold ${recentlySent ? 'text-amber-700' : 'text-slate-600'}`}>
-                              {sentLabel}
-                              {recentlySent ? (
-                                <div className="text-[9px] font-bold uppercase tracking-wide text-amber-600 mt-0.5">
-                                  Already sent recently
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <span className="text-[10px] text-slate-400">Not sent</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex flex-col gap-2">
-                            <select
-                              className="border border-slate-300 rounded px-2 py-1 text-[11px] bg-white"
-                              value={resolvedReason}
-                              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                                setSmsReason((prev) => ({
-                                  ...prev,
-                                  [patient.id]: e.target.value as SmsReason,
-                                }))
-                              }
-                            >
-                              <option value="reminder">Reminder</option>
-                              <option value="missed_appointment">Missed appointment</option>
-                              <option value="ltfu_warning">LTFU warning</option>
-                              <option value="welcome">Welcome</option>
-                            </select>
-                            <button
-                              className="px-3 py-1 rounded bg-teal-700 text-white text-[11px] font-bold hover:bg-teal-800 disabled:opacity-50"
-                              disabled={smsSending[patient.id] || !patient.phone}
-                              onClick={async () => {
-                                if (!patient.phone) return;
-                                const duplicateNote = recentlySent && sentLabel
-                                  ? `\n\nNote: ${sentLabel}.`
-                                  : '';
-                                const proceed = window.confirm(
-                                  recentlySent
-                                    ? `An SMS was already sent to ${patient.code} recently.${duplicateNote}\n\nSend another ${resolvedReason.replace('_', ' ')} message anyway?\n\nPreview:\n${preview}`
-                                    : `Send ${resolvedReason.replace('_', ' ')} SMS to ${patient.code}?\n\nPreview:\n${preview}`,
-                                );
-                                if (!proceed) return;
-                                setSmsSending((prev) => ({ ...prev, [patient.id]: true }));
-                                setSmsFeedback((prev) => ({ ...prev, [patient.id]: '' }));
-                                try {
-                                  const entry = await sendSMSService(
-                                    patient,
-                                    smsLang,
-                                    smsConfig,
-                                    clinicSettings,
-                                    resolvedReason,
-                                    smsSenderName,
-                                  );
-                                  setSmsLog(loadSMSLog());
-                                  setSmsFeedback((prev) => ({
-                                    ...prev,
-                                    [patient.id]:
-                                      entry.status === 'sent' || entry.status === 'demo'
-                                        ? `Sent (${entry.status})`
-                                        : `Failed: ${entry.note ?? 'Unknown error'}`,
-                                  }));
-                                } finally {
-                                  setSmsSending((prev) => ({ ...prev, [patient.id]: false }));
-                                }
-                              }}
-                            >
-                              {smsSending[patient.id] ? 'Sending...' : 'Send SMS'}
-                            </button>
-                            <div className="text-[10px] text-slate-500 max-w-[320px] truncate" title={preview}>
-                              Preview: {preview}
-                            </div>
-                            {smsFeedback[patient.id] && (
-                              <div className={`text-[10px] font-semibold ${smsFeedback[patient.id].startsWith('Failed') ? 'text-red-600' : 'text-emerald-700'}`}>
-                                {smsFeedback[patient.id]}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-
-        {smsBulkPhase === 'confirm' && (
-          <AdminBulkConfirmModal
-            patients={smsSelectedPatients}
-            lang={smsLang}
-            smsConfig={smsConfig}
-            clinicSettings={clinicSettings}
-            smsReason={smsReason}
-            onConfirm={handleSmsBulkConfirm}
-            onCancel={() => setSmsBulkPhase('idle')}
-          />
-        )}
-
-        {smsBulkResult && smsBulkPhase === 'done' && (
-          <div className="mt-3 px-4 py-3 rounded-lg border border-emerald-200 bg-emerald-50 text-[12px] text-emerald-900 flex items-center justify-between gap-3">
-            <span>
-              Bulk send complete: <strong>{smsBulkResult.sent}</strong> sent
-              {smsBulkResult.failed > 0 ? `, ${smsBulkResult.failed} failed` : ''}
-              {smsBulkResult.skipped > 0 ? `, ${smsBulkResult.skipped} skipped` : ''}.
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setSmsBulkPhase('idle');
-                setSmsBulkResult(null);
-              }}
-              className="text-emerald-700 font-bold"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {(smsSelected.size > 0 && smsBulkPhase === 'idle') || smsBulkPhase === 'sending' ? (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[500] w-[min(580px,95vw)] bg-slate-800 rounded-xl shadow-2xl overflow-hidden">
-            {smsBulkPhase === 'sending' && (
-              <div className="h-1 bg-white/10">
-                <div
-                  className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-300"
-                  style={{ width: `${smsBulkPct}%` }}
-                />
-              </div>
-            )}
-            <div className="px-4 py-3 flex items-center gap-3 flex-wrap">
-              <Smartphone size={18} className="text-emerald-400 shrink-0" />
-              {smsBulkPhase === 'idle' && (
-                <>
-                  <div className="flex-1 min-w-[180px]">
-                    <div className="font-bold text-white text-[13px]">
-                      {smsSelected.size} patient{smsSelected.size !== 1 ? 's' : ''} selected
-                    </div>
-                    <div className="text-[10px] text-white/45 mt-0.5">
-                      {smsLang === 'sw' ? 'Swahili' : 'English'} · Uses each patient&apos;s message type
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSmsBulkPhase('confirm')}
-                    className="px-4 py-2 rounded-lg bg-teal-600 text-white text-[11px] font-bold flex items-center gap-2"
-                  >
-                    <Send size={13} />
-                    Preview &amp; Send
-                  </button>
-                  <button type="button" onClick={clearSmsSelection} className="text-white/40 hover:text-white p-1">
-                    <X size={16} />
-                  </button>
-                </>
-              )}
-              {smsBulkPhase === 'sending' && (
-                <>
-                  <div className="flex-1">
-                    <div className="font-bold text-white text-[13px]">
-                      Sending... {smsBulkProgress.current} / {smsBulkProgress.total}
-                    </div>
-                    <div className="text-[10px] text-white/45">{smsBulkPct}% complete</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      smsBulkAbortRef.current = true;
-                    }}
-                    className="px-3 py-1.5 rounded border border-white/20 text-white/70 text-[11px] font-bold"
-                  >
-                    Stop
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        ) : null}
+      <p className="text-[11px] text-slate-500 mb-3">Provider secrets are managed on the server. Templates support {'{name}'} (patient code), {'{hospital}'} and {'{date}'}.</p>
+      <div className="flex gap-2 flex-wrap mb-3">{templates.map((t, i) => <button type="button" key={t.label} className={i === templateTab ? button : input} onClick={() => setTemplateTab(i)}>{t.label}</button>)}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">{(['en','sw'] as const).map((language) => <label key={language} className="text-[12px]">{language === 'en' ? 'English' : 'Swahili'}<textarea className={input + ' block w-full mt-1'} rows={3} value={config[template[language]] ?? ''} onChange={(e) => setConfig((c) => ({ ...c, [template[language]]: e.target.value }))} /></label>)}</div>
+      <button className={button} onClick={() => { saveSMSConfig(config); setSaved(true); }}>{saved ? 'Saved' : 'Save configuration'}</button>
+    </section>
+    <section className="rounded-xl border border-slate-200 bg-white p-5 mb-4">
+      <h3 className="font-bold text-slate-800 mb-2">SMS Reminders</h3>
+      <p className="text-[12px] text-slate-500 mb-3">Internet is required for sending. Offline clinical work remains available. Duplicate checks are shared across devices.</p>
+      <button type="button" className={input + ' mb-3 inline-flex gap-2 items-center'} disabled={refreshing || bulkBusy} onClick={() => void refreshShared()}><RefreshCw size={13} />{refreshing ? 'Refreshing...' : 'Refresh shared SMS history'}</button>
+      {error && <p role="alert" className="text-[12px] text-amber-700 mb-3">{error} If your session expired, use Sign in online next to Sync Now.</p>}
+      <div className="flex gap-2 flex-wrap mb-4">
+        <select className={input} disabled={bulkBusy} value={hospitalId} onChange={(e) => setHospitalId(e.target.value)}><option value="">Select facility...</option>{hospitals.map((h) => <option key={h.id} value={h.id}>{h.name} ({h.district})</option>)}</select>
+        {(['reminder','overdue','ltfu','all'] as const).map((t) => <button type="button" disabled={bulkBusy} key={t} className={tab === t ? button : input} onClick={() => setTab(t)}>{t === 'ltfu' ? 'LTFU' : t.charAt(0).toUpperCase() + t.slice(1)}</button>)}
+        <select className={input} disabled={bulkBusy} value={lang} onChange={(e) => setLang(e.target.value as 'en' | 'sw')}><option value="en">English</option><option value="sw">Swahili</option></select>
       </div>
-    </>
-  );
+      {!hospital ? <p className="text-[12px] text-slate-500">Select a facility to view patients.</p> : <>
+        <button type="button" disabled={bulkBusy} className="text-[12px] text-teal-700 font-bold mb-3" onClick={() => setSelected(selected.size ? new Set() : new Set(selectable.map((p) => p.id)))}>{selected.size ? 'Clear selection (' + selected.size + ')' : 'Select all synced patients (' + selectable.length + ')'}</button>
+        <div className="overflow-x-auto max-h-[520px] overflow-y-auto border rounded-lg">
+          <table className="w-full text-[12px]"><thead className="bg-slate-50"><tr>{['','Patient','Phone','Last SMS','Message / action'].map((h) => <th key={h} className="text-left p-3">{h}</th>)}</tr></thead>
+            <tbody>{filtered.map((patient) => {
+              const preview = buildSMSPreview(patient, config, clinicSettings, lang, reasons[patient.id] ?? undefined) ?? buildSMSPreview(patient, config, clinicSettings, lang, 'reminder');
+              const last = getLastSmsForPatient(log, patient.id);
+              return <tr key={patient.id} className="border-t align-top">
+                <td className="p-3"><input type="checkbox" aria-label={'Select ' + patient.code} disabled={disabled || !syncedIds.has(patient.id)} checked={selected.has(patient.id)} onChange={() => setSelected((old) => { const next = new Set(old); if (next.has(patient.id)) next.delete(patient.id); else next.add(patient.id); return next; })} /></td>
+                <td className="p-3 font-medium">{patient.code}<div className="text-[10px] text-slate-500">{patient.status}</div></td>
+                <td className="p-3">{maskPhone(patient.phone)}</td>
+                <td className="p-3">{formatSmsSentLabel(last) ?? 'No requests'}{last?.deviceLetter && <div className="text-[10px]">Device {last.deviceLetter}</div>}{last && ['queued','sent','unknown'].includes(last.status) && <button className="block text-teal-700 font-bold mt-2" disabled={sending[patient.id] || bulkBusy} onClick={() => void refreshDelivery(last.id, patient.id)}>Refresh delivery status</button>}</td>
+                <td className="p-3 min-w-[250px]">
+                  <select className={input + ' mb-2'} disabled={bulkBusy} value={reasons[patient.id] ?? preview?.reason ?? 'reminder'} onChange={(e) => setReasons((r) => ({ ...r, [patient.id]: e.target.value as SMSReason }))}>{(['reminder','missed_appointment','ltfu_warning','welcome'] as const).map((r) => <option key={r} value={r}>{r.replace(/_/g,' ')}</option>)}</select>
+                  <p className="text-[11px] text-slate-600 mb-2 whitespace-pre-wrap">{preview?.message}</p>
+                  {!syncedIds.has(patient.id) ? <button className={button} disabled={refreshing || bulkBusy} onClick={() => void syncFirst()}>Sync this patient first</button> : <button className={button} disabled={disabled || sending[patient.id]} onClick={() => void sendOne(patient)}>{sending[patient.id] ? 'Submitting...' : 'Preview & send SMS'}</button>}
+                  {feedback[patient.id] && <p role="status" className="text-[11px] text-slate-700 mt-2">{feedback[patient.id]}</p>}
+                </td>
+              </tr>;
+            })}</tbody>
+          </table>
+          {!filtered.length && <p className="p-4 text-[12px] text-slate-500">No patients match this filter.</p>}
+        </div>
+      </>}
+      {selected.size > 0 && !bulkBusy && <button className={button + ' mt-3 inline-flex gap-2 items-center'} disabled={disabled} onClick={() => void sendSelected()}><Send size={13} />Preview & send {chosen.length} selected</button>}
+      {bulkBusy && <div className="mt-3 text-[12px]">Submitting {progress.current} / {progress.total} <button className={input} onClick={() => { cancelBulk.current = true; }}>Stop after current request</button></div>}
+      {bulkResult && <p role="status" className="mt-3 text-[12px]">Submission complete: {bulkResult.queued} queued, {bulkResult.sent} sent, {bulkResult.unknown} uncertain, {bulkResult.failed} failed, {bulkResult.skipped} skipped.</p>}
+    </section>
+  </>;
 }

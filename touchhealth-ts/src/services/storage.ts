@@ -16,12 +16,14 @@
 //    path.  The orphaned sync.ts logic is deprecated.
 // ════════════════════════════════════════════════════════════
 
-import { supabase } from './supabase';
+import { supabase, requireOnlineSession } from './supabase';
+import { maskPhone } from '../utils/phone';
+import { canAccessLocalFacility } from './facilityAccess';
 import { logger } from '../utils/logger';
 import type {
   Patient, User, Hospital, ClinicSettings,
   StockoutReport, SMSConfig, SMSLogEntry,
-  PatientStatus, Visit,
+  PatientStatus, Visit, SessionUser,
 } from '@/types';
 
 // Supabase returns untyped rows when no database schema is generated.
@@ -149,7 +151,7 @@ export function saveStockouts(reports: StockoutReport[]): void {
 
 export function loadSMSConfig(): SMSConfig {
   return load<SMSConfig>(KEYS.SMS_CONFIG, {
-    provider: 'at',
+    provider: 'sms8',
     apiKey: '',
     apiSecret: '',
     atUsername: '',
@@ -168,10 +170,13 @@ export function saveSMSConfig(cfg: SMSConfig): void {
   persist(KEYS.SMS_CONFIG, cfg);
 }
 export function loadSMSLog(): SMSLogEntry[] {
-  return load<SMSLogEntry[]>(KEYS.SMS_LOG, []);
+  const raw = load<SMSLogEntry[]>(KEYS.SMS_LOG, []);
+  const masked = raw.map((entry) => ({ ...entry, phone: entry.phone ? maskPhone(entry.phone) : '' }));
+  if (masked.some((entry, i) => entry.phone !== raw[i].phone)) persist(KEYS.SMS_LOG, masked);
+  return masked;
 }
 export function saveSMSLog(log: SMSLogEntry[]): void {
-  persist(KEYS.SMS_LOG, log);
+  persist(KEYS.SMS_LOG, log.map((entry) => ({ ...entry, phone: entry.phone ? maskPhone(entry.phone) : '' })));
 }
 
 // ── SYNC METADATA ─────────────────────────────────────────────
@@ -214,20 +219,24 @@ export async function checkSupabaseConnection(): Promise<boolean> {
 
 export async function syncPatientsWithCloud() {
   try {
+    await requireOnlineSession();
     logger.info('[SYNC] Full System Sync initiated...');
 
     // ── Deduplicate local patients by code before pushing ──
     const rawLocal = loadPatients();
+    const session = load<SessionUser | null>(KEYS.SESSION, null);
+    const visibleLocal = rawLocal.filter((p) => canAccessLocalFacility(session, p));
+    const otherFacilities = rawLocal.filter((p) => !canAccessLocalFacility(session, p));
     const localByCode = new Map<string, Patient>();
-    for (const p of rawLocal) {
+    for (const p of visibleLocal) {
       const existing = localByCode.get(p.code);
       if (!existing || (p.visits?.length ?? 0) > (existing.visits?.length ?? 0)) {
         localByCode.set(p.code, p);
       }
     }
     const localPatients = Array.from(localByCode.values());
-    if (localPatients.length < rawLocal.length) {
-      savePatients(localPatients);
+    if (localPatients.length < visibleLocal.length) {
+      savePatients([...localPatients, ...otherFacilities]);
     }
 
     // ── 1. PUSH patients ────────────────────────────────────
@@ -278,7 +287,7 @@ export async function syncPatientsWithCloud() {
               investigations:       visit.investigations ?? null,
               drug_warnings:        visit.drugWarnings ?? null,
             }, { onConflict: 'id' });
-          if (visitError) logger.warn('Visit push error', visitError.message);
+          if (visitError) throw new Error('Visit push failed: ' + visitError.message);
 
           for (const med of visit.meds ?? []) {
             const { error: medError } = await supabase
@@ -290,7 +299,7 @@ export async function syncPatientsWithCloud() {
                 freq:         med.freq ?? null,
                 instructions: med.instructions ?? null,
               }, { onConflict: 'visit_id,name' });
-            if (medError) logger.warn('Med push error', medError.message);
+            if (medError) throw new Error('Medication push failed: ' + medError.message);
           }
         }
       }
@@ -337,8 +346,10 @@ export async function syncPatientsWithCloud() {
       }
 
       // Bulk fetch all visits + meds (2 queries total — no N+1)
-      const { data: allVisits } = await supabase.from('visits').select('*');
-      const { data: allMeds }   = await supabase.from('medications').select('*');
+      const { data: allVisits, error: visitsError } = await supabase.from('visits').select('*');
+      if (visitsError) throw new Error('Visit pull failed: ' + visitsError.message);
+      const { data: allMeds, error: medsError } = await supabase.from('medications').select('*');
+      if (medsError) throw new Error('Medication pull failed: ' + medsError.message);
 
       const medsByVisit = new Map<string, unknown[]>();
       (allMeds ?? []).forEach((m: SupabaseRow) => {
@@ -390,16 +401,25 @@ export async function syncPatientsWithCloud() {
           } as Patient;
         }),
         ...localOnlyPatients,
+        ...otherFacilities,
       ];
 
-      savePatients(mergedPatients);
+      // Preserve registrations and edits made locally while network calls ran.
+      const snapshot = new Map(rawLocal.map((p) => [p.id, JSON.stringify(p)]));
+      const changed = loadPatients().filter((p) => snapshot.get(p.id) !== JSON.stringify(p));
+      const changedIds = new Set(changed.map((p) => p.id));
+      savePatients([...mergedPatients.filter((p) => !changedIds.has(p.id)), ...changed]);
     }
 
     // ── 3. PULL users ───────────────────────────────────────
     const { data: cloudUsers, error: uError } = await supabase
-      .from('users').select('*');
+      .from('users').select('id,username,role,display_name,hospital,region,district,is_super_admin,created_at');
     if (uError) logger.warn('User sync failed', uError.message);
-    if (cloudUsers) saveUsers(cloudUsers as User[]);
+    if (cloudUsers) saveUsers(cloudUsers.map((u) => ({
+      id: u.id, username: u.username, password: '[server-managed]', role: u.role,
+      displayName: u.display_name, hospital: u.hospital, region: u.region,
+      district: u.district, isSuperAdmin: u.is_super_admin, createdAt: u.created_at,
+    })) as User[]);
 
     // ── 4. PULL hospitals ───────────────────────────────────
     const { data: cloudHospitals, error: hError } = await supabase
@@ -420,6 +440,7 @@ export async function syncPatientsWithCloud() {
 
 export async function deduplicateAndRepair(): Promise<{ fixed: number; error?: string }> {
   try {
+    await requireOnlineSession();
     const localPatients = loadPatients();
     const localByCode = new Map<string, Patient>();
     for (const p of localPatients) {

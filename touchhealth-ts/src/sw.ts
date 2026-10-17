@@ -1,14 +1,14 @@
 // Service Worker (offline-first app shell caching)
 // Spec:
 // - Cache First for app shell assets
-// - Network First for API requests
+// - Network only for authenticated API requests
 // - Cache name: 'touchhealth-v1'
 // - Pre-cache: index.html and core local assets
 //
 // Note: this project doesn't yet use a SW build plugin that compiles `src/sw.ts`
 // into `/sw.js`, so we also include a hand-written `/public/sw.js`.
 
-const CACHE_NAME = 'touchhealth-v3';
+const CACHE_NAME = 'touchhealth-v4';
 
 // Best-effort precache list (works in dev; production precaching is handled by a proper SW build plugin later).
 const PRECACHE_URLS = ['/', '/index.html', '/foods.json', '/rules.json'];
@@ -76,25 +76,10 @@ sw.addEventListener('fetch', (event: any) => {
   // Only handle GET caching.
   if (request.method !== 'GET') return;
 
-  // Network-first for API, cache-first for app shell.
-  if (isApiRequest(request)) {
-    event.respondWith(
-      (async () => {
-        const cache = await caches.open(CACHE_NAME);
-        try {
-          const fresh = await fetch(request);
-          // Cache successful responses for retry/offline use.
-          cache.put(request, fresh.clone()).catch(() => {});
-          return fresh;
-        } catch {
-          const cached = await cache.match(request);
-          if (cached) return cached;
-          throw new Error('Network unavailable');
-        }
-      })(),
-    );
-    return;
-  }
+  // Authenticated API bypasses the cache; app shell stays available offline.
+  // Clinical offline data lives in local storage. Never replay authenticated
+  // API responses from a URL-only cache across accounts or during a sync.
+  if (isApiRequest(request)) return;
 
   if (!isAppShellRequest(request)) return;
 
