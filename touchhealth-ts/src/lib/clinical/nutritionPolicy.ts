@@ -1,7 +1,7 @@
 import type { NutritionAssessment } from './types';
 
 export const NUTRITION_POLICY = {
-  version: 'adult-dm-htn-2.2.0',
+  version: 'adult-dm-htn-2.3.0',
   reviewStatus: 'pending_local_clinical_review',
   reviewedBy: null,
   reviewedAt: null,

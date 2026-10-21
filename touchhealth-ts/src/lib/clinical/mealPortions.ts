@@ -60,6 +60,9 @@ export function formatMealPortion(
     const rawUnits = food.serving.default_units * portionMultiplier;
     const units = Math.round(rawUnits * 2) / 2;
     const unit = lang === 'sw' ? food.serving.unit_sw : food.serving.unit_en;
+    if (/palm/.test(food.serving.unit_en)) return lang === 'sw'
+      ? (units === 1 ? 'Kipande 1 cha ukubwa wa kiganja' : 'Vipande '+formatQuantity(units)+' vya ukubwa wa kiganja')
+      : formatQuantity(units)+' palm-sized '+(units === 1 ? 'piece' : 'pieces');
     if (!/ugali|stiff/i.test(food.name_en) && /porridge|uji/i.test(food.name_en+' '+food.name_sw)) return lang === 'sw'
       ? (units === 1 ? 'Kikombe 1 cha uji' : 'Vikombe '+formatQuantity(units)+' vya uji')
       : formatQuantity(units)+' '+(units === 1 ? 'cup' : 'cups')+' of prepared porridge';

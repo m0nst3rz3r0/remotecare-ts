@@ -1,3 +1,4 @@
+import { buildFoodChoiceGuide } from './foodChoiceGuide';
 // RCRO NutritionTool - offline meal plan generator
 import { isMealStarch } from './mealComposition';
 export { isMealStarch } from './mealComposition';
@@ -354,5 +355,6 @@ export function generateMealPlan(params: {
     generatedAt: new Date().toISOString(),
   };
   plan.meals = balanceDailyMeals(plan);
+  plan.foodChoiceGuide = buildFoodChoiceGuide(plan);
   return validatePlan(plan);
 }

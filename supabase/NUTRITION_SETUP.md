@@ -47,3 +47,17 @@ New clinical checks require review for targets at or below 1,200 kcal/day and BM
 Portions now retain grams per household unit and bilingual display text. Prepared uji uses each food's recorded cup weight (millet/sorghum uji: 250 g); ugali remains a fist measure. One/two cups can be selected, all totals recalculate, and no volume conversion is inferred. Optional snacks exclude extra rice/ugali meals. Preparation-specific warnings retain full distinct reasons and only offer assessed alternatives. The short guidance list prioritizes foods present in the plan; it is not an exhaustive allergy or interaction assessment. Named medicines are recorded in new plan inputs; class-only historical CCB alerts request pharmacist confirmation. Sodium is labelled Sodiamu, with salt equivalent described as total dietary salt, not extra cooking allowance.
 
 Verification includes real PDF parsing/text bounds, Unicode font embedding, long-content pagination, popup-free PDF download/error/retry behavior, print readiness, offline asset provisioning, and the existing clinical/synchronization regression suite. A local Windows Chrome offline check downloaded a valid PDF with no popup. Local clinical-content review and checks on the deployed app remain necessary.
+# Personalized food-choice guide
+
+Newly generated plans include a saved, versioned regional food/preparation guide.
+The review panel supports search and status filtering. The export checkbox adds
+the complete guide to patient-only or full documents, including shared text.
+Reference portions are examples, not extra foods to add to the daily plan.
+Incomplete or positive screening prevents a suitable label; exclusions remain
+explicit. Older plans show guide unavailable until regenerated and reviewed.
+No additional SQL migration is required: the guide travels in the existing
+meal_plan JSON snapshot, including approval history and manual revision sync.
+
+Generated days limit repeated foods to two appearances as a practical variety
+constraint, not a clinical intake limit. Snacks are included in daily totals.
+If variety and availability make targets infeasible, review unmet requirements.

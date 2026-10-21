@@ -1,3 +1,4 @@
+import FoodChoiceGuideReview from './FoodChoiceGuideReview';
 import FoodGuidanceReview from './FoodGuidanceReview';
 import { buildMealDocument } from './mealDocument';
 import { localizePrep } from '../../lib/clinical/mealLocalization';
@@ -20,7 +21,7 @@ export default function NutritionPlanReview({ plan, onChange, language, editable
   const action = (run: () => GeneratedMealPlan) => { try { onChange?.(run()); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Review failed'); } };
   return <section className="border rounded-lg p-3 mb-3 text-xs" aria-label={sw ? 'Uhakiki wa mpango' : 'Plan review'}>
     <details className="mb-3"><summary>{sw?'Vipimo na tathmini iliyotumika':'Measurements and assessment used'}</summary>{buildMealDocument(plan,plan.patientCode,language).sections[1]?.blocks[0].lines.map((line,i)=><p className="mt-1" key={i}>{line}</p>)}</details>
-    <FoodGuidanceReview plan={plan} language={language} />
+    <FoodGuidanceReview plan={plan} language={language} /><FoodChoiceGuideReview plan={plan} language={language} />
     <p role="status" className="font-bold text-amber-900 mb-2">{planStatusText(plan, language)}</p>
     <p className="text-slate-600 mb-2">{sw ? 'Jumla ya mpango / lengo; sodiamu ni kikomo.' : 'Planned total / target; sodium is a limit. Completeness does not replace clinical approval.'}</p>
     <dl className="grid grid-cols-2 gap-2 mb-3">{[

@@ -39,9 +39,11 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
   };
   const snackFoods=shortlist.filter(snackEligible);
   const prepFor = (id: string) => supportedPreparations(candidates.find((f) => f.id === id)!).find((p) => evalFoodForPatient(id, p, foodConditions).severity === 'Safe')!;
+  const occurrences = new Map<string,number>();
   let meals = plan.meals.map((m) => {
     let starchSeen = false;
     const items = m.items.filter(item => {
+      if (!item.ingredient) { const count=occurrences.get(item.foodId)??0; if(count>=2)return false; occurrences.set(item.foodId,count+1); }
       const food = candidates.find(f => f.id === item.foodId);
       if (!food || item.ingredient || !isMealStarch(food)) return true;
       if (starchSeen) return false;
@@ -58,6 +60,11 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
   for (let step = 0; step < 120; step++) {
     let best = meals, bestScore = score(plan, meals);
     const consider = (trial: DailyMeal[]) => {
+      const counts = new Map<string,number>();
+      for (const m of trial) for (const i of m.items) if (!i.ingredient) counts.set(i.foodId,(counts.get(i.foodId)??0)+1);
+      // Practical variety constraint, not a clinical daily intake limit.
+      if ([...counts.values()].some(n=>n>2)) return;
+      if (trial.some(m=>m.items.filter(i=>!i.ingredient).length>(m.mealType==='Breakfast'?4:5))) return;
       if (trial.some((m) => incompatible(m.items))) return;
       const nextScore = score(plan, trial);
       if (nextScore < bestScore - 0.00001) { bestScore = nextScore; best = trial; }
@@ -89,7 +96,7 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
     if (!meals.some((m) => m.mealType === 'Snack') && sumNutrients(meals.flatMap((m) => m.items)).calories < plan.targets.tdee * 0.9) {
       for (let a = 0; a < snackFoods.length; a++) for (let b = a + 1; b < snackFoods.length; b++) {
         const items = [snackFoods[a], snackFoods[b]].map((food) => makeMealItem(food, Math.min(0.5, getPracticalPortionLimit(food, 'Snack')), plan.language, prepFor(food.id)));
-        consider([...meals, { mealType: 'Snack', name_en: 'Optional snacks', name_sw: 'Vitafunwa vya ziada', items, totalCalories: 0 }]);
+        consider([...meals, { mealType: 'Snack', name_en: 'Planned snacks (included in daily totals)', name_sw: 'Vitafunwa vilivyopangwa (vimehesabiwa katika jumla)', items, totalCalories: 0 }]);
       }
     }
     if (best === meals) break;

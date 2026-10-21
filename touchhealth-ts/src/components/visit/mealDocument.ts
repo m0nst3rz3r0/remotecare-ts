@@ -4,8 +4,8 @@ import { planStatusText, planNutritionText, planAssumptions, validatePlan, appro
 import { NUTRITION_POLICY } from '../../lib/clinical/nutritionPolicy';
 
 export type ExportAudience = 'patient' | 'full';
-export interface ExportOptions { audience?: ExportAudience }
-export const EXPORT_FORMAT_VERSION = 'meal-document-4';
+export interface ExportOptions { audience?: ExportAudience; includeFoodGuide?: boolean }
+export const EXPORT_FORMAT_VERSION = 'meal-document-5';
 export interface DocumentBlock { heading?: string; lines: string[]; tone?: 'warning' | 'normal' }
 export interface DocumentSection { title: string; blocks: DocumentBlock[] }
 export interface MealDocument { title:string; patient:string; date:string; status:string; version:string; sections:DocumentSection[] }
@@ -35,6 +35,14 @@ export function buildMealDocument(source: GeneratedMealPlan, patient:string, lan
     ...(drugLines.length ? [{heading:L('Your medicines and food','Dawa zako na chakula'),lines:drugLines,tone:'warning' as const}] : []),
     ...(plan.foodGuidance?.some(g=>plan.meals.some(m=>m.items.some(i=>i.foodId===g.foodId))) ? [{heading:L('Food and preparation precautions','Tahadhari za vyakula na maandalizi'),lines:guidance.filter((_,i)=>plan.meals.some(m=>m.items.some(item=>item.foodId===plan.foodGuidance?.[i]?.foodId)))}] : []),
   ];
+  if (options.includeFoodGuide) {
+    const guide=plan.foodChoiceGuide;
+    patientBlocks.push({heading:L('Personalized food choices','Mwongozo binafsi wa vyakula'),lines:[L('Reference portions are examples, not additions to this daily plan. Confirm portions with your clinician.','Vipimo ni mifano, si vyakula vya kuongeza kwenye mpango huu. Thibitisha kiasi na mtaalamu.'),guide ? [guide.version,guide.datasetVersion,guide.policyVersion].filter(Boolean).join(' | ') : L('Guide unavailable for this older plan. Regenerate and review.','Mwongozo haupatikani kwa mpango wa zamani. Tengeneza tena na uhakiki.')]});
+    for (const [status,en,swLabel] of [['suitable','Suitable in an assessed portion and preparation','Vinavyofaa kwa kiasi na maandalizi yaliyotathminiwa'],['limit','Limit or change preparation','Punguza kiasi au badili maandalizi'],['avoid','Avoid for the stated reason','Epuka kwa sababu iliyoelezwa'],['not_assessed','Not assessed / clinician review','Havijatathminiwa / uhakiki wa mtaalamu']] as const) {
+      const entries=guide?.entries.filter(e=>e.status===status)??[];
+      patientBlocks.push({heading:L(en,swLabel),lines:entries.length?entries.map(e=>(sw?e.name_sw:e.name_en)+' - '+localizePrep(e.preparation,language)+'; '+(sw?e.portion_sw:e.portion_en)+' ('+e.grams+' g). '+e.reasons.map(r=>sw?r.message_sw:r.message_en).join(' ')+(e.alternativePreparation?L(' Alternative preparation: ',' Maandalizi mbadala: ')+localizePrep(e.alternativePreparation,language):'')+(!e.available?L(' Not marked available.',' Hakijaorodheshwa kuwa kinapatikana.') : '')):[L('No entries in this category.','Hakuna vyakula katika kundi hili.')]});
+    }
+  }
   const input=plan.inputSnapshot, a=plan.assessment;
   const answer=(v:unknown)=>v==='no'?L('No','Hapana'):v==='yes'?L('Yes - review required','Ndiyo - uhakiki unahitajika'):L('Not assessed','Haijatathminiwa');
   const activity:Record<string,string>={Sedentary:'Kukaa zaidi',Light:'Nyepesi',Moderate:'Wastani',Active:'Hai','Very Active':'Hai sana'};

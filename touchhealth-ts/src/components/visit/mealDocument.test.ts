@@ -25,7 +25,7 @@ describe('shared meal document',()=>{
   expect(html).toContain('Sodiamu');expect(html).not.toContain('1500mg</div>');expect(html).not.toContain('...');
   for(const section of full.sections)for(const block of section.blocks)for(const line of block.lines)expect(text).toContain(line);
   expect(text).toContain('Tunda pembeni ya mlo:');expect(documentPlainText(buildMealDocument(plan,plan.patientCode,'en'))).toContain('Fruit alongside meal:');
-  expect(JSON.stringify(plan)).toBe(before);expect(html).toContain('meal-document-4');
+  expect(JSON.stringify(plan)).toBe(before);expect(html).toContain('meal-document-5');
  });
  it('escapes identifiers and labels stale, incomplete and legacy documents',()=>{
   expect(buildDietarySlipHtml(plan,'<script>bad</script>','en')).toContain('&lt;script&gt;');
@@ -34,7 +34,7 @@ describe('shared meal document',()=>{
  });
  it('embeds a Unicode font and exports searchable, bounded text on all PDF pages offline',async()=>{
   vi.stubGlobal('fetch',vi.fn().mockRejectedValue(new Error('offline')));
-  const doc=buildMealDocument(plan,plan.patientCode,'sw');
+  const doc=buildMealDocument(plan,plan.patientCode,'sw',{includeFoodGuide:true});
   doc.sections[0].blocks.push({heading:'Unicode test',lines:['Vikombe 2 vya uji - jumla 500 g; Kiswahili: urefu, nyuzinyuzi, sodiamu.',...Array.from({length:18},()=> 'Long content for pagination and wrapping. '.repeat(10))]});
   const font=new Uint8Array(readFileSync(new URL('../../assets/fonts/NotoSans-Regular.ttf',import.meta.url)));
   const bytes=await renderer.renderMealDocumentPdf(doc,font);
@@ -45,7 +45,7 @@ describe('shared meal document',()=>{
   for(let i=1;i<=loaded.numPages;i++){
     const page=await loaded.getPage(i),content=await page.getTextContent();const strings=content.items.filter(x=>'str'in x);
     const current=strings.map(x=>x.str).join(' ');text+=current;
-    expect(current).toContain('TEST-A-F0001');expect(current).toContain(doc.status);expect(current).toContain('meal-document-4');
+    expect(current).toContain('TEST-A-F0001');expect(current).toContain(doc.status);expect(current).toContain('meal-document-5');
     expect(strings.every(x=>x.transform[4]>=41&&x.transform[5]>=28&&x.transform[5]<=810&&x.transform[4]+x.width<=555)).toBe(true);
   }
   expect(text).toContain('Vikombe 2 vya uji');expect(text).toContain('nyuzinyuzi');expect(fetch).not.toHaveBeenCalled();

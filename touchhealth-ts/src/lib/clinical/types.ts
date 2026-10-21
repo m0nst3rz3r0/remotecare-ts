@@ -114,6 +114,7 @@ export interface DrugFoodInteraction {
 }
 
 export interface GeneratedMealPlan {
+  foodChoiceGuide?: import('./foodChoiceGuide').FoodChoiceGuide;
   foodGuidance?: FoodGuidance[];
   schemaVersion?: 2;
   id?: string;

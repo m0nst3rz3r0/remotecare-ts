@@ -191,3 +191,21 @@ it('keeps routine porridge to one cup, one staple per meal, and reports macro ga
  expect(result.validation?.issues.map(i=>i.code)).toEqual(expect.arrayContaining(['carbohydrate_target','fat_target']));
  expect(result.validation?.status).not.toBe('complete');
 });
+
+it('saves all regional food preparations with guarded advice and optional export',()=>{
+ const reviewed=generateMealPlan({...base,assessment:screened()});
+ const guide=reviewed.foodChoiceGuide!;
+ expect(guide.entries.length).toBeGreaterThan(20);
+ expect(guide.entries.some(e=>e.status==='suitable')).toBe(true);
+ const pending=generateMealPlan(base);
+ expect(pending.foodChoiceGuide!.entries.some(e=>e.status==='suitable')).toBe(false);
+ const excluded=guide.entries.find(e=>e.status==='suitable')!;
+ const next=generateMealPlan({...base,assessment:{...screened(),excludedFoodIds:[excluded.foodId]}});
+ expect(next.foodChoiceGuide!.entries.filter(e=>e.foodId===excluded.foodId).every(e=>e.status==='avoid')).toBe(true);
+ const before=JSON.stringify(reviewed);
+ expect(buildDietarySlipHtml(reviewed,reviewed.patientCode,'en',{includeFoodGuide:true})).toContain('Personalized food choices');
+ expect(buildDietarySlipHtml(reviewed,reviewed.patientCode,'sw',{includeFoodGuide:true})).toContain('Mwongozo binafsi wa vyakula');
+ expect(JSON.stringify(reviewed)).toBe(before);
+ const counts=new Map<string,number>();for(const meal of reviewed.meals)for(const item of meal.items)if(!item.ingredient)counts.set(item.foodId,(counts.get(item.foodId)??0)+1);
+ expect([...counts.values()].every(n=>n<=2)).toBe(true);
+});

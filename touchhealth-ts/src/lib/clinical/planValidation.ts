@@ -34,7 +34,7 @@ export function sumNutrients(items: MealItem[]): NutrientTotals {
   return total;
 }
 export function planSignature(plan: GeneratedMealPlan): string {
-  return dataFingerprint({ inputs: plan.inputFingerprint, meals: plan.meals, targets: plan.targets, dataset: plan.datasetVersion, policy: plan.policyVersion });
+  return dataFingerprint({ inputs: plan.inputFingerprint, meals: plan.meals, foodChoiceGuide: plan.foodChoiceGuide, targets: plan.targets, dataset: plan.datasetVersion, policy: plan.policyVersion });
 }
 export function isPlanStale(plan: GeneratedMealPlan, input?: NutritionInputs): boolean {
   return !!plan.stale || (plan.schemaVersion === 2 && (plan.datasetVersion !== getClinicalDataState().version || plan.policyVersion !== NUTRITION_POLICY.version
