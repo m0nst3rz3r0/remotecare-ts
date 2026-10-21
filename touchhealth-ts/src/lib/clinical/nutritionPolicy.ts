@@ -1,7 +1,7 @@
 import type { NutritionAssessment } from './types';
 
 export const NUTRITION_POLICY = {
-  version: 'adult-dm-htn-2.4.0',
+  version: 'adult-dm-htn-2.5.0',
   reviewStatus: 'pending_local_clinical_review',
   reviewedBy: null,
   reviewedAt: null,
@@ -10,6 +10,7 @@ export const NUTRITION_POLICY = {
   carbohydrateTolerance: 0.20,
   fatTolerance: 0.20,
   sources: [
+    { title: 'Diabetes UK: glycaemic index and carbohydrate portions', url: 'https://www.diabetes.org.uk/living-with-diabetes/eating/carbohydrates-and-diabetes/glycaemic-index-and-diabetes' },
     { title: 'NICE low-energy diet safeguards', url: 'https://www.nice.org.uk/guidance/ng246/chapter/Physical-activity-and-diet' },
     { title: 'WHO sodium and salt equivalents', url: 'https://www.who.int/news-room/fact-sheets/detail/sodium-reduction' },
     { title: 'NHS amlodipine food precautions', url: 'https://www.nhs.uk/medicines/amlodipine/' },

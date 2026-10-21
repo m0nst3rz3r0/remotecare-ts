@@ -56,6 +56,7 @@ export interface ClinicalRule {
 }
 
 export interface EvaluationResult {
+  portionControlled?: boolean;
   severity: Severity;
   message_en: string;
   message_sw: string;

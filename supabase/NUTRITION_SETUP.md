@@ -49,6 +49,15 @@ Portions now retain grams per household unit and bilingual display text. Prepare
 Verification includes real PDF parsing/text bounds, Unicode font embedding, long-content pagination, popup-free PDF download/error/retry behavior, print readiness, offline asset provisioning, and the existing clinical/synchronization regression suite. A local Windows Chrome offline check downloaded a valid PDF with no popup. Local clinical-content review and checks on the deployed app remain necessary.
 # Personalized food-choice guide
 
+Plain cooked maize ugali and selected unsweetened maize/wheat porridges are
+portion-controlled choices rather than automatic exclusions for their GI alone.
+Only explicitly listed catalogue rules receive this policy correction. Other
+restrictions continue to block generation; sugar-added and fried preparations
+do not inherit eligibility. The selected available-food list is also the
+patient's affordable-food list, not a price estimate. Wholegrain substitutions
+are optional and must come from this list. A limited selection may produce an
+incomplete day with explicit unmet targets. No SQL migration is required.
+
 Patient exports now summarize food choices and practical advice on page one,
 followed by sample meal combinations on page two. Unfinished screening keeps
 the examples provisional; it never unlocks a suitable-food label. Detailed

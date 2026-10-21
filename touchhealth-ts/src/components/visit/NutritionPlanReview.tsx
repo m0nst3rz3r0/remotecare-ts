@@ -5,7 +5,7 @@ import { localizePrep } from '../../lib/clinical/mealLocalization';
 import { useState } from 'react';
 import { approvePlan, editPlanItem, planStatusText, planAssumptions, sumNutrients } from '../../lib/clinical/planValidation';
 import { getFoodsForZone, getFoodsSync, supportedPreparations } from '../../lib/clinical/dataLoader';
-import { evalFoodForPatient } from '../../lib/clinical/foodSafety';
+import { isMealEligible } from '../../lib/clinical/foodSafety';
 import { getDeviceHardwareId } from '../../services/deviceManager';
 import { useAuthStore } from '../../store/useAuthStore';
 import { NUTRITION_POLICY } from '../../lib/clinical/nutritionPolicy';
@@ -37,10 +37,10 @@ export default function NutritionPlanReview({ plan, onChange, language, editable
       {plan.meals.map((meal,mi) => <div key={mi} className="my-2"><p className="font-semibold">{sw ? meal.name_sw : meal.name_en}</p>{meal.items.map((item,ii) => {
         if (item.ingredient) return <p key={ii}>{sw ? item.name_sw : item.name_en}: {item.grams}g ({sw ? 'kiungo' : 'ingredient'})</p>;
         const existingFood = getFoodsSync().find(f => f.id === item.foodId);
-        const preps = (existingFood ? supportedPreparations(existingFood) : []).filter((p) => evalFoodForPatient(item.foodId,p,[...(plan.conditions ?? []), ...(plan.inputSnapshot?.medicationIds ?? [])]).severity === 'Safe');
+        const preps = (existingFood ? supportedPreparations(existingFood) : []).filter((p) => isMealEligible(item.foodId,p,[...(plan.conditions ?? []), ...(plan.inputSnapshot?.medicationIds ?? [])]));
         return <div key={ii} className="flex flex-wrap gap-1 mb-2">
-          <select aria-label="Substitute food" className="border rounded p-1 max-w-full" value={item.foodId} onChange={(e) => { const food = candidates.find((f) => f.id === e.target.value)!; const prep = supportedPreparations(food).find((p) => evalFoodForPatient(food.id,p,[...(plan.conditions ?? []), ...(plan.inputSnapshot?.medicationIds ?? [])]).severity === 'Safe'); if (prep) action(() => editPlanItem(plan,mi,ii,food.id,0.5,prep)); }}>
-            {candidates.filter((f) => f.id === item.foodId || supportedPreparations(f).some((p) => evalFoodForPatient(f.id,p,[...(plan.conditions ?? []), ...(plan.inputSnapshot?.medicationIds ?? [])]).severity === 'Safe')).map((f) => <option key={f.id} value={f.id}>{sw ? f.name_sw : f.name_en}</option>)}
+          <select aria-label="Substitute food" className="border rounded p-1 max-w-full" value={item.foodId} onChange={(e) => { const food = candidates.find((f) => f.id === e.target.value)!; const prep = supportedPreparations(food).find((p) => isMealEligible(food.id,p,[...(plan.conditions ?? []), ...(plan.inputSnapshot?.medicationIds ?? [])])); if (prep) action(() => editPlanItem(plan,mi,ii,food.id,0.5,prep)); }}>
+            {candidates.filter((f) => f.id === item.foodId || supportedPreparations(f).some((p) => isMealEligible(f.id,p,[...(plan.conditions ?? []), ...(plan.inputSnapshot?.medicationIds ?? [])]))).map((f) => <option key={f.id} value={f.id}>{sw ? f.name_sw : f.name_en}</option>)}
           </select>
           <label>{sw ? 'Vipimo vya kawaida' : 'Household units'}<input type="number" min="0.5" step="0.5" className="border rounded p-1 w-16" value={(item.portionMultiplier ?? 1) * (candidates.find((f) => f.id === item.foodId)?.serving?.default_units ?? 1)} onChange={(e) => action(() => editPlanItem(plan,mi,ii,item.foodId,Number(e.target.value)/(candidates.find((f) => f.id === item.foodId)?.serving?.default_units ?? 1),item.preparation))} /></label>
           <select aria-label="Preparation" className="border rounded p-1" value={item.prepMethod} onChange={(e) => action(() => editPlanItem(plan,mi,ii,item.foodId,item.portionMultiplier ?? 1,e.target.value))}>{preps.map((p) => <option key={p} value={p}>{localizePrep(p,language)}</option>)}</select>

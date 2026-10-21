@@ -1,3 +1,4 @@
+import { applyStaplePolicy, CONTROLLED_STAPLES, isPortionAdvice } from './staplePolicy';
 // RCRO NutritionTool — food safety evaluator
 
 import { getRulesSync, getFoodsForZone, getFoodsSync, isFoodsReady, supportedPreparations } from './dataLoader';
@@ -20,7 +21,7 @@ function shortenReason(message: string): string {
 export function getFoodGuidance(conditions: string[], zone: TZRegion, priorityFoodIds: string[] = []): FoodGuidance[] {
   const result: FoodGuidance[] = [];
   for (const food of getFoodsForZone(zone).slice().sort((a,b)=>Number(priorityFoodIds.includes(b.id))-Number(priorityFoodIds.includes(a.id)))) {
-    const rules = getRulesSync().filter(r => r.target_food_id === food.id && r.safety_level !== 'Safe' && conditionMatches(r.condition, conditions));
+    const rules = getRulesSync().map(applyStaplePolicy).filter(r => r.target_food_id === food.id && r.safety_level !== 'Safe' && conditionMatches(r.condition, conditions));
     for (const prep of new Set(rules.map(r => r.target_prep_method))) {
       const matching = rules.filter(r => r.target_prep_method === prep);
       const alternative = supportedPreparations(food).find(p => evalFoodForPatient(food.id,p,conditions).severity === 'Safe');
@@ -39,7 +40,7 @@ export function evalFoodForPatient(
   prepMethod: string,
   conditions: string[],
 ): EvaluationResult {
-  const rules = getRulesSync();
+  const rules = getRulesSync().map(applyStaplePolicy);
   const food = getFoodsSync().find((f) => f.id === foodId);
   if (!isFoodsReady() || !food || !supportedPreparations(food).includes(prepMethod.toLowerCase())) return {
     severity: 'not_assessed', message_en: 'Food or preparation has not been assessed with a validated dataset.',
@@ -54,7 +55,7 @@ export function evalFoodForPatient(
 
   for (const sev of ['Danger', 'Warning', 'Safe'] as const) {
     const r = applicable.find(x => x.safety_level === sev);
-    if (r) return { severity: sev, message_en: r.alert_message_en, message_sw: r.alert_message_sw,
+    if (r) return { portionControlled: sev==='Warning' && CONTROLLED_STAPLES.has(foodId) && /boiled|steamed|uji|ugali/.test(prepMethod.toLowerCase()) && applicable.every(rule=>rule.safety_level==='Safe'||isPortionAdvice(rule)), severity: sev, message_en: r.alert_message_en, message_sw: r.alert_message_sw,
       reasons: applicable.map((rule) => ({ ruleId: rule.id, message_en: rule.alert_message_en, message_sw: rule.alert_message_sw })) };
   }
 
@@ -135,7 +136,7 @@ export function getRecommendedFoods(conditions: string[], zone: TZRegion, availa
 }
 
 export function getAvoidFoods(conditions: string[], zone: TZRegion) {
-  const rules = getRulesSync();
+  const rules = getRulesSync().map(applyStaplePolicy);
   const foods = getFoodsForZone(zone);
   const avoidFoodIds = new Set<string>();
 
@@ -159,4 +160,9 @@ export function getAvoidFoods(conditions: string[], zone: TZRegion) {
         reason_sw: shortenReason(rule?.alert_message_sw ?? 'Epuka kwa hali yako.'),
       };
     });
+}
+
+export function isMealEligible(foodId:string,prep:string,conditions:string[]):boolean {
+ const result=evalFoodForPatient(foodId,prep,conditions);
+ return result.severity==='Safe'||result.portionControlled===true;
 }

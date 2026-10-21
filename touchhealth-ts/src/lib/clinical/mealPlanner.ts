@@ -7,7 +7,7 @@ import { getFoodsForZone, getZonePresets, getClinicalDataState, isFoodsReady } f
 import { calculateBMI } from './calculators';
 import { normalizeConditionList } from './conditions';
 import { getDrugFoodInteractions } from './drugInteractions';
-import { evalFoodForPatient, getAvoidFoods, getRecommendedFoods, getFoodGuidance } from './foodSafety';
+import { isMealEligible, getAvoidFoods, getRecommendedFoods, getFoodGuidance } from './foodSafety';
 import { getMealTemplates, STARCH_EGG_INCOMPATIBLE, type MealBlueprint } from './mealTemplates';
 import { computeFoodMacros, getPracticalPortionLimit } from './mealPortions';
 import { computeNutritionTargets, getNutritionRiskLevel } from './nutritionEngine';
@@ -79,7 +79,7 @@ function resolveBlueprintSlot(
     })
     .sort((a, b) => sortZoneCandidates(a, b, coreIds));
 
-  return candidates.find(f => evalFoodForPatient(f.id, prepLabel, conditions).severity === 'Safe');
+  return candidates.find(f => isMealEligible(f.id, prepLabel, conditions));
 }
 
 function findFallbackProtein(
@@ -96,7 +96,7 @@ function findFallbackProtein(
       if (!isProteinFood(food)) return false;
       if (excludeFoodIds.has(food.id)) return false;
       if (availableFoodIds && !availableFoodIds.has(food.id)) return false;
-      return evalFoodForPatient(food.id, 'Boiled', conditions).severity === 'Safe';
+      return isMealEligible(food.id, 'Boiled', conditions);
     })
     .sort((a, b) => sortZoneCandidates(a, b, coreIds))[0];
 }

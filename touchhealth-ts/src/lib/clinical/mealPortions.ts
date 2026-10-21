@@ -1,4 +1,5 @@
 import type { FoodItem } from './types';
+import { CONTROLLED_STAPLES } from './staplePolicy';
 
 type MealType = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
 
@@ -25,6 +26,7 @@ export function getPracticalPortionLimit(food: FoodItem, mealType: MealType): nu
   const categories = Array.isArray(food.category) ? food.category : [food.category];
 
   const toMultiplier = (maxUnits: number) => Math.max(0.5, maxUnits / Math.max(defaultUnits, 0.5));
+  if(CONTROLLED_STAPLES.has(food.id))return toMultiplier(1);
 
   if ((!/ugali|stiff/.test(name) && /porridge|uji/.test(name)) || /tea cup|kikombe cha chai/.test(unit)) {
     // Routine generated portions; larger clinician-edited servings remain possible.
@@ -67,7 +69,7 @@ export function formatMealPortion(
       ? (units === 1 ? 'Kikombe 1 cha uji' : 'Vikombe '+formatQuantity(units)+' vya uji')
       : formatQuantity(units)+' '+(units === 1 ? 'cup' : 'cups')+' of prepared porridge';
     if (/fist/.test(food.serving.unit_en)) return formatQuantity(units)+' '+(lang === 'sw' ? 'ngumi' : units === 1 ? 'fist' : 'fists');
-    const plural = units === 1 ? unit : lang === 'en' ? (unit.endsWith('s') ? unit : unit+'s') : unit.replace(/^kikombe/,'vikombe').replace(/^kijiko/,'vijiko').replace(/^kipande/,'vipande').replace(/^tunda/,'matunda');
+    const plural = units === 1 ? unit : lang === 'en' ? unit.replace(/^(.*?)(\s*\(.*\))?$/,(_all,head:string,tail:string|undefined)=>(head.endsWith('s')?head:head+'s')+(tail??'')) : unit.replace(/^kikombe/,'vikombe').replace(/^kijiko/,'vijiko').replace(/^kipande/,'vipande').replace(/^tunda/,'matunda');
     return formatQuantity(units)+' '+plural;
   }
 

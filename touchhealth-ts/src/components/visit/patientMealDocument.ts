@@ -11,7 +11,7 @@ export function patientMealDocument(plan:GeneratedMealPlan,language:'en'|'sw',fa
   const provisional=guide?.provisional !== false || plan.stale || plan.validation?.status!=='complete';
   const choices:DocumentBlock[]=[];
   for(const [status,en,translated] of [['suitable','Foods to eat in the agreed portions','Vyakula vya kula kwa kiasi kilichoshauriwa'],['limit','Foods to eat in smaller amounts','Vyakula vya kula kwa kiasi kidogo'],['avoid','Foods and preparations to avoid','Vyakula na maandalizi ya kuepuka']] as const){
-    const entries=(guide?.entries??[]).filter(e=>e.status===status).sort((a,b)=>Number(used.has(b.foodId))-Number(used.has(a.foodId)));
+    const entries=(guide?.entries??[]).filter(e=>e.status===status && e.available).sort((a,b)=>Number(used.has(b.foodId))-Number(used.has(a.foodId)));
     const unique=[...new Map(entries.map(e=>[e.foodId,e])).values()].slice(0,3);
     choices.push({heading:L(en,translated),lines:unique.length?unique.map(e=>neutralFoodName(e,language)+' — '+localizePrep(e.preparation,language)+(status==='avoid'?': '+briefReason(e.reasons.map(r=>sw?r.message_sw:r.message_en),language):'; '+(sw?e.portion_sw:e.portion_en)+' ('+e.grams+' g)')):[L('Ask your clinician to confirm your choices.','Muulize mtaalamu athibitishe vyakula vinavyokufaa.')]});
   }

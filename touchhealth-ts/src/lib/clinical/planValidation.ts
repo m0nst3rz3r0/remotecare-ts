@@ -2,7 +2,7 @@ import { isMealStarch, foodFamily, dailyFoodBudget } from './mealComposition';
 import { dataFingerprint, getClinicalDataState, getFoodsSync, getFoodsForZone } from './dataLoader';
 import { NUTRITION_POLICY } from './nutritionPolicy';
 import { canonicalizeCondition, normalizeConditionList } from './conditions';
-import { evalFoodForPatient } from './foodSafety';
+import { isMealEligible } from './foodSafety';
 import { computeFoodMacros, formatMealPortion, getPracticalPortionLimit, getServingGrams, roundPortion } from './mealPortions';
 import type { FoodItem, GeneratedMealPlan, MealItem, NutritionInputs, NutrientTotals, PlanIssue, NutritionApproval } from './types';
 
@@ -78,7 +78,7 @@ export function validatePlan(plan: GeneratedMealPlan): GeneratedMealPlan {
   if (!['Breakfast','Lunch','Dinner'].every(type => plan.meals.some(m => m.mealType === type && m.items.some(i => !i.ingredient)))) add('empty_meal', 'One or more main meals could not be filled. Expand available food choices.', 'Baadhi ya milo haijakamilika. Ongeza vyakula vinavyopatikana.');
   for (const item of plan.meals.flatMap((m) => m.items)) {
     if (assessment?.excludedFoodIds.includes(item.foodId) || (assessment?.availableFoodIds && !assessment.availableFoodIds.includes(item.foodId))) add('excluded_food', 'A selected food is excluded or unavailable.', 'Chakula kilichochaguliwa kimezuiwa au hakipatikani.', true);
-    if (evalFoodForPatient(item.foodId, item.preparation, [...(plan.conditions ?? []), ...(plan.inputSnapshot?.medicationIds ?? [])]).severity !== 'Safe') add('food_review', `${item.name_en}: food/preparation requires review.`, `${item.name_sw}: chakula/maandalizi yanahitaji uhakiki.`, true);
+    if (!isMealEligible(item.foodId, item.preparation, [...(plan.conditions ?? []), ...(plan.inputSnapshot?.medicationIds ?? [])])) add('food_review', `${item.name_en}: food/preparation requires review.`, `${item.name_sw}: chakula/maandalizi yanahitaji uhakiki.`, true);
   }
   if (Math.abs(totals.calories - plan.targets.tdee) > plan.targets.tdee * NUTRITION_POLICY.calorieTolerance) add('energy_target', `Energy: ${totals.calories} / ${plan.targets.tdee} kcal; outside ±10%.`, `Nishati: ${totals.calories} / ${plan.targets.tdee} kcal; nje ya ±10%.`);
   if (Math.abs(totals.protein - plan.targets.proteinG) > plan.targets.proteinG * NUTRITION_POLICY.proteinTolerance) add('protein_target', `Protein: ${totals.protein} / ${plan.targets.proteinG}g; outside ±20%.`, `Protini: ${totals.protein} / ${plan.targets.proteinG}g; nje ya ±20%.`);
@@ -114,7 +114,7 @@ export function editPlanItem(plan: GeneratedMealPlan, mealIndex: number, itemInd
   const food = getFoodsForZone(plan.region).find((f) => f.id === foodId);
   const meal = plan.meals[mealIndex];
   if (!food || !meal || !meal.items[itemIndex] || meal.items[itemIndex].ingredient) throw new Error('Select an assessed regional food. Edit cooking ingredients in the assessment.');
-  if (evalFoodForPatient(foodId, prep, [...(plan.conditions ?? []), ...(plan.inputSnapshot?.medicationIds ?? [])]).severity !== 'Safe' || plan.assessment.excludedFoodIds.includes(foodId)
+  if (!isMealEligible(foodId, prep, [...(plan.conditions ?? []), ...(plan.inputSnapshot?.medicationIds ?? [])]) || plan.assessment.excludedFoodIds.includes(foodId)
     || (plan.assessment.availableFoodIds && !plan.assessment.availableFoodIds.includes(foodId))) throw new Error('Food or preparation is restricted, unavailable, or not assessed.');
   if (!Number.isFinite(multiplier) || multiplier <= 0) throw new Error('Portion must be a positive number.');
   const rounded = roundPortion(food, multiplier);

@@ -56,7 +56,7 @@ export function mealFoodName(item: MealItem, lang: 'en' | 'sw'): string {
 
 /** Keep preparation in its own label, especially when showing an alternative method. */
 export function neutralFoodName(food:{name_en:string;name_sw:string},lang:'en'|'sw'):string {
-  if(lang==='en')return food.name_en.replace(/,?\s*(boiled|fried|raw|cooked|steamed|roasted|grilled)(\s+or\s+steamed)?(\s+without\s+salt)?/gi,'').replace(/\s+/g,' ').trim();
+  if(lang==='en')return food.name_en.replace(/,?\s*(boiled|fried|raw|cooked|steamed|roasted|grilled)(\s+or\s+steamed)?(\s+without\s+salt)?/gi,'').replace(/\(\s*\)/g,'').replace(/\s+/g,' ').trim();
   return food.name_sw.replace(/\s+Aliyechemshwa au Kupikwa kwa Mvuke/gi,'')
     .replace(/\s+(Vilivyochemshwa|Yaliyopikwa bila Chumvi|Iliyopikwa bila Mifupa|Iliyochemshwa|Uliopikwa|Mbichi)/gi,'')
     .replace(/\s+(wa Kuchemsha\/Choma|la Kuchemsha)/gi,'').trim();

@@ -1,3 +1,6 @@
+import { isMealEligible, getAvoidFoods } from './foodSafety';
+import { balanceDailyMeals } from './dailyBalancer';
+import { formatMealPortion } from './mealPortions';
 import { foodFamily, dailyFoodBudget } from './mealComposition';
 import { neutralFoodName } from './mealLocalization';
 import { getDrugFoodInteractions } from './drugInteractions';
@@ -224,4 +227,35 @@ it('recognizes unsalted taro as starch and shares daily budgets across aliases',
  expect(neutralFoodName({name_en:'Fish, Boiled or Steamed',name_sw:'Samaki Aliyechemshwa au Kupikwa kwa Mvuke'},'sw')).toBe('Samaki');
  const duplicate={...plan,meals:plan.meals.map((m,i)=>i===0?{...m,items:[...m.items,makeMealItem(taro,1,'en','boiled'),makeMealItem(taro,1,'en','boiled')]}:m)};
  expect(validatePlan(duplicate).validation?.issues.some(i=>i.code==='multiple_starches')).toBe(true);
+});
+
+it('removes the exact unsalted-taro plus sorghum combination before balancing',()=>{
+ const plan=generateMealPlan({...base,assessment:screened()});
+ const taro=foods.find(f=>f.id==='food_161')!;
+ const sorghum=foods.find(f=>/Sorghum Ugali/i.test(f.name_en))!;
+ expect(sorghum).toBeDefined();
+ const trial={...plan,meals:[{mealType:'Lunch' as const,name_en:'Lunch',name_sw:'Mchana',totalCalories:0,items:[makeMealItem(taro,2,'en','boiled'),makeMealItem(sorghum,2,'en','boiled')]}]};
+ const result=balanceDailyMeals(trial);
+ for(const meal of result)expect(meal.items.filter(i=>!i.ingredient&&isMealStarch(foods.find(f=>f.id===i.foodId)!))).toHaveLength(meal.mealType==='Snack'?0:1);
+ expect(formatMealPortion(taro,2,'en')).toBe('2 pieces (medium)');
+ expect(neutralFoodName({name_en:'Beef, Boneless (Cooked)',name_sw:'Nyama'},'en')).toBe('Beef, Boneless');
+});
+
+it('allows a controlled plain maize staple when it is the only available starch',()=>{
+ expect(evalFoodForPatient('food_014','boiled',['DM']).severity).toBe('Warning');
+ expect(isMealEligible('food_014','boiled',['DM'])).toBe(true);
+ expect(isMealEligible('food_014','boiled',['DM','MED_METFORMIN'])).toBe(true);
+ expect(isMealEligible('food_014','unsupported',['DM'])).toBe(false);
+ expect(getAvoidFoods(['DM'],'Lake Zone').some(f=>/Maize Ugali/.test(f.name_en))).toBe(false);
+ const assessment={...screened(),availableFoodIds:['food_014','food_048','food_096']};
+ const plan=generateMealPlan({...base,assessment});
+ expect(plan.meals.flatMap(m=>m.items).some(i=>i.foodId==='food_014')).toBe(true);
+ expect(plan.meals.flatMap(m=>m.items).every(i=>assessment.availableFoodIds.includes(i.foodId))).toBe(true);
+ expect(plan.foodChoiceGuide!.entries.filter(e=>e.foodId==='food_014').some(e=>e.status==='limit')).toBe(true);
+ expect(plan.validation?.status==='complete'||!!plan.validation?.issues.length).toBe(true);
+});
+it('keeps additional patient restrictions stronger than staple portion advice',()=>{
+ setClinicalDataForTests(foods,[...rules,{id:'patient_specific_restriction',target_food_id:'food_014',target_prep_method:'Any',condition:'DM',safety_level:'Danger',alert_message_en:'Specific restriction',alert_message_sw:'Kizuizi maalum'}]);
+ expect(evalFoodForPatient('food_014','boiled',['DM']).severity).toBe('Danger');
+ expect(isMealEligible('food_014','boiled',['DM'])).toBe(false);
 });

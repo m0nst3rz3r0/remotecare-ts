@@ -1,5 +1,5 @@
 import { getFoodsForZone, getZonePresets, supportedPreparations } from './dataLoader';
-import { evalFoodForPatient } from './foodSafety';
+import { isMealEligible } from './foodSafety';
 import { getPracticalPortionLimit, roundPortion, getServingGrams } from './mealPortions';
 import { makeMealItem, sumNutrients } from './planValidation';
 import { STARCH_EGG_INCOMPATIBLE } from './mealTemplates';
@@ -26,9 +26,10 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
   const candidates = getFoodsForZone(plan.region).filter((f) => {
     const categories = Array.isArray(f.category) ? f.category : [f.category];
     return categories.some((c) => ['carb','protein','fruit','vegetable','veg'].includes(c))
-      && !/sugar|sukari|salt|chumvi|biscuit|mandazi|soda|honey|syrup/i.test(f.name_en + ' ' + f.name_sw)
+      && !/sugar|sukari|biscuit|mandazi|soda|honey|syrup/i.test(f.name_en + ' ' + f.name_sw)
+      && !/^(salt|iodized salt|chumvi)(,|\s*$)/i.test(f.name_en)
       && !assessment.excludedFoodIds.includes(f.id) && (!assessment.availableFoodIds || assessment.availableFoodIds.includes(f.id))
-      && supportedPreparations(f).some((p) => evalFoodForPatient(f.id, p, foodConditions).severity === 'Safe');
+      && supportedPreparations(f).some((p) => isMealEligible(f.id, p, foodConditions));
   }).sort((a, b) => Number(core.has(b.id)) - Number(core.has(a.id)) || a.id.localeCompare(b.id));
   // Keep a balanced candidate shortlist rather than favoring catalogue order.
   const shortlist = [...new Map(['carb','protein','fruit','vegetable'].flatMap((cat) => candidates.filter((f) =>
@@ -38,19 +39,21 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
     return cats.includes('fruit') || /egg|milk|yogurt|yoghurt|groundnut|peanut/i.test(food.name_en);
   };
   const snackFoods=shortlist.filter(snackEligible);
-  const prepFor = (id: string) => supportedPreparations(candidates.find((f) => f.id === id)!).find((p) => evalFoodForPatient(id, p, foodConditions).severity === 'Safe')!;
+  const prepFor = (id: string) => supportedPreparations(candidates.find((f) => f.id === id)!).find((p) => isMealEligible(id, p, foodConditions))!;
   const occurrences = new Map<string,number>();
+  // Existing meal items must be classified even if absent from eligible additions.
+  const catalogue = getFoodsForZone(plan.region);
   let meals = plan.meals.map((m) => {
     let starchSeen = false;
     const items = m.items.filter(item => {
       if (!item.ingredient) { const count=occurrences.get(item.foodId)??0; if(count>=2)return false; occurrences.set(item.foodId,count+1); }
-      const food = candidates.find(f => f.id === item.foodId);
+      const food = catalogue.find(f => f.id === item.foodId);
       if (!food || item.ingredient || !isMealStarch(food)) return true;
       if (starchSeen) return false;
       starchSeen = true;
       return true;
     }).map(item => {
-      const food = candidates.find(f => f.id === item.foodId);
+      const food = catalogue.find(f => f.id === item.foodId);
       if (!food || item.ingredient || item.portionMultiplier == null) return item;
       const limit = getPracticalPortionLimit(food, m.mealType);
       return item.portionMultiplier > limit ? makeMealItem(food, limit, plan.language, item.preparation) : item;
@@ -59,7 +62,7 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
   });
   const consumed=new Map<string,number>();
   meals=meals.map(m=>({...m,items:m.items.flatMap(item=>{
-    const food=candidates.find(f=>f.id===item.foodId);
+    const food=catalogue.find(f=>f.id===item.foodId);
     if(!food || item.ingredient)return [item];
     const family=foodFamily(food),used=consumed.get(family)??0,remaining=dailyFoodBudget(food)-used;
     if(remaining<=0)return [];
@@ -74,7 +77,7 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
       for(const m of trial){
         let starches=0;
         for(const item of m.items){
-          const food=candidates.find(f=>f.id===item.foodId);if(!food||item.ingredient)continue;
+          const food=catalogue.find(f=>f.id===item.foodId);if(!food||item.ingredient)continue;
           if(isMealStarch(food))starches++;
           const family=foodFamily(food),amount=(grams.get(family)??0)+Number(item.grams);
           if(amount>dailyFoodBudget(food))return;
@@ -111,7 +114,7 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
         const cats = Array.isArray(food.category) ? food.category : [food.category];
         if (meal.mealType === 'Dinner' && cats.includes('fruit')) continue;
         if (isMealStarch(food) && meal.items.some((i) => {
-          const f = candidates.find((c) => c.id === i.foodId); return f && !i.ingredient && isMealStarch(f);
+          const f = catalogue.find((c) => c.id === i.foodId); return f && !i.ingredient && isMealStarch(f);
         })) continue;
         const item = makeMealItem(food, Math.min(0.5, getPracticalPortionLimit(food, meal.mealType)), plan.language, prepFor(food.id));
         consider(meals.map((m, index) => index === mi ? { ...m, items: [...m.items, item] } : m));
