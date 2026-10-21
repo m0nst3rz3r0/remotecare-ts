@@ -1,3 +1,5 @@
+import { foodFamily, dailyFoodBudget } from './mealComposition';
+import { neutralFoodName } from './mealLocalization';
 import { getDrugFoodInteractions } from './drugInteractions';
 import { formatMealItemDetail } from './mealLocalization';
 import { refreshNutritionPlans } from '../../services/nutritionRecords';
@@ -208,4 +210,18 @@ it('saves all regional food preparations with guarded advice and optional export
  expect(JSON.stringify(reviewed)).toBe(before);
  const counts=new Map<string,number>();for(const meal of reviewed.meals)for(const item of meal.items)if(!item.ingredient)counts.set(item.foodId,(counts.get(item.foodId)??0)+1);
  expect([...counts.values()].every(n=>n<=2)).toBe(true);
+});
+
+it('recognizes unsalted taro as starch and shares daily budgets across aliases',()=>{
+ const taro=foods.find(f=>f.id==='food_161')!;expect(isMealStarch(taro)).toBe(true);
+ expect(foodFamily(foods.find(f=>f.id==='food_051')!)).toBe(foodFamily(foods.find(f=>f.id==='food_067')!));
+ const plan=generateMealPlan({...base,age:78,weightKg:70,heightCm:137,assessment:screened()});
+ const used=new Map<string,number>();
+ for(const meal of plan.meals){
+  expect(meal.items.filter(i=>!i.ingredient&&isMealStarch(foods.find(f=>f.id===i.foodId)!)).length).toBeLessThanOrEqual(1);
+  for(const item of meal.items){if(item.ingredient)continue;const food=foods.find(f=>f.id===item.foodId)!;const family=foodFamily(food);used.set(family,(used.get(family)??0)+Number(item.grams));expect(used.get(family)!).toBeLessThanOrEqual(dailyFoodBudget(food));}
+ }
+ expect(neutralFoodName({name_en:'Fish, Boiled or Steamed',name_sw:'Samaki Aliyechemshwa au Kupikwa kwa Mvuke'},'sw')).toBe('Samaki');
+ const duplicate={...plan,meals:plan.meals.map((m,i)=>i===0?{...m,items:[...m.items,makeMealItem(taro,1,'en','boiled'),makeMealItem(taro,1,'en','boiled')]}:m)};
+ expect(validatePlan(duplicate).validation?.issues.some(i=>i.code==='multiple_starches')).toBe(true);
 });

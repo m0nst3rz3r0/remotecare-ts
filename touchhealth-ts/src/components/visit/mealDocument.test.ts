@@ -20,7 +20,7 @@ afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();vi.useRealTimers();});
 describe('shared meal document',()=>{
  it('keeps patient/clinician choices, status, portions and sodium terminology aligned',()=>{
   const before=JSON.stringify(plan),full=buildMealDocument(plan,plan.patientCode,'sw'),patient=buildMealDocument(plan,plan.patientCode,'sw',{audience:'patient'});
-  expect(full.sections).toHaveLength(3);expect(patient.sections).toHaveLength(3);
+  expect(full.sections).toHaveLength(3);expect(patient.sections).toHaveLength(2);
   const html=buildDietarySlipHtml(plan,plan.patientCode,'sw'),text=documentPlainText(full);
   expect(html).toContain('Sodiamu');expect(html).not.toContain('1500mg</div>');expect(html).not.toContain('...');
   for(const section of full.sections)for(const block of section.blocks)for(const line of block.lines)expect(text).toContain(line);
@@ -90,7 +90,7 @@ it('prints a clean patient guide with identity, facility and food choices before
  const patient=buildMealDocument(plan,plan.patientCode,'sw',{audience:'patient',facility:'ZamZam HealthCentre'});
  const text=documentPlainText(patient);
  expect(patient.patient).toBe(plan.patientCode);expect(patient.facility).toBe('ZamZam HealthCentre');
- expect(text.indexOf('Vyakula vya kula')).toBeLessThan(text.indexOf('Mfano wa mchanganyiko'));
+ expect(text.indexOf('Vyakula vya kula')).toBeLessThan(text.indexOf('Mfano wa'));
  for(const hidden of ['BMR','BMI','meal-document','foods-c','adult-dm','Rekodi tarehe','UNAHITAJI UHAKIKI'])expect(text).not.toContain(hidden);
  const font=new Uint8Array(readFileSync(new URL('../../assets/fonts/NotoSans-Regular.ttf',import.meta.url)));
  const bytes=await renderer.renderMealDocumentPdf(patient,font);

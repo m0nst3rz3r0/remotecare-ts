@@ -1,9 +1,9 @@
 import { getFoodsForZone, getZonePresets, supportedPreparations } from './dataLoader';
 import { evalFoodForPatient } from './foodSafety';
-import { getPracticalPortionLimit, roundPortion } from './mealPortions';
+import { getPracticalPortionLimit, roundPortion, getServingGrams } from './mealPortions';
 import { makeMealItem, sumNutrients } from './planValidation';
 import { STARCH_EGG_INCOMPATIBLE } from './mealTemplates';
-import { isMealStarch } from './mealComposition';
+import { isMealStarch, foodFamily, dailyFoodBudget } from './mealComposition';
 import type { DailyMeal, GeneratedMealPlan, MealItem } from './types';
 
 function score(plan: GeneratedMealPlan, meals: DailyMeal[]): number {
@@ -57,9 +57,31 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
     });
     return { ...m, items };
   });
+  const consumed=new Map<string,number>();
+  meals=meals.map(m=>({...m,items:m.items.flatMap(item=>{
+    const food=candidates.find(f=>f.id===item.foodId);
+    if(!food || item.ingredient)return [item];
+    const family=foodFamily(food),used=consumed.get(family)??0,remaining=dailyFoodBudget(food)-used;
+    if(remaining<=0)return [];
+    const next=Number(item.grams)>remaining ? makeMealItem(food,remaining/getServingGrams(food,1),plan.language,item.preparation):item;
+    if(Number(next.grams)>remaining)return [];
+    consumed.set(family,used+Number(next.grams));return [next];
+  })}));
   for (let step = 0; step < 120; step++) {
     let best = meals, bestScore = score(plan, meals);
     const consider = (trial: DailyMeal[]) => {
+      const grams=new Map<string,number>();
+      for(const m of trial){
+        let starches=0;
+        for(const item of m.items){
+          const food=candidates.find(f=>f.id===item.foodId);if(!food||item.ingredient)continue;
+          if(isMealStarch(food))starches++;
+          const family=foodFamily(food),amount=(grams.get(family)??0)+Number(item.grams);
+          if(amount>dailyFoodBudget(food))return;
+          grams.set(family,amount);
+        }
+        if(starches>1)return;
+      }
       const counts = new Map<string,number>();
       for (const m of trial) for (const i of m.items) if (!i.ingredient) counts.set(i.foodId,(counts.get(i.foodId)??0)+1);
       // Practical variety constraint, not a clinical daily intake limit.
@@ -84,6 +106,8 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
       }
       if (meal.items.filter((i) => !i.ingredient).length < (meal.mealType === 'Snack' ? 3 : 5)) for (const food of shortlist) {
         if (meal.items.some((i) => i.foodId === food.id) || (meal.mealType === 'Snack' && !snackEligible(food))) continue;
+        // Preserve the regional dinner combination rather than adding breakfast eggs.
+        if (meal.mealType === 'Dinner' && foodFamily(food)==='whole-egg') continue;
         const cats = Array.isArray(food.category) ? food.category : [food.category];
         if (meal.mealType === 'Dinner' && cats.includes('fruit')) continue;
         if (isMealStarch(food) && meal.items.some((i) => {

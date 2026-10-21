@@ -1,3 +1,4 @@
+import { isMealStarch, foodFamily, dailyFoodBudget } from './mealComposition';
 import { dataFingerprint, getClinicalDataState, getFoodsSync, getFoodsForZone } from './dataLoader';
 import { NUTRITION_POLICY } from './nutritionPolicy';
 import { canonicalizeCondition, normalizeConditionList } from './conditions';
@@ -88,6 +89,19 @@ export function validatePlan(plan: GeneratedMealPlan): GeneratedMealPlan {
   if (totals.fiberG != null && totals.fiberG < plan.targets.fiberG) add('fiber_target', `Fibre below ${plan.targets.fiberG}g/day.`, `Nyuzinyuzi ziko chini ya ${plan.targets.fiberG}g/siku.`);
   if (Object.values(plan.targets).some(v => !Number.isFinite(v) || v <= 0) || Object.entries(totals).some(([key,v]) => !['sodiumMg','fiberG'].includes(key) && (!Number.isFinite(v) || Number(v) < 0))
     || plan.meals.flatMap(m=>m.items).some(i=>!Number.isFinite(i.grams) || Number(i.grams)<=0)) add('invalid_nutrients','Invalid quantities or targets prevent completeness.','Vipimo au malengo si sahihi.');
+  const familyGrams=new Map<string,number>();
+  for(const meal of plan.meals){
+    let starches=0;
+    for(const item of meal.items){
+      if(item.ingredient)continue;
+      const food=findFood(item.foodId);if(!food)continue;
+      if(isMealStarch(food))starches++;
+      const family=foodFamily(food),grams=(familyGrams.get(family)??0)+Number(item.grams);
+      familyGrams.set(family,grams);
+      if(grams>dailyFoodBudget(food))add('daily_variety','Repeated food exceeds the routine daily planning budget; adjust or review.','Chakula kilichorudiwa kimezidi kiasi cha kawaida cha mpango; rekebisha au hakiki.');
+    }
+    if(starches>1)add('multiple_starches','Use one main starch in each routine meal.','Tumia chakula kikuu kimoja cha wanga katika kila mlo.');
+  }
   const stale = isPlanStale(plan);
   if (stale) add('stale', 'Inputs or clinical datasets changed. Regenerate and review.', 'Taarifa au data zimebadilika. Tengeneza tena na uhakiki.', true);
   return { ...plan, stale, totals, meals: plan.meals.map((m) => ({ ...m, totalCalories: sumNutrients(m.items).calories })), validation: {

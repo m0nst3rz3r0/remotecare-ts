@@ -49,6 +49,17 @@ Portions now retain grams per household unit and bilingual display text. Prepare
 Verification includes real PDF parsing/text bounds, Unicode font embedding, long-content pagination, popup-free PDF download/error/retry behavior, print readiness, offline asset provisioning, and the existing clinical/synchronization regression suite. A local Windows Chrome offline check downloaded a valid PDF with no popup. Local clinical-content review and checks on the deployed app remain necessary.
 # Personalized food-choice guide
 
+Patient exports now summarize food choices and practical advice on page one,
+followed by sample meal combinations on page two. Unfinished screening keeps
+the examples provisional; it never unlocks a suitable-food label. Detailed
+clinical issues remain in the review panel. Regenerate older plans to apply
+updated meal composition rules; exporting does not rewrite stored meals.
+
+Routine generation shares quantity budgets across whole-egg aliases and across
+avocado/jackfruit servings. The current software defaults (120 g whole egg,
+200 g avocado, 140 g jackfruit per day) are variety constraints, not clinical
+maximums or prescribed servings. Clinician/dietitian review remains required.
+
 Newly generated plans include a saved, versioned regional food/preparation guide.
 The review panel supports search and status filtering. The export checkbox adds
 the complete guide to patient-only or full documents, including shared text.
