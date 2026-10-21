@@ -27,7 +27,8 @@ export function getPracticalPortionLimit(food: FoodItem, mealType: MealType): nu
   const toMultiplier = (maxUnits: number) => Math.max(0.5, maxUnits / Math.max(defaultUnits, 0.5));
 
   if ((!/ugali|stiff/.test(name) && /porridge|uji/.test(name)) || /tea cup|kikombe cha chai/.test(unit)) {
-    return toMultiplier(mealType === 'Breakfast' ? 2 : 1.5);
+    // Routine generated portions; larger clinician-edited servings remain possible.
+    return toMultiplier(1);
   }
   if (/ugali|stiff porridge|fist/.test(name) || /fist|ngumi/.test(unit)) {
     return toMultiplier(mealType === 'Lunch' ? 2 : 1.5);

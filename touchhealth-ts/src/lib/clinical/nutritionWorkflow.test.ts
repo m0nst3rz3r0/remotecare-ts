@@ -5,6 +5,7 @@ import type { Patient } from '../../types';
 import { beforeAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { loadZonePresets, setClinicalDataForTests, validateClinicalData, getClinicalDataState, getFoodsSync, supportedPreparations, preloadClinicalData } from './dataLoader';
+import { isMealStarch } from './mealComposition';
 import { generateMealPlan } from './mealPlanner';
 import { getFoodGuidance, evalFoodForPatient } from './foodSafety';
 import { defaultNutritionAssessment } from './nutritionPolicy';
@@ -176,4 +177,17 @@ describe('meal handout safety checks',()=>{
   const named=getDrugFoodInteractions(['MED_CCB'],['Amlodipine 5 mg'])[0];expect(named.title_en).toContain('Amlodipine');expect(named.matchedMedications).toEqual(['Amlodipine 5 mg']);
   const legacy=getDrugFoodInteractions(['MED_CCB'])[0];expect(legacy.body_en).toContain('does not apply to every');expect(legacy.title_en).toContain('pharmacist');
  });
+});
+
+it('keeps routine porridge to one cup, one staple per meal, and reports macro gaps',()=>{
+ const plan=generateMealPlan({...base,age:78,sex:'male',weightKg:70,heightCm:137,assessment:screened()});
+ for(const meal of plan.meals){
+  const staples=meal.items.filter(item=>{const food=foods.find(f=>f.id===item.foodId);return food && !item.ingredient && isMealStarch(food);});
+  expect(staples.length).toBeLessThanOrEqual(1);
+  for(const item of meal.items.filter(i=>!/ugali|stiff/i.test(i.name_en)&&/porridge|uji/i.test(i.name_en))) expect(item.grams).toBeLessThanOrEqual(item.gramsPerHouseholdUnit!);
+ }
+ const excessive={...plan,meals:plan.meals.map(m=>({...m,items:m.items.map(i=>({...i,macros:{...i.macros,carbs:i.macros.carbs*10,fat:0}}))}))};
+ const result=validatePlan(excessive);
+ expect(result.validation?.issues.map(i=>i.code)).toEqual(expect.arrayContaining(['carbohydrate_target','fat_target']));
+ expect(result.validation?.status).not.toBe('complete');
 });

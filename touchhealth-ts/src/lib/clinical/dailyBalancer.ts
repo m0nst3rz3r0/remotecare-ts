@@ -3,12 +3,15 @@ import { evalFoodForPatient } from './foodSafety';
 import { getPracticalPortionLimit, roundPortion } from './mealPortions';
 import { makeMealItem, sumNutrients } from './planValidation';
 import { STARCH_EGG_INCOMPATIBLE } from './mealTemplates';
+import { isMealStarch } from './mealComposition';
 import type { DailyMeal, GeneratedMealPlan, MealItem } from './types';
 
 function score(plan: GeneratedMealPlan, meals: DailyMeal[]): number {
   const n = sumNutrients(meals.flatMap((m) => m.items)), t = plan.targets;
   return 40 * Math.pow((n.calories - t.tdee) / t.tdee, 2)
     + 12 * Math.pow((n.protein - t.proteinG) / t.proteinG, 2)
+    + 12 * Math.pow((n.carbs - t.carbsG) / t.carbsG, 2)
+    + 12 * Math.pow((n.fat - t.fatG) / t.fatG, 2)
     + 4 * Math.pow(Math.max(0, t.fiberG - (n.fiberG ?? 0)) / t.fiberG, 2)
     + 100 * Math.pow(Math.max(0, (n.sodiumMg ?? t.sodiumMg * 2) - t.sodiumMg) / t.sodiumMg, 2);
 }
@@ -36,7 +39,22 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
   };
   const snackFoods=shortlist.filter(snackEligible);
   const prepFor = (id: string) => supportedPreparations(candidates.find((f) => f.id === id)!).find((p) => evalFoodForPatient(id, p, foodConditions).severity === 'Safe')!;
-  let meals = plan.meals.map((m) => ({ ...m, items: [...m.items] }));
+  let meals = plan.meals.map((m) => {
+    let starchSeen = false;
+    const items = m.items.filter(item => {
+      const food = candidates.find(f => f.id === item.foodId);
+      if (!food || item.ingredient || !isMealStarch(food)) return true;
+      if (starchSeen) return false;
+      starchSeen = true;
+      return true;
+    }).map(item => {
+      const food = candidates.find(f => f.id === item.foodId);
+      if (!food || item.ingredient || item.portionMultiplier == null) return item;
+      const limit = getPracticalPortionLimit(food, m.mealType);
+      return item.portionMultiplier > limit ? makeMealItem(food, limit, plan.language, item.preparation) : item;
+    });
+    return { ...m, items };
+  });
   for (let step = 0; step < 120; step++) {
     let best = meals, bestScore = score(plan, meals);
     const consider = (trial: DailyMeal[]) => {
@@ -61,8 +79,8 @@ export function balanceDailyMeals(plan: GeneratedMealPlan): DailyMeal[] {
         if (meal.items.some((i) => i.foodId === food.id) || (meal.mealType === 'Snack' && !snackEligible(food))) continue;
         const cats = Array.isArray(food.category) ? food.category : [food.category];
         if (meal.mealType === 'Dinner' && cats.includes('fruit')) continue;
-        if (cats.includes('carb') && meal.items.some((i) => {
-          const f = candidates.find((c) => c.id === i.foodId); return f && (Array.isArray(f.category) ? f.category : [f.category]).includes('carb');
+        if (isMealStarch(food) && meal.items.some((i) => {
+          const f = candidates.find((c) => c.id === i.foodId); return f && !i.ingredient && isMealStarch(f);
         })) continue;
         const item = makeMealItem(food, Math.min(0.5, getPracticalPortionLimit(food, meal.mealType)), plan.language, prepFor(food.id));
         consider(meals.map((m, index) => index === mi ? { ...m, items: [...m.items, item] } : m));

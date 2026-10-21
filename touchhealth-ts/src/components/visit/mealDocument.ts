@@ -1,11 +1,11 @@
 import type { GeneratedMealPlan } from '../../lib/clinical/types';
 import { localizePrep, formatMealItemDetail, mealFoodName } from '../../lib/clinical/mealLocalization';
-import { planStatusText, planNutritionText, planAssumptions, validatePlan, approvalIsCurrent } from '../../lib/clinical/planValidation';
+import { planStatusText, planNutritionText, planAssumptions, validatePlan, approvalIsCurrent, findFood } from '../../lib/clinical/planValidation';
 import { NUTRITION_POLICY } from '../../lib/clinical/nutritionPolicy';
 
 export type ExportAudience = 'patient' | 'full';
 export interface ExportOptions { audience?: ExportAudience }
-export const EXPORT_FORMAT_VERSION = 'meal-document-3';
+export const EXPORT_FORMAT_VERSION = 'meal-document-4';
 export interface DocumentBlock { heading?: string; lines: string[]; tone?: 'warning' | 'normal' }
 export interface DocumentSection { title: string; blocks: DocumentBlock[] }
 export interface MealDocument { title:string; patient:string; date:string; status:string; version:string; sections:DocumentSection[] }
@@ -25,7 +25,7 @@ export function buildMealDocument(source: GeneratedMealPlan, patient:string, lan
   const salt=(plan.targets.sodiumMg*2.5/1000).toFixed(2).replace(/0$/,'');
   const patientBlocks:DocumentBlock[]=[
     ...(issues.length ? [{heading:L('Review before use','Hakiki kabla ya matumizi'),lines:issues,tone:'warning' as const}] : []),
-    ...plan.meals.map(meal=>({heading:(sw?meal.name_sw:meal.name_en)+' - '+meal.totalCalories+' kcal',lines:meal.items.length ? meal.items.map(item=>mealFoodName(item,language)+' - '+formatMealItemDetail(item,language)) : [L('Meal could not be completed.','Mlo haujakamilika.')]})),
+    ...plan.meals.map(meal=>({heading:(sw?meal.name_sw:meal.name_en)+' - '+meal.totalCalories+' kcal',lines:meal.items.length ? meal.items.map(item=> { const food=findFood(item.foodId); const categories=food ? (Array.isArray(food.category)?food.category:[food.category]) : []; const fruit=categories.includes('fruit') && meal.mealType!=='Snack'; return (fruit?L('Fruit alongside meal: ','Tunda pembeni ya mlo: '):'')+mealFoodName(item,language)+' - '+formatMealItemDetail(item,language); }) : [L('Meal could not be completed.','Mlo haujakamilika.')]})),
     {heading:L('Portions and preparation','Vipimo na maandalizi'),lines:[
       L('Use these portions; count added oil, salt and ingredients in daily totals.','Tumia vipimo hivi; hesabu mafuta, chumvi na viungo vya ziada.'),
       ...[...new Map(plan.meals.flatMap(m=>m.items).filter(i=>!/ugali|stiff/i.test(i.name_en) && /porridge|uji/i.test(i.name_en+' '+i.name_sw)).map(i=>[i.foodId,i])).values()].map(i=>

@@ -1,12 +1,14 @@
 import type { NutritionAssessment } from './types';
 
 export const NUTRITION_POLICY = {
-  version: 'adult-dm-htn-2.1.0',
+  version: 'adult-dm-htn-2.2.0',
   reviewStatus: 'pending_local_clinical_review',
   reviewedBy: null,
   reviewedAt: null,
   calorieTolerance: 0.10,
   proteinTolerance: 0.20,
+  carbohydrateTolerance: 0.20,
+  fatTolerance: 0.20,
   sources: [
     { title: 'NICE low-energy diet safeguards', url: 'https://www.nice.org.uk/guidance/ng246/chapter/Physical-activity-and-diet' },
     { title: 'WHO sodium and salt equivalents', url: 'https://www.who.int/news-room/fact-sheets/detail/sodium-reduction' },
