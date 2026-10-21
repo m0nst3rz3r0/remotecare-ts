@@ -203,8 +203,8 @@ it('saves all regional food preparations with guarded advice and optional export
  const next=generateMealPlan({...base,assessment:{...screened(),excludedFoodIds:[excluded.foodId]}});
  expect(next.foodChoiceGuide!.entries.filter(e=>e.foodId===excluded.foodId).every(e=>e.status==='avoid')).toBe(true);
  const before=JSON.stringify(reviewed);
- expect(buildDietarySlipHtml(reviewed,reviewed.patientCode,'en',{includeFoodGuide:true})).toContain('Personalized food choices');
- expect(buildDietarySlipHtml(reviewed,reviewed.patientCode,'sw',{includeFoodGuide:true})).toContain('Mwongozo binafsi wa vyakula');
+ expect(buildDietarySlipHtml(reviewed,reviewed.patientCode,'en',{includeFoodGuide:true})).toContain('Food-choice summary');
+ expect(buildDietarySlipHtml(reviewed,reviewed.patientCode,'sw',{includeFoodGuide:true})).toContain('Muhtasari wa uchaguzi wa vyakula');
  expect(JSON.stringify(reviewed)).toBe(before);
  const counts=new Map<string,number>();for(const meal of reviewed.meals)for(const item of meal.items)if(!item.ingredient)counts.set(item.foodId,(counts.get(item.foodId)??0)+1);
  expect([...counts.values()].every(n=>n<=2)).toBe(true);

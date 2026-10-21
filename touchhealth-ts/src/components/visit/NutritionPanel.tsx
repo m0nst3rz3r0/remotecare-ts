@@ -212,6 +212,7 @@ export default function NutritionPanel({
           availableFoodIds,
           assessment,
         });
+        plan.facilityName = patient.hospital;
         onGenerateMealPlan(plan);
       } catch (e) { setError(e instanceof Error ? e.message : 'Generation failed'); } finally {
         setGenerating(false);
@@ -401,7 +402,7 @@ export default function NutritionPanel({
                 <Eye size={14} /> {language === 'sw' ? 'Angalia' : 'View'}
               </button>
             )}
-            <MealExportActions plan={mealPlan} patient={patient.code} language={language} />
+            <MealExportActions plan={mealPlan} patient={patient.code} language={language} facility={patient.hospital} />
           </div>
         </div>
       )}

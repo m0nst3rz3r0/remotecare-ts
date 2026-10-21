@@ -16,6 +16,8 @@ const PREP_LABELS: Record<PrepMethod, [string, string]> = {
 export function localizePrep(prep: PrepMethod | string, lang: 'en' | 'sw'): string {
   const key = prep.toLowerCase() as PrepMethod;
   const pair = PREP_LABELS[key];
+  const extra:Record<string,[string,string]>={fried:['Fried','Iliyokaangwa'],roasted:['Roasted','Iliyochomwa'],stewed:['Stewed','Iliyopikwa kwa mchuzi']};
+  if(extra[key])return extra[key][lang==='sw'?1:0];
   if (pair) return lang === 'sw' ? pair[1] : pair[0];
   if (lang === 'sw' && /^boiled$/i.test(prep)) return 'Imechemshwa';
   if (lang === 'sw' && /^raw$/i.test(prep)) return 'Mbichi';

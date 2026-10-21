@@ -1,5 +1,5 @@
 ﻿import { beforeAll, afterEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { PDFDocument } from 'pdf-lib';
 import { loadZonePresets,setClinicalDataForTests } from '../../lib/clinical/dataLoader';
 import { generateMealPlan } from '../../lib/clinical/mealPlanner';
@@ -20,12 +20,12 @@ afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();vi.useRealTimers();});
 describe('shared meal document',()=>{
  it('keeps patient/clinician choices, status, portions and sodium terminology aligned',()=>{
   const before=JSON.stringify(plan),full=buildMealDocument(plan,plan.patientCode,'sw'),patient=buildMealDocument(plan,plan.patientCode,'sw',{audience:'patient'});
-  expect(full.sections).toHaveLength(2);expect(patient.sections).toHaveLength(1);
+  expect(full.sections).toHaveLength(3);expect(patient.sections).toHaveLength(3);
   const html=buildDietarySlipHtml(plan,plan.patientCode,'sw'),text=documentPlainText(full);
   expect(html).toContain('Sodiamu');expect(html).not.toContain('1500mg</div>');expect(html).not.toContain('...');
   for(const section of full.sections)for(const block of section.blocks)for(const line of block.lines)expect(text).toContain(line);
   expect(text).toContain('Tunda pembeni ya mlo:');expect(documentPlainText(buildMealDocument(plan,plan.patientCode,'en'))).toContain('Fruit alongside meal:');
-  expect(JSON.stringify(plan)).toBe(before);expect(html).toContain('meal-document-5');
+  expect(JSON.stringify(plan)).toBe(before);expect(html).toContain('meal-document-6');
  });
  it('escapes identifiers and labels stale, incomplete and legacy documents',()=>{
   expect(buildDietarySlipHtml(plan,'<script>bad</script>','en')).toContain('&lt;script&gt;');
@@ -35,9 +35,9 @@ describe('shared meal document',()=>{
  it('embeds a Unicode font and exports searchable, bounded text on all PDF pages offline',async()=>{
   vi.stubGlobal('fetch',vi.fn().mockRejectedValue(new Error('offline')));
   const doc=buildMealDocument(plan,plan.patientCode,'sw',{includeFoodGuide:true});
-  doc.sections[0].blocks.push({heading:'Unicode test',lines:['Vikombe 2 vya uji - jumla 500 g; Kiswahili: urefu, nyuzinyuzi, sodiamu.',...Array.from({length:18},()=> 'Long content for pagination and wrapping. '.repeat(10))]});
   const font=new Uint8Array(readFileSync(new URL('../../assets/fonts/NotoSans-Regular.ttf',import.meta.url)));
   const bytes=await renderer.renderMealDocumentPdf(doc,font);
+  if(process.env.MEAL_PREVIEW_PATH)writeFileSync(process.env.MEAL_PREVIEW_PATH,bytes);
   expect(new TextDecoder().decode(bytes.slice(0,8))).toMatch(/^%PDF-/);expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(2);
   const canvas=await import('@napi-rs/canvas');Object.assign(globalThis,{DOMMatrix:canvas.DOMMatrix,ImageData:canvas.ImageData,Path2D:canvas.Path2D});
   const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs');const loaded=await getDocument({data:bytes}).promise;
@@ -45,10 +45,10 @@ describe('shared meal document',()=>{
   for(let i=1;i<=loaded.numPages;i++){
     const page=await loaded.getPage(i),content=await page.getTextContent();const strings=content.items.filter(x=>'str'in x);
     const current=strings.map(x=>x.str).join(' ');text+=current;
-    expect(current).toContain('TEST-A-F0001');expect(current).toContain(doc.status);expect(current).toContain('meal-document-5');
+    expect(current).toContain('TEST-A-F0001');expect(current).toContain(doc.status);expect(current).toContain('meal-document-6');
     expect(strings.every(x=>x.transform[4]>=41&&x.transform[5]>=28&&x.transform[5]<=810&&x.transform[4]+x.width<=555)).toBe(true);
   }
-  expect(text).toContain('Vikombe 2 vya uji');expect(text).toContain('nyuzinyuzi');expect(fetch).not.toHaveBeenCalled();
+  expect(text).toContain('Kikombe 1 cha uji');expect(text).toContain('Nyuzinyuzi');expect(fetch).not.toHaveBeenCalled();
  },30000);
 });
 describe('PDF download and printing',()=>{
@@ -77,4 +77,25 @@ describe('PDF download and printing',()=>{
   const open=vi.fn(()=>w);vi.stubGlobal('window',{open});const pending=printDietarySlip(plan,plan.patientCode,'en');
   expect(open).toHaveBeenCalledOnce();await Promise.resolve();expect(print).not.toHaveBeenCalled();fontsReady();await pending;expect(print).toHaveBeenCalledOnce();
  });
+});
+
+it('rejects oversized content instead of producing more than three pages',async()=>{
+ const doc=buildMealDocument(plan,plan.patientCode,'en');
+ doc.sections[0].blocks.push({heading:'Long clinical content',lines:Array.from({length:100},()=> 'Additional clinical detail must remain readable and must not be silently discarded.')});
+ const font=new Uint8Array(readFileSync(new URL('../../assets/fonts/NotoSans-Regular.ttf',import.meta.url)));
+ await expect(renderer.renderMealDocumentPdf(doc,font)).rejects.toThrow(/one readable page/);
+});
+
+it('prints a clean patient guide with identity, facility and food choices before meals',async()=>{
+ const patient=buildMealDocument(plan,plan.patientCode,'sw',{audience:'patient',facility:'ZamZam HealthCentre'});
+ const text=documentPlainText(patient);
+ expect(patient.patient).toBe(plan.patientCode);expect(patient.facility).toBe('ZamZam HealthCentre');
+ expect(text.indexOf('Vyakula vya kula')).toBeLessThan(text.indexOf('Mfano wa mchanganyiko'));
+ for(const hidden of ['BMR','BMI','meal-document','foods-c','adult-dm','Rekodi tarehe','UNAHITAJI UHAKIKI'])expect(text).not.toContain(hidden);
+ const font=new Uint8Array(readFileSync(new URL('../../assets/fonts/NotoSans-Regular.ttf',import.meta.url)));
+ const bytes=await renderer.renderMealDocumentPdf(patient,font);
+ expect((await PDFDocument.load(bytes)).getPageCount()).toBeLessThanOrEqual(3);
+ if(process.env.MEAL_PREVIEW_PATH)writeFileSync(process.env.MEAL_PREVIEW_PATH.replace('.pdf','-patient.pdf'),bytes);
+ const html=buildDietarySlipHtml(plan,plan.patientCode,'sw',{audience:'patient',facility:'ZamZam HealthCentre'});
+ expect(html).toContain('ZamZam HealthCentre');expect(html).not.toContain('meal-document-6');
 });
