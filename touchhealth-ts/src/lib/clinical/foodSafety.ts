@@ -42,6 +42,11 @@ export function evalFoodForPatient(
 ): EvaluationResult {
   const rules = getRulesSync().map(applyStaplePolicy);
   const food = getFoodsSync().find((f) => f.id === foodId);
+  if(foodId==='food_005' && /uji/.test(prepMethod.toLowerCase())) return {
+    severity:'not_assessed',reasons:[],
+    message_en:'This combined ugali/uji entry records a fist measure for stiff ugali. Use a separately assessed liquid porridge record; its cup weight cannot be inferred.',
+    message_sw:'Rekodi hii ina kipimo cha ngumi cha ugali. Tumia rekodi tofauti ya uji uliopimwa; uzito wa kikombe hauwezi kukadiriwa kutoka ugali.',
+  };
   if (!isFoodsReady() || !food || !supportedPreparations(food).includes(prepMethod.toLowerCase())) return {
     severity: 'not_assessed', message_en: 'Food or preparation has not been assessed with a validated dataset.',
     message_sw: 'Chakula au maandalizi hayajatathminiwa kwa data iliyohakikiwa.', reasons: [],

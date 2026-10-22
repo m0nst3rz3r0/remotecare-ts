@@ -31,6 +31,8 @@ export function formatPortion(food: FoodItem, portionMultiplier: number, lang: '
 export function formatMealItemDetail(item: MealItem, lang: 'en' | 'sw'): string {
   const food = getFoodsSync().find(f => f.id === item.foodId);
   const prep = localizePrep(item.prepMethod ?? item.preparation, lang);
+  // Older snapshots retain their grams without repeating the ambiguous fist measure for liquid uji.
+  if(item.foodId==='food_005' && /uji/.test((item.prepMethod??item.preparation).toLowerCase()))return item.grams!=null?`${item.grams} g, ${lang==='sw'?'uji uliopikwa':'prepared porridge'}`:prep;
   if (item.grams != null) return `${(lang === 'sw' ? item.portionText_sw : item.portionText_en) ?? item.portionText} (${lang === 'sw' ? 'jumla ' : 'total '}${item.grams} g), ${prep}`;
   if (food && item.portionMultiplier != null) {
     return `${formatPortion(food, item.portionMultiplier, lang)}, ${prep}`;
@@ -58,6 +60,6 @@ export function mealFoodName(item: MealItem, lang: 'en' | 'sw'): string {
 export function neutralFoodName(food:{name_en:string;name_sw:string},lang:'en'|'sw'):string {
   if(lang==='en')return food.name_en.replace(/,?\s*(boiled|fried|raw|cooked|steamed|roasted|grilled)(\s+or\s+steamed)?(\s+without\s+salt)?/gi,'').replace(/\(\s*\)/g,'').replace(/\s+/g,' ').trim();
   return food.name_sw.replace(/\s+Aliyechemshwa au Kupikwa kwa Mvuke/gi,'')
-    .replace(/\s+(Vilivyochemshwa|Yaliyopikwa bila Chumvi|Iliyopikwa bila Mifupa|Iliyochemshwa|Uliopikwa|Mbichi)/gi,'')
+    .replace(/\s+(Vilivyochemshwa|Yaliyopikwa bila Chumvi|Iliyopikwa bila Mifupa|Iliyochemshwa|Uliopikwa|Iliyopikwa|Zilizopikwa|Yaliyopikwa|Mbichi)/gi,'')
     .replace(/\s+(wa Kuchemsha\/Choma|la Kuchemsha)/gi,'').trim();
 }

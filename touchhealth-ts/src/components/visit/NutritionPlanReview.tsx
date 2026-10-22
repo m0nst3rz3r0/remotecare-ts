@@ -1,3 +1,4 @@
+import { nutritionReadiness } from '../../lib/clinical/nutritionReadiness';
 import FoodChoiceGuideReview from './FoodChoiceGuideReview';
 import FoodGuidanceReview from './FoodGuidanceReview';
 import { buildMealDocument } from './mealDocument';
@@ -15,12 +16,14 @@ export default function NutritionPlanReview({ plan, onChange, language, editable
   const [error,setError] = useState(''), [note,setNote] = useState('');
   const user = useAuthStore((s) => s.currentUser);
   const sw = language === 'sw';
+  const readiness=nutritionReadiness(plan,language);
   const totals = plan.totals ?? sumNutrients(plan.meals.flatMap((m) => m.items));
   const candidates = getFoodsForZone(plan.region).filter((food) => !plan.assessment?.excludedFoodIds.includes(food.id)
     && (!plan.assessment?.availableFoodIds || plan.assessment.availableFoodIds.includes(food.id)));
   const action = (run: () => GeneratedMealPlan) => { try { onChange?.(run()); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Review failed'); } };
   return <section className="border rounded-lg p-3 mb-3 text-xs" aria-label={sw ? 'Uhakiki wa mpango' : 'Plan review'}>
     <details className="mb-3"><summary>{sw?'Vipimo na tathmini iliyotumika':'Measurements and assessment used'}</summary>{buildMealDocument(plan,plan.patientCode,language).sections[2]?.blocks[0].lines.map((line,i)=><p className="mt-1" key={i}>{line}</p>)}</details>
+    {!!readiness.length&&<div className="rounded border border-amber-300 bg-amber-50 p-3 mb-3"><p className="font-bold">{sw?'Kabla ya kumpa mgonjwa':'Before issuing to the patient'}</p><ul className="list-disc pl-4">{readiness.map(item=><li key={item}>{item}</li>)}</ul></div>}
     <FoodGuidanceReview plan={plan} language={language} /><FoodChoiceGuideReview plan={plan} language={language} />
     <p role="status" className="font-bold text-amber-900 mb-2">{planStatusText(plan, language)}</p>
     <p className="text-slate-600 mb-2">{sw ? 'Jumla ya mpango / lengo; sodiamu ni kikomo.' : 'Planned total / target; sodium is a limit. Completeness does not replace clinical approval.'}</p>

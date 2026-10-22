@@ -49,6 +49,16 @@ Portions now retain grams per household unit and bilingual display text. Prepare
 Verification includes real PDF parsing/text bounds, Unicode font embedding, long-content pagination, popup-free PDF download/error/retry behavior, print readiness, offline asset provisioning, and the existing clinical/synchronization regression suite. A local Windows Chrome offline check downloaded a valid PDF with no popup. Local clinical-content review and checks on the deployed app remain necessary.
 # Personalized food-choice guide
 
+Plain rice now uses the same portion-controlled policy as the listed staples;
+unrelated patient restrictions retain priority. The ambiguous food_005 uji
+preparation is unassessed because that combined record stores an ugali fist
+measure. It cannot supply a liquid cup conversion. Use separate porridge
+records with their recorded prepared weights, pending local serving review.
+Older snapshots display their saved grams rather than a fist for liquid uji.
+The clinician panel lists incomplete screens, missing measurement dates and
+the need to resolve daily nutrient/clinical findings before approval. These
+tasks are not printed as technical errors on the patient handout.
+
 Plain cooked maize ugali and selected unsweetened maize/wheat porridges are
 portion-controlled choices rather than automatic exclusions for their GI alone.
 Only explicitly listed catalogue rules receive this policy correction. Other

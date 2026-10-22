@@ -6,6 +6,7 @@ import type { GeneratedMealPlan } from './types';
 
 export type FoodChoiceStatus = 'suitable' | 'limit' | 'avoid' | 'not_assessed';
 export interface FoodChoiceEntry {
+  foodAssessment?: 'Safe' | 'Warning' | 'Danger' | 'not_assessed';
   foodId: string; name_en: string; name_sw: string; categories: string[];
   preparation: string; status: FoodChoiceStatus;
   portion_en: string; portion_sw: string; grams: number;
@@ -36,8 +37,9 @@ export function buildFoodChoiceGuide(plan: GeneratedMealPlan): FoodChoiceGuide {
         : [...(result.reasons?.length ? result.reasons : [{message_en:result.message_en,message_sw:result.message_sw}]),
           ...(provisional ? [{message_en:'Screening incomplete or positive; clinician review required.',message_sw:'Uchunguzi haujakamilika au una tahadhari; uhakiki wa mtaalamu unahitajika.'}] : [])];
       const portion = roundPortion(food,0.5);
-      return {foodId:food.id,name_en:food.name_en,name_sw:food.name_sw,categories:Array.isArray(food.category)?food.category:[food.category],preparation,status,
-        portion_en:formatMealPortion(food,portion,'en'),portion_sw:formatMealPortion(food,portion,'sw'),grams:getServingGrams(food,portion),reasons,
+      const ambiguousPorridge=food.id==='food_005' && /uji/.test(preparation);
+      return {foodAssessment:result.severity,foodId:food.id,name_en:food.name_en,name_sw:food.name_sw,categories:Array.isArray(food.category)?food.category:[food.category],preparation,status,
+        portion_en:ambiguousPorridge?'Household measure requires assessment':formatMealPortion(food,portion,'en'),portion_sw:ambiguousPorridge?'Kipimo cha nyumbani kinahitaji tathmini':formatMealPortion(food,portion,'sw'),grams:getServingGrams(food,portion),reasons,
         available:!a?.availableFoodIds || a.availableFoodIds.includes(food.id),
         alternativePreparation: !excluded && !provisional && alternative !== preparation ? alternative : undefined};
     });

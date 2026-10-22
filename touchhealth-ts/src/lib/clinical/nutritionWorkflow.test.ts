@@ -1,3 +1,5 @@
+import { buildMealDocument, documentPlainText } from '../../components/visit/mealDocument';
+import { nutritionReadiness } from './nutritionReadiness';
 import { isMealEligible, getAvoidFoods } from './foodSafety';
 import { balanceDailyMeals } from './dailyBalancer';
 import { formatMealPortion } from './mealPortions';
@@ -258,4 +260,36 @@ it('keeps additional patient restrictions stronger than staple portion advice',(
  setClinicalDataForTests(foods,[...rules,{id:'patient_specific_restriction',target_food_id:'food_014',target_prep_method:'Any',condition:'DM',safety_level:'Danger',alert_message_en:'Specific restriction',alert_message_sw:'Kizuizi maalum'}]);
  expect(evalFoodForPatient('food_014','boiled',['DM']).severity).toBe('Danger');
  expect(isMealEligible('food_014','boiled',['DM'])).toBe(false);
+});
+
+it('keeps plain rice portion-controlled without inventing a cup for ambiguous uji',()=>{
+ expect(evalFoodForPatient('food_016','boiled',['DM']).severity).toBe('Warning');
+ expect(isMealEligible('food_016','boiled',['DM','MED_METFORMIN'])).toBe(true);
+ expect(isMealEligible('food_016','boiled',['DM','MED_GLIBENCLAMIDE'])).toBe(true);
+ expect(getAvoidFoods(['DM'],'Lake Zone').some(f=>f.name_en==='Rice, Boiled without Oil')).toBe(false);
+ expect(evalFoodForPatient('food_005','Uji (Porridge)',['DM']).severity).toBe('not_assessed');
+ const plan=generateMealPlan({...base,assessment:screened()});
+ expect(plan.foodChoiceGuide!.entries.filter(e=>e.foodId==='food_005'&&/uji/.test(e.preparation)).every(e=>e.status==='not_assessed'&&!/ngumi|fist/.test(e.portion_en+e.portion_sw))).toBe(true);
+ const uji=foods.find(f=>f.id==='food_019')!;expect(formatMealPortion(uji,1/uji.serving!.default_units,'sw')).toContain('Kikombe');
+ const legacy=makeMealItem(foods.find(f=>f.id==='food_005')!,1,'sw','Uji (Porridge)');expect(formatMealItemDetail(legacy,'sw')).not.toContain('ngumi');
+});
+it('lists unfinished screening for the clinician without adding it to the patient handout',()=>{
+ const pending=generateMealPlan(base),ready=generateMealPlan({...base,assessment:screened()});
+ const tasks=nutritionReadiness(pending,'en');
+ expect(tasks.some(t=>t.includes('allergy'))).toBe(true);expect(tasks.some(t=>t.includes('measurement date'))).toBe(true);
+ expect(nutritionReadiness(ready,'en').some(t=>t.includes('Complete allergy'))).toBe(false);
+ expect(buildDietarySlipHtml(pending,pending.patientCode,'en',{audience:'patient'})).not.toContain('Complete allergy');
+});
+
+it('shows diverse food groups without declaring incomplete screening safe',()=>{
+ const ready=generateMealPlan({...base,assessment:screened()});
+ const text=documentPlainText(buildMealDocument(ready,ready.patientCode,'en',{audience:'patient'}));
+ expect(text).toContain('Proteins:');expect(text).toContain('Vegetables:');expect(text).toContain('Fruits:');
+ const pending=generateMealPlan(base),draft=documentPlainText(buildMealDocument(pending,pending.patientCode,'en',{audience:'patient'}));
+ expect(draft).toContain('Food choices to confirm with your clinician');
+ expect(pending.foodChoiceGuide!.entries.some(e=>e.status==='suitable')).toBe(false);
+ const eligible=pending.foodChoiceGuide!.entries.filter(e=>e.status==='not_assessed'&&e.foodAssessment==='Safe');expect(eligible.length).toBeGreaterThan(3);
+ const excludedId=eligible[0].foodId;
+ const excluded=generateMealPlan({...base,assessment:{...screened(),excludedFoodIds:[excludedId]}});
+ expect(excluded.foodChoiceGuide!.entries.filter(e=>e.foodId===excludedId).every(e=>e.status==='avoid')).toBe(true);
 });
