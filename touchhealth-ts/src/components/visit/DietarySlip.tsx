@@ -19,9 +19,9 @@ function download(blob:Blob,name:string):void {
 }
 export async function printDietarySlip(plan:GeneratedMealPlan,patient:string,lang:'en'|'sw',options:ExportOptions={}):Promise<void> {
   // Open before any asynchronous work to retain the browser's user gesture.
+  const html=buildDietarySlipHtml(plan,patient,lang,options);
   const w=window.open('','_blank','width=850,height=1000');
   if(!w)throw new Error(lang==='sw'?'Ruhusu dirisha ibukizi ili kuchapisha.':'Allow popups for this app to print. Save PDF can download without popups.');
-  const html=buildDietarySlipHtml(plan,patient,lang,options);
   await new Promise<void>((resolve,reject)=>{
     w.onload=()=>resolve();w.onerror=()=>reject(new Error('Print document could not load.'));
     w.document.open();w.document.write(html);w.document.close();

@@ -99,3 +99,15 @@ it('prints a clean patient guide with identity, facility and food choices before
  const html=buildDietarySlipHtml(plan,plan.patientCode,'sw',{audience:'patient',facility:'ZamZam HealthCentre'});
  expect(html).toContain('ZamZam HealthCentre');expect(html).not.toContain('meal-document-6');
 });
+
+it('blocks blank patient documents while retaining clinician inspection of the draft',async()=>{
+ const empty={...plan,assessment:{...plan.assessment!,availableFoodIds:[]},meals:plan.meals.map(m=>({...m,items:[],totalCalories:0}))};
+ expect(()=>buildMealDocument(empty,empty.patientCode,'en',{audience:'patient'})).toThrow(/No available foods/);
+ expect(()=>buildMealDocument(empty,empty.patientCode,'en',{audience:'full'})).not.toThrow();
+ await expect(saveDietarySlipPdf(empty,empty.patientCode,'en',{audience:'patient'})).rejects.toThrow(/No available foods/);
+ const missing={...plan,meals:plan.meals.map(m=>m.mealType==='Lunch'?{...m,items:[]}:m)};
+ expect(()=>buildMealDocument(missing,missing.patientCode,'en',{audience:'patient'})).toThrow(/main meals have no food/);
+ const open=vi.fn();vi.stubGlobal('window',{open});
+ await expect(printDietarySlip(empty,empty.patientCode,'en',{audience:'patient'})).rejects.toThrow(/No available foods/);
+ expect(open).not.toHaveBeenCalled();
+});

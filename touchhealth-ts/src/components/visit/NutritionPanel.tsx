@@ -193,6 +193,7 @@ export default function NutritionPanel({
       alert('Weight and height are required to generate a meal plan. Please record vitals first.');
       return;
     }
+    if(assessment.availableFoodIds?.length===0){setError(language==='sw'?'Chagua vyakula vinavyopatikana au zima kikomo hicho kabla ya kutengeneza mpango.':'Select available foods or turn off the restriction before generating a plan.');return;}
     setGenerating(true);
     setTimeout(() => {
       try {

@@ -1,3 +1,4 @@
+import { patientExportProblem } from '../../lib/clinical/patientExportCheck';
 import { patientMealDocument } from './patientMealDocument';
 import type { GeneratedMealPlan } from '../../lib/clinical/types';
 import { localizePrep, formatMealItemDetail, mealFoodName } from '../../lib/clinical/mealLocalization';
@@ -13,6 +14,7 @@ export interface MealDocument { title:string; patient:string; date:string; statu
 export function buildMealDocument(source: GeneratedMealPlan, patient:string, language:'en'|'sw', options:ExportOptions={}): MealDocument {
   // Validate a copy at export time; never rewrite a saved/approved snapshot.
   const plan=source.schemaVersion===2 ? validatePlan(source) : source;
+  if(options.audience==='patient'){ const problem=patientExportProblem(plan,language); if(problem)throw new Error(problem); }
   if(options.audience==='patient')return patientMealDocument(plan,language,source.facilityName ?? options.facility ?? (language==='sw'?'Kituo: thibitisha na mtaalamu':'Facility: confirm with your clinician'));
   const sw=language==='sw', L=(en:string, translated:string)=>sw?translated:en;
   const status=planStatusText(plan,language);
